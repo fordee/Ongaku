@@ -2,7 +2,7 @@
 
 A Logic Pro–style digital audio workstation for the Mac, written in Swift and SwiftUI.
 
-<!-- TODO: screenshot of the arrange window -->
+![Ongaku Studio's project window: tracks with session player regions, a melody, a vocal and a drum loop, above the mixer](Docs/Manual/images/project-window.png)
 
 Ongaku Studio is a personal project: a DAW I'm building for myself, in the open. It aims to work the way Logic Pro does, with a dark arrange window, piano roll, mixer and session players, while being small enough for one person to read and change.
 
@@ -17,6 +17,9 @@ The [user manual](Docs/Manual/README.md) explains every feature, step by step.
 - Track stacks (summing stacks), track freeze and plug-in delay compensation
 
 **MIDI**
+
+![The Piano Roll, with notes coloured by velocity and the velocity lane below](Docs/Manual/images/piano-roll.png)
+
 - Piano Roll with quantize (including triplet and mixed grids), velocity and note functions
 - Step Editor, Step Sequencer pattern regions and MIDI Draw lanes for controllers, pitch bend and aftertouch
 - MIDI FX: Arpeggiator, Chord Trigger, Scale Quantize, Note Repeater, Transposer and more
