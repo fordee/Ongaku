@@ -1,0 +1,1549 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 110;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		49DE736730882FA600A77859 /* OngakuCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 49DE735E30882FA600A77859 /* OngakuCore.framework */; };
+		49DE737130882FA600A77859 /* OngakuCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 49DE735E30882FA600A77859 /* OngakuCore.framework */; };
+		49DE737230882FA600A77859 /* OngakuCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 49DE735E30882FA600A77859 /* OngakuCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		49DE73B6308832C800A77859 /* OngakuEngine.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 49DE73B0308832C800A77859 /* OngakuEngine.framework */; };
+		49DE73B7308832C800A77859 /* OngakuEngine.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 49DE73B0308832C800A77859 /* OngakuEngine.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		49DE76ED308C700500A77859 /* OngakuEffects.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 49DE76C3308C700500A77859 /* OngakuEffects.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		4D7E0A0130900A0100A77859 /* OngakuCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 49DE735E30882FA600A77859 /* OngakuCore.framework */; };
+		4D7E0B0130900A0100A77859 /* OngakuCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 49DE735E30882FA600A77859 /* OngakuCore.framework */; };
+		4D7E0C0130900A0100A77859 /* MCP in Frameworks */ = {isa = PBXBuildFile; productRef = 4D7E0C0230900A0100A77859 /* MCP */; };
+		4D7E0F0130900A0100A77859 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 4D7E0E0130900A0100A77859 /* README.md */; };
+		4D7E0F0230900A0100A77859 /* 01-getting-started.md in Resources */ = {isa = PBXBuildFile; fileRef = 4D7E0E0230900A0100A77859 /* 01-getting-started.md */; };
+		4D7E0F0330900A0100A77859 /* 02-arranging-and-editing.md in Resources */ = {isa = PBXBuildFile; fileRef = 4D7E0E0330900A0100A77859 /* 02-arranging-and-editing.md */; };
+		4D7E0F0430900A0100A77859 /* 03-recording-and-takes.md in Resources */ = {isa = PBXBuildFile; fileRef = 4D7E0E0430900A0100A77859 /* 03-recording-and-takes.md */; };
+		4D7E0F0530900A0100A77859 /* 04-midi-editing.md in Resources */ = {isa = PBXBuildFile; fileRef = 4D7E0E0530900A0100A77859 /* 04-midi-editing.md */; };
+		4D7E0F0630900A0100A77859 /* 05-session-players.md in Resources */ = {isa = PBXBuildFile; fileRef = 4D7E0E0630900A0100A77859 /* 05-session-players.md */; };
+		4D7E0F0730900A0100A77859 /* 06-flex-and-smart-tempo.md in Resources */ = {isa = PBXBuildFile; fileRef = 4D7E0E0730900A0100A77859 /* 06-flex-and-smart-tempo.md */; };
+		4D7E0F0830900A0100A77859 /* 07-mixing-and-automation.md in Resources */ = {isa = PBXBuildFile; fileRef = 4D7E0E0830900A0100A77859 /* 07-mixing-and-automation.md */; };
+		4D7E0F0930900A0100A77859 /* 08-instruments-effects-midi-fx.md in Resources */ = {isa = PBXBuildFile; fileRef = 4D7E0E0930900A0100A77859 /* 08-instruments-effects-midi-fx.md */; };
+		4D7E0F0A30900A0100A77859 /* 09-library-bounce-files-settings.md in Resources */ = {isa = PBXBuildFile; fileRef = 4D7E0E0A30900A0100A77859 /* 09-library-bounce-files-settings.md */; };
+		4D7E0F0B30900A0100A77859 /* 10-key-commands.md in Resources */ = {isa = PBXBuildFile; fileRef = 4D7E0E0B30900A0100A77859 /* 10-key-commands.md */; };
+		4D7E0F0C30900A0100A77859 /* 11-ai-agents.md in Resources */ = {isa = PBXBuildFile; fileRef = 4D7E0E0C30900A0100A77859 /* 11-ai-agents.md */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		49DE733F30882CC200A77859 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 49DE732930882CC000A77859 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 49DE733030882CC000A77859;
+			remoteInfo = Ongaku;
+		};
+		49DE734930882CC200A77859 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 49DE732930882CC000A77859 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 49DE733030882CC000A77859;
+			remoteInfo = Ongaku;
+		};
+		49DE736830882FA600A77859 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 49DE732930882CC000A77859 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 49DE735D30882FA600A77859;
+			remoteInfo = OngakuCore;
+		};
+		49DE736A30882FA600A77859 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 49DE732930882CC000A77859 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 49DE733030882CC000A77859;
+			remoteInfo = Ongaku;
+		};
+		49DE736F30882FA600A77859 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 49DE732930882CC000A77859 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 49DE735D30882FA600A77859;
+			remoteInfo = OngakuCore;
+		};
+		49DE73B4308832C800A77859 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 49DE732930882CC000A77859 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 49DE73AF308832C800A77859;
+			remoteInfo = OngakuEngine;
+		};
+		49DE76EB308C700500A77859 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 49DE732930882CC000A77859 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 49DE76C2308C700500A77859;
+			remoteInfo = OngakuEffects;
+		};
+		4D7E0A0230900A0100A77859 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 49DE732930882CC000A77859 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 49DE735D30882FA600A77859;
+			remoteInfo = OngakuCore;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		49DE737630882FA600A77859 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = Frameworks;
+			files = (
+				49DE737230882FA600A77859 /* OngakuCore.framework in Embed Frameworks */,
+				49DE73B7308832C800A77859 /* OngakuEngine.framework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+		};
+		49DE76F3308C700500A77859 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = PlugIns;
+			files = (
+				49DE76ED308C700500A77859 /* OngakuEffects.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		491A21513094FCBD00B92834 /* OngakuEffectsPreviews.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OngakuEffectsPreviews.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		49DE733130882CC000A77859 /* Ongaku.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Ongaku.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		49DE733E30882CC200A77859 /* OngakuTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OngakuTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		49DE734830882CC200A77859 /* OngakuUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OngakuUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		49DE735E30882FA600A77859 /* OngakuCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = OngakuCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		49DE736630882FA600A77859 /* OngakuCoreTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OngakuCoreTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		49DE73B0308832C800A77859 /* OngakuEngine.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = OngakuEngine.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		49DE76C3308C700500A77859 /* OngakuEffects.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OngakuEffects.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		4D7E0E0130900A0100A77859 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		4D7E0E0230900A0100A77859 /* 01-getting-started.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "01-getting-started.md"; sourceTree = "<group>"; };
+		4D7E0E0330900A0100A77859 /* 02-arranging-and-editing.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "02-arranging-and-editing.md"; sourceTree = "<group>"; };
+		4D7E0E0430900A0100A77859 /* 03-recording-and-takes.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "03-recording-and-takes.md"; sourceTree = "<group>"; };
+		4D7E0E0530900A0100A77859 /* 04-midi-editing.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "04-midi-editing.md"; sourceTree = "<group>"; };
+		4D7E0E0630900A0100A77859 /* 05-session-players.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "05-session-players.md"; sourceTree = "<group>"; };
+		4D7E0E0730900A0100A77859 /* 06-flex-and-smart-tempo.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "06-flex-and-smart-tempo.md"; sourceTree = "<group>"; };
+		4D7E0E0830900A0100A77859 /* 07-mixing-and-automation.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "07-mixing-and-automation.md"; sourceTree = "<group>"; };
+		4D7E0E0930900A0100A77859 /* 08-instruments-effects-midi-fx.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "08-instruments-effects-midi-fx.md"; sourceTree = "<group>"; };
+		4D7E0E0A30900A0100A77859 /* 09-library-bounce-files-settings.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "09-library-bounce-files-settings.md"; sourceTree = "<group>"; };
+		4D7E0E0B30900A0100A77859 /* 10-key-commands.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "10-key-commands.md"; sourceTree = "<group>"; };
+		4D7E0E0C30900A0100A77859 /* 11-ai-agents.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "11-ai-agents.md"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		49DE73993088310100A77859 /* Exceptions for "Ongaku" folder in "Ongaku" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 49DE733030882CC000A77859 /* Ongaku */;
+		};
+		49DE76F1308C700500A77859 /* Exceptions for "OngakuEffects" folder in "OngakuEffects" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 49DE76C2308C700500A77859 /* OngakuEffects */;
+		};
+		4D7E0B0230900A0100A77859 /* Exceptions for "OngakuEffects" folder in "OngakuEffectsPreviews" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 491A21503094FCBD00B92834 /* OngakuEffectsPreviews */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+		49DE76F2308C700500A77859 /* Exceptions for "OngakuEffects" folder in "Copy Bundle Resources" phase from "OngakuEffects" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 49DE76C1308C700500A77859 /* Resources */;
+			membershipExceptions = (
+				Common/DSP/OngakuEffectsAUProcessHelper.hpp,
+				Common/DSP/OngakuEffectsBufferedAudioBus.hpp,
+				DSP/Biquad.hpp,
+				DSP/ChannelEQ.hpp,
+				DSP/Colour.hpp,
+				DSP/Compressor.hpp,
+				DSP/ConvolutionReverb.hpp,
+				DSP/Delay.hpp,
+				DSP/DelayLine.hpp,
+				DSP/DrumMachine.hpp,
+				DSP/Dynamics.hpp,
+				DSP/Mastering.hpp,
+				DSP/OngakuEffectsDSPKernel.hpp,
+				DSP/RetroSynth.hpp,
+				DSP/Reverb.hpp,
+				DSP/Sampler.hpp,
+				DSP/SessionDrummer.hpp,
+				DSP/VocalStrip.hpp,
+			);
+		};
+		4D7E0B0330900A0100A77859 /* Exceptions for "OngakuEffects" folder in "Copy Bundle Resources" phase from "OngakuEffectsPreviews" target */ = {
+			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
+			buildPhase = 491A214F3094FCBD00B92834 /* Resources */;
+			membershipExceptions = (
+				Common/DSP/OngakuEffectsAUProcessHelper.hpp,
+				Common/DSP/OngakuEffectsBufferedAudioBus.hpp,
+				DSP/Biquad.hpp,
+				DSP/ChannelEQ.hpp,
+				DSP/Colour.hpp,
+				DSP/Compressor.hpp,
+				DSP/ConvolutionReverb.hpp,
+				DSP/Delay.hpp,
+				DSP/DelayLine.hpp,
+				DSP/DrumMachine.hpp,
+				DSP/Dynamics.hpp,
+				DSP/Mastering.hpp,
+				DSP/OngakuEffectsDSPKernel.hpp,
+				DSP/RetroSynth.hpp,
+				DSP/Reverb.hpp,
+				DSP/Sampler.hpp,
+				DSP/SessionDrummer.hpp,
+				DSP/VocalStrip.hpp,
+			);
+		};
+/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		491A21523094FCBD00B92834 /* OngakuEffectsPreviews */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = OngakuEffectsPreviews;
+			sourceTree = "<group>";
+		};
+		49DE733330882CC000A77859 /* Ongaku */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				49DE73993088310100A77859 /* Exceptions for "Ongaku" folder in "Ongaku" target */,
+			);
+			path = Ongaku;
+			sourceTree = "<group>";
+		};
+		49DE734130882CC200A77859 /* OngakuTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = OngakuTests;
+			sourceTree = "<group>";
+		};
+		49DE734B30882CC200A77859 /* OngakuUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = OngakuUITests;
+			sourceTree = "<group>";
+		};
+		49DE735F30882FA600A77859 /* OngakuCore */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = OngakuCore;
+			sourceTree = "<group>";
+		};
+		49DE736C30882FA600A77859 /* OngakuCoreTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = OngakuCoreTests;
+			sourceTree = "<group>";
+		};
+		49DE73B1308832C800A77859 /* OngakuEngine */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = OngakuEngine;
+			sourceTree = "<group>";
+		};
+		49DE76C4308C700500A77859 /* OngakuEffects */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				49DE76F1308C700500A77859 /* Exceptions for "OngakuEffects" folder in "OngakuEffects" target */,
+				49DE76F2308C700500A77859 /* Exceptions for "OngakuEffects" folder in "Copy Bundle Resources" phase from "OngakuEffects" target */,
+				4D7E0B0230900A0100A77859 /* Exceptions for "OngakuEffects" folder in "OngakuEffectsPreviews" target */,
+				4D7E0B0330900A0100A77859 /* Exceptions for "OngakuEffects" folder in "Copy Bundle Resources" phase from "OngakuEffectsPreviews" target */,
+			);
+			path = OngakuEffects;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		491A214E3094FCBD00B92834 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				4D7E0B0130900A0100A77859 /* OngakuCore.framework in Frameworks */,
+			);
+		};
+		49DE732E30882CC000A77859 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				49DE737130882FA600A77859 /* OngakuCore.framework in Frameworks */,
+				49DE73B6308832C800A77859 /* OngakuEngine.framework in Frameworks */,
+				4D7E0C0130900A0100A77859 /* MCP in Frameworks */,
+			);
+		};
+		49DE733B30882CC200A77859 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		49DE734530882CC200A77859 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		49DE735B30882FA600A77859 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		49DE736330882FA600A77859 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				49DE736730882FA600A77859 /* OngakuCore.framework in Frameworks */,
+			);
+		};
+		49DE73AD308832C800A77859 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		49DE76C0308C700500A77859 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				4D7E0A0130900A0100A77859 /* OngakuCore.framework in Frameworks */,
+			);
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		49DE732830882CC000A77859 = {
+			isa = PBXGroup;
+			children = (
+				49DE733330882CC000A77859 /* Ongaku */,
+				49DE734130882CC200A77859 /* OngakuTests */,
+				49DE734B30882CC200A77859 /* OngakuUITests */,
+				49DE735F30882FA600A77859 /* OngakuCore */,
+				49DE736C30882FA600A77859 /* OngakuCoreTests */,
+				49DE73B1308832C800A77859 /* OngakuEngine */,
+				49DE76C4308C700500A77859 /* OngakuEffects */,
+				491A21523094FCBD00B92834 /* OngakuEffectsPreviews */,
+				4D7E0E0030900A0100A77859 /* Manual */,
+				49DE733230882CC000A77859 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		49DE733230882CC000A77859 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				49DE733130882CC000A77859 /* Ongaku.app */,
+				49DE733E30882CC200A77859 /* OngakuTests.xctest */,
+				49DE734830882CC200A77859 /* OngakuUITests.xctest */,
+				49DE735E30882FA600A77859 /* OngakuCore.framework */,
+				49DE736630882FA600A77859 /* OngakuCoreTests.xctest */,
+				49DE73B0308832C800A77859 /* OngakuEngine.framework */,
+				49DE76C3308C700500A77859 /* OngakuEffects.appex */,
+				491A21513094FCBD00B92834 /* OngakuEffectsPreviews.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4D7E0E0030900A0100A77859 /* Manual */ = {
+			isa = PBXGroup;
+			children = (
+				4D7E0E0130900A0100A77859 /* README.md */,
+				4D7E0E0230900A0100A77859 /* 01-getting-started.md */,
+				4D7E0E0330900A0100A77859 /* 02-arranging-and-editing.md */,
+				4D7E0E0430900A0100A77859 /* 03-recording-and-takes.md */,
+				4D7E0E0530900A0100A77859 /* 04-midi-editing.md */,
+				4D7E0E0630900A0100A77859 /* 05-session-players.md */,
+				4D7E0E0730900A0100A77859 /* 06-flex-and-smart-tempo.md */,
+				4D7E0E0830900A0100A77859 /* 07-mixing-and-automation.md */,
+				4D7E0E0930900A0100A77859 /* 08-instruments-effects-midi-fx.md */,
+				4D7E0E0A30900A0100A77859 /* 09-library-bounce-files-settings.md */,
+				4D7E0E0B30900A0100A77859 /* 10-key-commands.md */,
+				4D7E0E0C30900A0100A77859 /* 11-ai-agents.md */,
+			);
+			name = Manual;
+			path = Docs/Manual;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		49DE735930882FA600A77859 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			files = (
+			);
+		};
+		49DE73AB308832C800A77859 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			files = (
+			);
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		491A21503094FCBD00B92834 /* OngakuEffectsPreviews */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 491A21593094FCBF00B92834 /* Build configuration list for PBXNativeTarget "OngakuEffectsPreviews" */;
+			buildPhases = (
+				491A214D3094FCBD00B92834 /* Sources */,
+				491A214E3094FCBD00B92834 /* Frameworks */,
+				491A214F3094FCBD00B92834 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				491A21523094FCBD00B92834 /* OngakuEffectsPreviews */,
+				49DE76C4308C700500A77859 /* OngakuEffects */,
+			);
+			name = OngakuEffectsPreviews;
+			productName = OngakuEffectsPreviews;
+			productReference = 491A21513094FCBD00B92834 /* OngakuEffectsPreviews.app */;
+			productType = "com.apple.product-type.application";
+		};
+		49DE733030882CC000A77859 /* Ongaku */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 49DE735030882CC200A77859 /* Build configuration list for PBXNativeTarget "Ongaku" */;
+			buildPhases = (
+				49DE732D30882CC000A77859 /* Sources */,
+				49DE732E30882CC000A77859 /* Frameworks */,
+				49DE732F30882CC000A77859 /* Resources */,
+				49DE737630882FA600A77859 /* Embed Frameworks */,
+				49DE76F3308C700500A77859 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				49DE737030882FA600A77859 /* PBXTargetDependency */,
+				49DE73B5308832C800A77859 /* PBXTargetDependency */,
+				49DE76EC308C700500A77859 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				49DE733330882CC000A77859 /* Ongaku */,
+			);
+			name = Ongaku;
+			packageProductDependencies = (
+				4D7E0C0230900A0100A77859 /* MCP */,
+			);
+			productName = Ongaku;
+			productReference = 49DE733130882CC000A77859 /* Ongaku.app */;
+			productType = "com.apple.product-type.application";
+		};
+		49DE733D30882CC200A77859 /* OngakuTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 49DE735330882CC200A77859 /* Build configuration list for PBXNativeTarget "OngakuTests" */;
+			buildPhases = (
+				49DE733A30882CC200A77859 /* Sources */,
+				49DE733B30882CC200A77859 /* Frameworks */,
+				49DE733C30882CC200A77859 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				49DE734030882CC200A77859 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				49DE734130882CC200A77859 /* OngakuTests */,
+			);
+			name = OngakuTests;
+			productName = OngakuTests;
+			productReference = 49DE733E30882CC200A77859 /* OngakuTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		49DE734730882CC200A77859 /* OngakuUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 49DE735630882CC200A77859 /* Build configuration list for PBXNativeTarget "OngakuUITests" */;
+			buildPhases = (
+				49DE734430882CC200A77859 /* Sources */,
+				49DE734530882CC200A77859 /* Frameworks */,
+				49DE734630882CC200A77859 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				49DE734A30882CC200A77859 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				49DE734B30882CC200A77859 /* OngakuUITests */,
+			);
+			name = OngakuUITests;
+			productName = OngakuUITests;
+			productReference = 49DE734830882CC200A77859 /* OngakuUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		49DE735D30882FA600A77859 /* OngakuCore */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 49DE737330882FA600A77859 /* Build configuration list for PBXNativeTarget "OngakuCore" */;
+			buildPhases = (
+				49DE735930882FA600A77859 /* Headers */,
+				49DE735A30882FA600A77859 /* Sources */,
+				49DE735B30882FA600A77859 /* Frameworks */,
+				49DE735C30882FA600A77859 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				49DE735F30882FA600A77859 /* OngakuCore */,
+			);
+			name = OngakuCore;
+			productName = OngakuCore;
+			productReference = 49DE735E30882FA600A77859 /* OngakuCore.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		49DE736530882FA600A77859 /* OngakuCoreTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 49DE737730882FA600A77859 /* Build configuration list for PBXNativeTarget "OngakuCoreTests" */;
+			buildPhases = (
+				49DE736230882FA600A77859 /* Sources */,
+				49DE736330882FA600A77859 /* Frameworks */,
+				49DE736430882FA600A77859 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				49DE736930882FA600A77859 /* PBXTargetDependency */,
+				49DE736B30882FA600A77859 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				49DE736C30882FA600A77859 /* OngakuCoreTests */,
+			);
+			name = OngakuCoreTests;
+			productName = OngakuCoreTests;
+			productReference = 49DE736630882FA600A77859 /* OngakuCoreTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		49DE73AF308832C800A77859 /* OngakuEngine */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 49DE73B8308832C800A77859 /* Build configuration list for PBXNativeTarget "OngakuEngine" */;
+			buildPhases = (
+				49DE73AB308832C800A77859 /* Headers */,
+				49DE73AC308832C800A77859 /* Sources */,
+				49DE73AD308832C800A77859 /* Frameworks */,
+				49DE73AE308832C800A77859 /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				49DE73B1308832C800A77859 /* OngakuEngine */,
+			);
+			name = OngakuEngine;
+			productName = OngakuEngine;
+			productReference = 49DE73B0308832C800A77859 /* OngakuEngine.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		49DE76C2308C700500A77859 /* OngakuEffects */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 49DE76EE308C700500A77859 /* Build configuration list for PBXNativeTarget "OngakuEffects" */;
+			buildPhases = (
+				49DE76BF308C700500A77859 /* Sources */,
+				49DE76C0308C700500A77859 /* Frameworks */,
+				49DE76C1308C700500A77859 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4D7E0A0330900A0100A77859 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				49DE76C4308C700500A77859 /* OngakuEffects */,
+			);
+			name = OngakuEffects;
+			productName = OngakuEffects;
+			productReference = 49DE76C3308C700500A77859 /* OngakuEffects.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		49DE732930882CC000A77859 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2710;
+				LastUpgradeCheck = 2710;
+				TargetAttributes = {
+					491A21503094FCBD00B92834 = {
+						CreatedOnToolsVersion = 27.1;
+					};
+					49DE733030882CC000A77859 = {
+						CreatedOnToolsVersion = 27.1;
+					};
+					49DE733D30882CC200A77859 = {
+						CreatedOnToolsVersion = 27.1;
+						TestTargetID = 49DE733030882CC000A77859;
+					};
+					49DE734730882CC200A77859 = {
+						CreatedOnToolsVersion = 27.1;
+						TestTargetID = 49DE733030882CC000A77859;
+					};
+					49DE735D30882FA600A77859 = {
+						CreatedOnToolsVersion = 27.1;
+					};
+					49DE736530882FA600A77859 = {
+						CreatedOnToolsVersion = 27.1;
+						TestTargetID = 49DE733030882CC000A77859;
+					};
+					49DE73AF308832C800A77859 = {
+						CreatedOnToolsVersion = 27.1;
+					};
+					49DE76C2308C700500A77859 = {
+						CreatedOnToolsVersion = 27.1;
+					};
+				};
+			};
+			buildConfigurationList = 49DE732C30882CC000A77859 /* Build configuration list for PBXProject "Ongaku" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 49DE732830882CC000A77859;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				4D7E0C0330900A0100A77859 /* XCRemoteSwiftPackageReference "swift-sdk" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 49DE733230882CC000A77859 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				49DE733030882CC000A77859 /* Ongaku */,
+				49DE733D30882CC200A77859 /* OngakuTests */,
+				49DE734730882CC200A77859 /* OngakuUITests */,
+				49DE735D30882FA600A77859 /* OngakuCore */,
+				49DE736530882FA600A77859 /* OngakuCoreTests */,
+				49DE73AF308832C800A77859 /* OngakuEngine */,
+				49DE76C2308C700500A77859 /* OngakuEffects */,
+				491A21503094FCBD00B92834 /* OngakuEffectsPreviews */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		491A214F3094FCBD00B92834 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		49DE732F30882CC000A77859 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+				4D7E0F0130900A0100A77859 /* README.md in Resources */,
+				4D7E0F0230900A0100A77859 /* 01-getting-started.md in Resources */,
+				4D7E0F0330900A0100A77859 /* 02-arranging-and-editing.md in Resources */,
+				4D7E0F0430900A0100A77859 /* 03-recording-and-takes.md in Resources */,
+				4D7E0F0530900A0100A77859 /* 04-midi-editing.md in Resources */,
+				4D7E0F0630900A0100A77859 /* 05-session-players.md in Resources */,
+				4D7E0F0730900A0100A77859 /* 06-flex-and-smart-tempo.md in Resources */,
+				4D7E0F0830900A0100A77859 /* 07-mixing-and-automation.md in Resources */,
+				4D7E0F0930900A0100A77859 /* 08-instruments-effects-midi-fx.md in Resources */,
+				4D7E0F0A30900A0100A77859 /* 09-library-bounce-files-settings.md in Resources */,
+				4D7E0F0B30900A0100A77859 /* 10-key-commands.md in Resources */,
+				4D7E0F0C30900A0100A77859 /* 11-ai-agents.md in Resources */,
+			);
+		};
+		49DE733C30882CC200A77859 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		49DE734630882CC200A77859 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		49DE735C30882FA600A77859 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		49DE736430882FA600A77859 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		49DE73AE308832C800A77859 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+		49DE76C1308C700500A77859 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		491A214D3094FCBD00B92834 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		49DE732D30882CC000A77859 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		49DE733A30882CC200A77859 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		49DE734430882CC200A77859 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		49DE735A30882FA600A77859 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		49DE736230882FA600A77859 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		49DE73AC308832C800A77859 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		49DE76BF308C700500A77859 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		49DE734030882CC200A77859 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 49DE733030882CC000A77859 /* Ongaku */;
+			targetProxy = 49DE733F30882CC200A77859 /* PBXContainerItemProxy */;
+		};
+		49DE734A30882CC200A77859 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 49DE733030882CC000A77859 /* Ongaku */;
+			targetProxy = 49DE734930882CC200A77859 /* PBXContainerItemProxy */;
+		};
+		49DE736930882FA600A77859 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 49DE735D30882FA600A77859 /* OngakuCore */;
+			targetProxy = 49DE736830882FA600A77859 /* PBXContainerItemProxy */;
+		};
+		49DE736B30882FA600A77859 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 49DE733030882CC000A77859 /* Ongaku */;
+			targetProxy = 49DE736A30882FA600A77859 /* PBXContainerItemProxy */;
+		};
+		49DE737030882FA600A77859 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 49DE735D30882FA600A77859 /* OngakuCore */;
+			targetProxy = 49DE736F30882FA600A77859 /* PBXContainerItemProxy */;
+		};
+		49DE73B5308832C800A77859 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 49DE73AF308832C800A77859 /* OngakuEngine */;
+			targetProxy = 49DE73B4308832C800A77859 /* PBXContainerItemProxy */;
+		};
+		49DE76EC308C700500A77859 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 49DE76C2308C700500A77859 /* OngakuEffects */;
+			targetProxy = 49DE76EB308C700500A77859 /* PBXContainerItemProxy */;
+		};
+		4D7E0A0330900A0100A77859 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 49DE735D30882FA600A77859 /* OngakuCore */;
+			targetProxy = 4D7E0A0230900A0100A77859 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		491A215A3094FCBF00B92834 /* Debug configuration for PBXNativeTarget "OngakuEffectsPreviews" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.4dware.OngakuEffectsPreviews;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "OngakuEffects/Common/OngakuEffects-Bridging-Header.h";
+				SWIFT_OBJC_INTEROP_MODE = objcxx;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Debug;
+		};
+		491A215B3094FCBF00B92834 /* Release configuration for PBXNativeTarget "OngakuEffectsPreviews" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
+				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
+				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.4dware.OngakuEffectsPreviews;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SDKROOT = auto;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = nonisolated;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "OngakuEffects/Common/OngakuEffects-Bridging-Header.h";
+				SWIFT_OBJC_INTEROP_MODE = objcxx;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Release;
+		};
+		49DE734E30882CC200A77859 /* Debug configuration for PBXProject "Ongaku" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 322WP4362D;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		49DE734F30882CC200A77859 /* Release configuration for PBXProject "Ongaku" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 322WP4362D;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		49DE735130882CC200A77859 /* Debug configuration for PBXNativeTarget "Ongaku" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 322WP4362D;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_FILE_ACCESS_MUSIC_FOLDER = readwrite;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				ENABLE_USER_SELECTED_FILES = readwrite;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Ongaku/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Ongaku Studio";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Ongaku Studio records audio from your microphone or audio interface onto record-enabled audio tracks.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.4dware.Ongaku;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		49DE735230882CC200A77859 /* Release configuration for PBXNativeTarget "Ongaku" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 322WP4362D;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_FILE_ACCESS_MUSIC_FOLDER = readwrite;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_INCOMING_NETWORK_CONNECTIONS = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = YES;
+				ENABLE_USER_SELECTED_FILES = readwrite;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Ongaku/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Ongaku Studio";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Ongaku Studio records audio from your microphone or audio interface onto record-enabled audio tracks.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.4dware.Ongaku;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		49DE735430882CC200A77859 /* Debug configuration for PBXNativeTarget "OngakuTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 322WP4362D;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.4dware.OngakuTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Ongaku.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Ongaku";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Debug;
+		};
+		49DE735530882CC200A77859 /* Release configuration for PBXNativeTarget "OngakuTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 322WP4362D;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.4dware.OngakuTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Ongaku.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Ongaku";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Release;
+		};
+		49DE735730882CC200A77859 /* Debug configuration for PBXNativeTarget "OngakuUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 322WP4362D;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.4dware.OngakuUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = Ongaku;
+			};
+			name = Debug;
+		};
+		49DE735830882CC200A77859 /* Release configuration for PBXNativeTarget "OngakuUITests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 322WP4362D;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.4dware.OngakuUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = Ongaku;
+			};
+			name = Release;
+		};
+		49DE737430882FA600A77859 /* Debug configuration for PBXNativeTarget "OngakuCore" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 322WP4362D;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"@executable_path/../Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				PRODUCT_BUNDLE_IDENTIFIER = net.4dware.Ongaku.OngakuCore;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INSTALL_MODULE = YES;
+				SWIFT_INSTALL_OBJC_HEADER = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Debug;
+		};
+		49DE737530882FA600A77859 /* Release configuration for PBXNativeTarget "OngakuCore" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 322WP4362D;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"@executable_path/../Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				PRODUCT_BUNDLE_IDENTIFIER = net.4dware.Ongaku.OngakuCore;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INSTALL_MODULE = YES;
+				SWIFT_INSTALL_OBJC_HEADER = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Release;
+		};
+		49DE737830882FA600A77859 /* Debug configuration for PBXNativeTarget "OngakuCoreTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.4dware.Ongaku.OngakuCoreTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Ongaku.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Ongaku";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Debug;
+		};
+		49DE737930882FA600A77859 /* Release configuration for PBXNativeTarget "OngakuCoreTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.4dware.Ongaku.OngakuCoreTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Ongaku.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Ongaku";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Release;
+		};
+		49DE73B9308832C800A77859 /* Debug configuration for PBXNativeTarget "OngakuEngine" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 322WP4362D;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"@executable_path/../Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					OngakuCore,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = net.4dware.Ongaku.OngakuEngine;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INSTALL_MODULE = YES;
+				SWIFT_INSTALL_OBJC_HEADER = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Debug;
+		};
+		49DE73BA308832C800A77859 /* Release configuration for PBXNativeTarget "OngakuEngine" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALLOW_TARGET_PLATFORM_SPECIALIZATION = YES;
+				BUILD_LIBRARY_FOR_DISTRIBUTION = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 322WP4362D;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				ENABLE_MODULE_VERIFIER = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"@executable_path/../Frameworks",
+					"@loader_path/Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				MODULE_VERIFIER_SUPPORTED_LANGUAGES = "objective-c objective-c++";
+				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					OngakuCore,
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = net.4dware.Ongaku.OngakuEngine;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INSTALL_MODULE = YES;
+				SWIFT_INSTALL_OBJC_HEADER = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "";
+				XROS_DEPLOYMENT_TARGET = 27.0;
+			};
+			name = Release;
+		};
+		49DE76EF308C700500A77859 /* Debug configuration for PBXNativeTarget "OngakuEffects" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CLANG_CXX_LIBRARY = "libc++";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 322WP4362D;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_USER_SELECTED_FILES = readwrite;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = OngakuEffects/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = OngakuEffects;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.4dware.Ongaku.OngakuEffects;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "OngakuEffects/Common/OngakuEffects-Bridging-Header.h";
+				SWIFT_OBJC_INTEROP_MODE = objcxx;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		49DE76F0308C700500A77859 /* Release configuration for PBXNativeTarget "OngakuEffects" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
+				CLANG_CXX_LIBRARY = "libc++";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 322WP4362D;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_USER_SELECTED_FILES = readwrite;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = OngakuEffects/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = OngakuEffects;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = net.4dware.Ongaku.OngakuEffects;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "OngakuEffects/Common/OngakuEffects-Bridging-Header.h";
+				SWIFT_OBJC_INTEROP_MODE = objcxx;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		491A21593094FCBF00B92834 /* Build configuration list for PBXNativeTarget "OngakuEffectsPreviews" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				491A215A3094FCBF00B92834 /* Debug configuration for PBXNativeTarget "OngakuEffectsPreviews" */,
+				491A215B3094FCBF00B92834 /* Release configuration for PBXNativeTarget "OngakuEffectsPreviews" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		49DE732C30882CC000A77859 /* Build configuration list for PBXProject "Ongaku" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				49DE734E30882CC200A77859 /* Debug configuration for PBXProject "Ongaku" */,
+				49DE734F30882CC200A77859 /* Release configuration for PBXProject "Ongaku" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		49DE735030882CC200A77859 /* Build configuration list for PBXNativeTarget "Ongaku" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				49DE735130882CC200A77859 /* Debug configuration for PBXNativeTarget "Ongaku" */,
+				49DE735230882CC200A77859 /* Release configuration for PBXNativeTarget "Ongaku" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		49DE735330882CC200A77859 /* Build configuration list for PBXNativeTarget "OngakuTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				49DE735430882CC200A77859 /* Debug configuration for PBXNativeTarget "OngakuTests" */,
+				49DE735530882CC200A77859 /* Release configuration for PBXNativeTarget "OngakuTests" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		49DE735630882CC200A77859 /* Build configuration list for PBXNativeTarget "OngakuUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				49DE735730882CC200A77859 /* Debug configuration for PBXNativeTarget "OngakuUITests" */,
+				49DE735830882CC200A77859 /* Release configuration for PBXNativeTarget "OngakuUITests" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		49DE737330882FA600A77859 /* Build configuration list for PBXNativeTarget "OngakuCore" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				49DE737430882FA600A77859 /* Debug configuration for PBXNativeTarget "OngakuCore" */,
+				49DE737530882FA600A77859 /* Release configuration for PBXNativeTarget "OngakuCore" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		49DE737730882FA600A77859 /* Build configuration list for PBXNativeTarget "OngakuCoreTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				49DE737830882FA600A77859 /* Debug configuration for PBXNativeTarget "OngakuCoreTests" */,
+				49DE737930882FA600A77859 /* Release configuration for PBXNativeTarget "OngakuCoreTests" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		49DE73B8308832C800A77859 /* Build configuration list for PBXNativeTarget "OngakuEngine" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				49DE73B9308832C800A77859 /* Debug configuration for PBXNativeTarget "OngakuEngine" */,
+				49DE73BA308832C800A77859 /* Release configuration for PBXNativeTarget "OngakuEngine" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		49DE76EE308C700500A77859 /* Build configuration list for PBXNativeTarget "OngakuEffects" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				49DE76EF308C700500A77859 /* Debug configuration for PBXNativeTarget "OngakuEffects" */,
+				49DE76F0308C700500A77859 /* Release configuration for PBXNativeTarget "OngakuEffects" */,
+			);
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		4D7E0C0330900A0100A77859 /* XCRemoteSwiftPackageReference "swift-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/modelcontextprotocol/swift-sdk.git";
+			requirement = {
+				kind = upToNextMinorVersion;
+				minimumVersion = 0.12.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4D7E0C0230900A0100A77859 /* MCP */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4D7E0C0330900A0100A77859 /* XCRemoteSwiftPackageReference "swift-sdk" */;
+			productName = MCP;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 49DE732930882CC000A77859 /* Project object */;
+	validationLevel = 1;
+}
