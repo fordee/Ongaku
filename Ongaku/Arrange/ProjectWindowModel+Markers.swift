@@ -11,7 +11,7 @@ import OngakuEngine
 /// Signature and Tempo. This file has the first two; see ProjectWindowModel+TempoTrack.
 extension ProjectWindowModel {
   /// How tall each global track row is.
-  static let globalTrackHeight: CGFloat = 22
+  nonisolated static let globalTrackHeight: CGFloat = 22
 
   /// The ruler plus the global tracks: where the tracks start.
   var topHeight: CGFloat {

@@ -84,6 +84,7 @@ struct AgentBadge: View {
   .preferredColorScheme(.dark)
 }
 
+#if DEBUG
 #Preview("Control bar") {
   AgentServer.shared.showForPreview(["Claude Code"], working: true)
   return VStack(spacing: 0) {
@@ -93,3 +94,4 @@ struct AgentBadge: View {
   }
   .preferredColorScheme(.dark)
 }
+#endif

@@ -77,6 +77,10 @@ final class KeyCommandMonitor {
   }
 
   private func handle(_ event: NSEvent) -> NSEvent? {
+    // Keys typed into a text field (the tempo, say) go the usual way, unclaimed: sending
+    // them to the window here as well would type each one twice. A menu item they choose
+    // hands them back to the field (see `menuShouldPerform`).
+    if let window = event.window, window.firstResponder is NSText { return event }
     // A menu item already acted on this key press.
     guard claim(event) else { return nil }
     for entry in models {
