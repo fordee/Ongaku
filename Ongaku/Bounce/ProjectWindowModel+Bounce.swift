@@ -3,7 +3,7 @@
 //  Ongaku
 //
 
-import CoreTransferable
+import AppKit
 import Foundation
 import OngakuCore
 import OngakuEngine
@@ -27,7 +27,6 @@ final class BounceModel {
   var settings: BounceSettings {
     didSet { UserDefaults.standard.set(try? JSONEncoder().encode(settings), forKey: Self.settingsKey) }
   }
-  var isShowingSavePanel = false
   /// While the bounce waits for flexed regions to finish processing, before rendering.
   var isWaitingForFlex = false
   let range: Range<Tick>
@@ -118,6 +117,29 @@ extension ProjectWindowModel {
     bounce = nil
   }
 
+  /// Save…: asks where to put the bounce, then moves the rendered file there. An AppKit save
+  /// panel, not SwiftUI's fileExporter: exporting the file as a Transferable crashed (macOS
+  /// 27.2), SwiftUI giving it an empty file name.
+  func saveBounce() {
+    guard let bounce, case .finished(let result) = bounce.phase else { return }
+    let panel = NSSavePanel()
+    panel.allowedContentTypes = [bounce.settings.format.contentType]
+    panel.nameFieldStringValue = result.url.lastPathComponent
+    panel.canCreateDirectories = true
+    guard panel.runModal() == .OK, let destination = panel.url else { return }
+    do {
+      // The panel has already asked whether to replace a file that's there.
+      if FileManager.default.fileExists(atPath: destination.path) {
+        _ = try FileManager.default.replaceItemAt(destination, withItemAt: result.url)
+      } else {
+        try FileManager.default.moveItem(at: result.url, to: destination)
+      }
+      closeBounce()
+    } catch {
+      errorMessage = "The bounce couldn’t be saved: \(error.localizedDescription)"
+    }
+  }
+
   /// The project as it plays, with every plug-in's current settings, including changes made
   /// in plug-in windows that are still open (those are only stored in the project when they
   /// close). Flexed regions play their renders, as they do live.
@@ -158,17 +180,6 @@ extension ProjectWindowModel {
   private static func barBeat(_ position: MusicalPosition) -> String {
     position.beat == 1 && position.division == 1 && position.tick == 0
       ? "bar \(position.bar)" : "bar \(position.bar) beat \(position.beat)"
-  }
-}
-
-/// A bounced file for the save panel.
-struct BouncedFile: Transferable {
-  let url: URL
-
-  static var transferRepresentation: some TransferRepresentation {
-    FileRepresentation(exportedContentType: .wav) { SentTransferredFile($0.url) }
-    FileRepresentation(exportedContentType: .aiff) { SentTransferredFile($0.url) }
-    FileRepresentation(exportedContentType: .mpeg4Audio) { SentTransferredFile($0.url) }
   }
 }
 

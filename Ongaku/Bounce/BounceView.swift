@@ -38,23 +38,6 @@ struct BounceView: View {
     }
     .padding(20)
     .frame(width: 420)
-    .fileExporter(
-      isPresented: $bounce.isShowingSavePanel,
-      item: finishedFile,
-      contentTypes: [bounce.settings.format.contentType],
-      defaultFilename: "\(model.exportFileName).\(bounce.settings.format.fileExtension)"
-    ) { result in
-      switch result {
-      case .success:
-        model.closeBounce()
-      case .failure(let error):
-        model.errorMessage = "The bounce couldn’t be saved: \(error.localizedDescription)"
-      }
-    }
-  }
-
-  private var finishedFile: BouncedFile? {
-    if case .finished(let result) = bounce.phase { BouncedFile(url: result.url) } else { nil }
   }
 
   private var options: some View {
@@ -127,7 +110,7 @@ struct BounceView: View {
       Button("Bounce Again") { bounce.phase = .options }
       Button("Discard", role: .cancel) { model.closeBounce() }
         .keyboardShortcut(.cancelAction)
-      Button("Save…") { bounce.isShowingSavePanel = true }
+      Button("Save…") { model.saveBounce() }
         .keyboardShortcut(.defaultAction)
     }
   }
