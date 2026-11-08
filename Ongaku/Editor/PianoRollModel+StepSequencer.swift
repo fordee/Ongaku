@@ -198,6 +198,7 @@ extension ProjectWindowModel {
   func playsDrums(_ track: Track) -> Bool {
     switch track.channel.instrument {
     case .generalMIDIPercussion: return true
+    case .sampler(let instrument): return instrument.preset?.isPercussion ?? false
     case .audioUnit(let plugin): return OngakuInstrument(plugin) == .drumMachine
     default: return false
     }

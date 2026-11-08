@@ -44,6 +44,7 @@ struct ControlBar: View {
         ViewToggle(title: "Mixer", symbol: "slider.vertical.3", shortcut: "X", isOn: model.bottomPane == .mixer, action: model.toggleMixer)
         // It opens whichever editor suits the region: Piano Roll, Step Sequencer, Drummer…
         ViewToggle(title: "Editor", symbol: "pianokeys", shortcut: "E", isOn: model.isEditorVisible, action: model.toggleEditor)
+        ViewToggle(title: "Loops", symbol: "infinity", shortcut: "O", isOn: model.isLoopBrowserVisible, action: model.toggleLoopBrowser)
       }
 
       HStack(spacing: 4) {

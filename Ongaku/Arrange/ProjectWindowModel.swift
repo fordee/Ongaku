@@ -193,6 +193,14 @@ final class ProjectWindowModel {
   var isLibraryVisible = false {
     didSet { if isLibraryVisible, !oldValue { refreshAudioUnitInstruments() } }
   }
+  /// The sound libraries agents use (the shared ones; tests give their own).
+  @ObservationIgnored var soundLibraryStore = SoundLibraries.shared
+  /// What the Loop Browser shows, kept while it's hidden.
+  let loopBrowser = LoopBrowserState()
+  /// The Loop Browser down the right of the window (O).
+  var isLoopBrowserVisible = false {
+    didSet { if !isLoopBrowserVisible { LoopPreviewer.shared.stop() } }
+  }
   /// Automation curves drawn over the track lanes (A).
   var isAutomationVisible = false {
     didSet { scroll.rowHeight = rowHeight }
@@ -298,6 +306,9 @@ final class ProjectWindowModel {
     }
   }
 
+  /// The Library's list with the sound libraries' instruments, made again when they change.
+  @ObservationIgnored private var cachedLibraryCatalog: (revision: Int, audioUnits: [InstrumentLibrary.Entry], catalog: LibraryCatalog)?
+
   private var audioUnitLists: AudioUnitLists {
     _ = audioUnitListsVersion
     if let cachedAudioUnitLists { return cachedAudioUnitLists }
@@ -308,8 +319,18 @@ final class ProjectWindowModel {
 
   /// Installed Audio Unit instruments, for the instrument menus.
   var audioUnitInstruments: [InstrumentLibrary.Entry] { audioUnitLists.instruments }
-  /// The sounds the Library lists.
-  var libraryCatalog: LibraryCatalog { audioUnitLists.catalog }
+  /// The sounds the Library lists, with the sound libraries' instruments once there are any.
+  var libraryCatalog: LibraryCatalog {
+    let libraries = SoundLibraries.shared
+    guard libraries.libraries.contains(where: { $0.count(of: .instrument) > 0 }) else { return audioUnitLists.catalog }
+    let instruments = audioUnitLists.instruments
+    if let cached = cachedLibraryCatalog, cached.revision == libraries.revision, cached.audioUnits == instruments {
+      return cached.catalog
+    }
+    let catalog = LibraryCatalog(audioUnits: instruments, libraries: libraries.libraries)
+    cachedLibraryCatalog = (libraries.revision, instruments, catalog)
+    return catalog
+  }
 
   /// Looks the installed Audio Unit instruments up again, so one installed while the window
   /// is open appears. Views only update if the list changed.
@@ -648,14 +669,17 @@ final class ProjectWindowModel {
   // MARK: - Import
 
   /// Imports audio files at a position. Files dropped on an audio track are placed one after
-  /// another on it; otherwise each file gets a new audio track.
-  func importAudio(_ urls: [URL], at position: Tick, onTrack targetTrackID: Track.ID?) async {
+  /// another on it; otherwise each file gets a new audio track. Tagged loops (Apple Loops,
+  /// ACID) follow the song's tempo and key; loops that carry MIDI go onto instrument tracks
+  /// as notes, unless dropped on an audio track.
+  func importAudio(_ urls: [URL], at position: Tick, onTrack targetTrackID: Track.ID?, actionName: String? = nil) async {
     let audioURLs = urls.filter(AudioImporter.isAudioFile)
     guard !audioURLs.isEmpty else {
       errorMessage = "Only audio and MIDI files can be added to the tracks area."
       return
     }
-    let targetTrack = targetTrackID.flatMap(project.track(withID:)).flatMap { $0.kind == .audio ? $0 : nil }
+    let droppedOn = targetTrackID.flatMap(project.track(withID:))
+    let targetTrack = droppedOn.flatMap { $0.kind == .audio ? $0 : nil }
 
     var commands: [any EditCommand] = []
     var reservedNames: Set<String> = []
@@ -665,17 +689,27 @@ final class ProjectWindowModel {
       defer {
         if isAccessing { url.stopAccessingSecurityScopedResource() }
       }
+      let metadata = await Self.loopMetadata(of: url)
+      let name = url.deletingPathExtension().lastPathComponent
+      if let midi = metadata.midi, targetTrack == nil,
+        let midiCommands = midiLoopCommands(midi, name: name, metadata: metadata, at: position, onTrack: droppedOn)
+      {
+        commands += midiCommands
+        continue
+      }
       do {
         let file = try await document.stageAudio(from: url, reservedNames: reservedNames)
         reservedNames.insert(file.fileName)
         commands.append(AddAudioFile(file))
 
         if let targetTrack {
-          let region = Region.audio(for: file, at: cursor, tempoMap: project.tempoMap)
+          var region = Region.audio(for: file, at: cursor, tempoMap: project.tempoMap)
+          conformToSong(&region, loop: metadata, file: file)
           commands.append(AddRegion(region, to: targetTrack.id))
           cursor = region.end
         } else {
-          let region = Region.audio(for: file, at: position, tempoMap: project.tempoMap)
+          var region = Region.audio(for: file, at: position, tempoMap: project.tempoMap)
+          conformToSong(&region, loop: metadata, file: file)
           let track = makeTrack(name: region.name, kind: .audio)
           commands.append(AddTrack(track))
           commands.append(AddRegion(region, to: track.id))
@@ -685,7 +719,7 @@ final class ProjectWindowModel {
       }
     }
     guard !commands.isEmpty else { return }
-    perform(CompositeCommand(audioURLs.count == 1 ? "Import Audio File" : "Import Audio Files", commands: commands))
+    perform(CompositeCommand(actionName ?? (audioURLs.count == 1 ? "Import Audio File" : "Import Audio Files"), commands: commands))
   }
 }
 

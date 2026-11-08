@@ -54,7 +54,7 @@ struct AgentToolTests {
       return name
     }
 
-    func save() throws { saveCount += 1 }
+    func save() async throws { saveCount += 1 }
 
     // Every plug-in "loads" at once with two parameters, and a render is a test tone.
     var installedEffects: [AgentAudioUnit] { [] }
@@ -92,6 +92,22 @@ struct AgentToolTests {
     }
 
     func masterSong() async throws -> MasteringAnalysis.Result? { nil }
+
+    // Sound libraries: the tools see these, and what they ask the app to do is recorded.
+    var libraries: [AgentSoundLibrary] = []
+    var addedSounds: [(reference: String, position: Tick, trackID: Track.ID?)] = []
+    var impulseResponses: [(reference: String, pluginID: PluginReference.ID)] = []
+
+    var soundLibraries: [AgentSoundLibrary] { libraries }
+
+    func addLibrarySound(_ sound: AgentLibrarySound, at position: Tick, onTrack trackID: Track.ID?) async throws -> AgentLibraryPlacement {
+      addedSounds.append((sound.reference, position, trackID))
+      return AgentLibraryPlacement(regionIDs: [])
+    }
+
+    func setImpulseResponse(_ sound: AgentLibrarySound, forPlugin pluginID: PluginReference.ID, on channelID: Track.ID) throws {
+      impulseResponses.append((sound.reference, pluginID))
+    }
   }
 
   private let bar = Tick.quarterNotes(4)
@@ -466,5 +482,108 @@ struct AgentToolTests {
     // An explicit range wins over the cycle.
     try await call("bounce", ["from": 1, "to": 2], in: session)
     #expect(session.bouncedRange == .zero..<bar)
+  }
+
+  // MARK: - Sound libraries
+
+  private func librarySession() -> Session {
+    let session = Session()
+    let bank = [
+      SoundBankPreset(name: "Warm Strings", program: 48, bank: 0, isPercussion: false),
+      SoundBankPreset(name: "Bright Brass", program: 61, bank: 0, isPercussion: false),
+    ]
+    session.libraries = [AgentSoundLibrary(id: UUID(), name: "Studio", items: [
+      SoundLibraryItem(path: "Pianos/Concert Grand.exs", kind: .instrument, category: .piano),
+      SoundLibraryItem(path: "Pianos/Upright.sfz", kind: .instrument, category: .piano),
+      SoundLibraryItem(path: "Banks/Orchestra.sf2", kind: .instrument, presets: bank),
+      SoundLibraryItem(path: "Patches/Old.patch", kind: .instrument),
+      SoundLibraryItem(path: "Loops/Funky Bass 01.caf", kind: .loop, beats: 8, tempo: 100, keyTonic: 9, keyMode: .minor,
+        category: .bass, genre: "Funk"),
+      SoundLibraryItem(path: "Loops/Disco Beat.caf", kind: .loop, beats: 8, tempo: 122, category: .drums, genre: "Disco"),
+      SoundLibraryItem(path: "Loops/Rhodes Chords.caf", kind: .loop, beats: 16, tempo: 96, keyTonic: 2, category: .keys,
+        genre: "Soul", hasMIDI: true),
+      SoundLibraryItem(path: "Hits/Kick.wav", kind: .oneShot, duration: 0.4, category: .drums),
+      SoundLibraryItem(path: "Spaces/Cathedral.SDIR", kind: .impulseResponse, duration: 7, category: .fx),
+      SoundLibraryItem(path: "Spaces/Small Room.SDIR", kind: .impulseResponse, duration: 0.6, category: .fx),
+    ])]
+    return session
+  }
+
+  @Test func libraryInstrumentsAreSearchedAndChosen() async throws {
+    let session = librarySession()
+    // Without a search, the libraries are summarised; with one, their instruments listed.
+    let summary = try await call("list_instruments", in: session)
+    #expect(summary["soundLibraries"] == [["name": "Studio", "instruments": 4]], "Two pianos and the bank's two presets")
+    let pianos = try await call("list_instruments", ["search": "piano"], in: session)
+    #expect(pianos["count"] == 2)
+    #expect(pianos["libraryInstruments"]?.arrayValue?.first?["sound"] == "Studio/Pianos/Concert Grand.exs")
+    let strings = try await call("list_instruments", ["search": "warm"], in: session)
+    #expect(strings["libraryInstruments"]?.arrayValue?.first?["sound"] == "Studio/Banks/Orchestra.sf2#Warm Strings")
+
+    try await call("create_track", ["name": "Grand", "instrument": "Studio/Pianos/Concert Grand.exs"], in: session)
+    guard case .sampler(let grand)? = session.project.tracks.last?.channel.instrument else {
+      Issue.record("Not a library instrument")
+      return
+    }
+    #expect(grand.path == "Pianos/Concert Grand.exs")
+    #expect(grand.libraryName == "Studio")
+    // A bank's preset, and an instrument by its name alone when only one has it.
+    try await call("create_track", ["name": "Brass", "instrument": "Studio/Banks/Orchestra.sf2#Bright Brass"], in: session)
+    guard case .sampler(let brass)? = session.project.tracks.last?.channel.instrument else { Issue.record("No brass"); return }
+    #expect(brass.preset?.program == 61)
+    try await call("create_track", ["name": "Upright", "instrument": "upright"], in: session)
+    guard case .sampler(let upright)? = session.project.tracks.last?.channel.instrument else { Issue.record("No upright"); return }
+    #expect(upright.path == "Pianos/Upright.sfz")
+    let song = try await call("get_song", in: session)
+    #expect(song["tracks"]?.arrayValue?.first?["instrument"] == "Concert Grand (Studio/Pianos/Concert Grand.exs)")
+    await #expect(throws: AgentError.self) {
+      try await call("create_track", ["instrument": "Studio/Patches/Old.patch"], in: session)
+    }
+  }
+
+  @Test func loopsAreFoundAndAdded() async throws {
+    let session = librarySession()
+    try await call("set_tempo", ["bpm": 100], in: session)
+    let all = try await call("find_loops", in: session)
+    #expect(all["count"] == 3, "Loops only, by default")
+    #expect(try await call("find_loops", ["family": "bass"], in: session)["sounds"]?.arrayValue?.first?["name"] == "Funky Bass 01")
+    #expect(try await call("find_loops", ["key": "D"], in: session)["sounds"]?.arrayValue?.first?["name"] == "Rhodes Chords")
+    #expect(try await call("find_loops", ["nearSongTempo": true], in: session)["count"] == 2, "100 and 96 BPM, not 122")
+    #expect(try await call("find_loops", ["genre": "disco"], in: session)["count"] == 1)
+    #expect(try await call("find_loops", ["midiOnly": true], in: session)["sounds"]?.arrayValue?.first?["kind"] == "midi loop")
+    let hits = try await call("find_loops", ["kind": "one-shot"], in: session)
+    #expect(hits["sounds"]?.arrayValue?.first?["seconds"] == 0.4)
+    let bass = try #require(try await call("find_loops", ["search": "funky"], in: session)["sounds"]?.arrayValue?.first)
+    #expect(bass["bpm"] == 100)
+    #expect(bass["key"] == "A min")
+
+    let trackID = try #require(try await call("create_track", ["name": "Bass", "kind": "audio"], in: session)["id"])
+    try await call("add_loop", ["sound": bass["sound"] ?? .null, "at": "5", "track": trackID], in: session)
+    #expect(session.addedSounds.first?.reference == "Studio/Loops/Funky Bass 01.caf")
+    #expect(session.addedSounds.first?.position == bar * 4)
+    #expect(session.addedSounds.first?.trackID == session.project.tracks.last?.id)
+    await #expect(throws: AgentError.self) { try await call("add_loop", ["sound": "Studio/Loops/Nope.caf"], in: session) }
+  }
+
+  @Test func impulseResponsesGoToTheConvolutionReverb() async throws {
+    let session = librarySession()
+    let rooms = try await call("find_impulse_responses", ["search": "room"], in: session)
+    #expect(rooms["impulseResponses"]?.arrayValue?.map { $0["name"] } == ["Small Room"])
+    try await call("create_track", ["name": "Vocal", "kind": "audio"], in: session)
+    try await call("add_effect", ["track": "Vocal", "effect": "Convolution Reverb"], in: session)
+    try await call("set_effect", ["track": "Vocal", "effect": "Convolution Reverb", "impulse_response": "Studio/Spaces/Cathedral.SDIR"], in: session)
+    #expect(session.impulseResponses.map(\.reference) == ["Studio/Spaces/Cathedral.SDIR"])
+    try await call("add_effect", ["track": "Vocal", "effect": "Reverb"], in: session)
+    await #expect(throws: AgentError.self) {
+      try await call("set_effect", ["track": "Vocal", "effect": "Reverb", "impulse_response": "Cathedral"], in: session)
+    }
+  }
+
+  @Test func withoutLibrariesTheToolsSaySoAndListInstrumentsStillWorks() async throws {
+    let session = Session()
+    await #expect(throws: AgentError.notFound("No sound libraries have been added. The person can add folders of sounds in Settings › Libraries.")) {
+      try await call("find_loops", in: session)
+    }
+    #expect(try await call("list_instruments", in: session)["soundLibraries"] == nil)
   }
 }

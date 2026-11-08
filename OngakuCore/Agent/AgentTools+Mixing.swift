@@ -94,11 +94,22 @@ extension AgentToolbox {
       "preset": Schema.string("A factory preset's name (applied before the parameters)."),
       "parameters": ["type": "object", "description": "Parameter names and values, such as {\"Threshold\": -18, \"Ratio\": 3}."],
       "bypass": Schema.boolean("Bypasses (true) or enables (false) the effect."),
+      "impulse_response": Schema.string("For the Convolution Reverb: a \"sound\" from find_impulse_responses, the room it plays."),
     ],
     required: ["track", "effect"]
   ) { arguments, session in
     let channel = try AgentMixing.channel(try arguments.value("track"), in: session.project)
     let plugin = try AgentMixing.insert(try arguments.string("effect"), on: channel)
+    if let text = try arguments.optionalString("impulse_response") {
+      guard OngakuEffect(plugin) == .convolutionReverb else {
+        throw AgentError.invalidArgument("impulse_response", "only Ongaku's Convolution Reverb takes an impulse response.")
+      }
+      let libraries = try AgentLibrary.libraries(nil, in: session)
+      guard let sound = AgentLibrary.sound(text, kinds: [.impulseResponse], in: libraries) else {
+        throw AgentError.notFound("There's no impulse response “\(text)”; use a \"sound\" from find_impulse_responses.")
+      }
+      try session.setImpulseResponse(sound, forPlugin: plugin.id, on: channel.id)
+    }
     if let bypass = try arguments.optionalBool("bypass") {
       try session.performEdit(SetInsertBypassed(plugin.id, in: channel.id, isBypassed: bypass), named: bypass ? "Bypass \(plugin.name)" : "Enable \(plugin.name)")
     }
@@ -107,8 +118,8 @@ extension AgentToolbox {
         throw AgentError.notPossible("\(plugin.name) hasn't loaded, so its settings can't be changed yet.")
       }
       try await AgentMixing.apply(arguments, to: plugin, on: channel.id, session: session)
-    } else if !arguments.has("bypass") {
-      throw AgentError.notPossible("Nothing to change: give a preset, parameters or bypass.")
+    } else if !arguments.has("bypass"), !arguments.has("impulse_response") {
+      throw AgentError.notPossible("Nothing to change: give a preset, parameters, bypass or an impulse_response.")
     }
     return AgentMixing.describe(plugin, on: AgentMixing.refreshed(channel, in: session.project), session: session)
   }

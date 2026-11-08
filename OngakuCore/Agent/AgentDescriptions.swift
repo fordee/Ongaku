@@ -124,6 +124,7 @@ enum AgentInstruments {
     case .generalMIDI(let program): "\(GeneralMIDI.programName(program)) (gm:\(program))"
     case .generalMIDIPercussion(let kit): "\(GeneralMIDI.drumKitName(kit)) (drums:\(kit))"
     case .audioUnit(let plugin): plugin.name
+    case .sampler(let instrument): "\(instrument.name) (\(instrument.libraryName)/\(instrument.path))"
     }
   }
 
@@ -131,6 +132,7 @@ enum AgentInstruments {
   static func playsDrums(_ track: Track) -> Bool {
     switch track.channel.instrument {
     case .generalMIDIPercussion: true
+    case .sampler(let instrument): instrument.preset?.isPercussion ?? false
     case .audioUnit(let plugin): OngakuInstrument(plugin) == .drumMachine || OngakuInstrument(plugin) == .sessionDrummer
     default: false
     }
@@ -138,8 +140,12 @@ enum AgentInstruments {
 
   /// Finds an instrument from what an agent calls it: "gm:33", a General MIDI program name
   /// ("Fingered Bass"), "drums" or a kit name ("TR-808 Kit", "drums:25"), one of Ongaku's
-  /// instruments ("Retro Synth"), or an installed Audio Unit ("Alchemy", "Apple: DLSMusicDevice").
-  static func resolve(_ text: String, audioUnits: [AgentAudioUnit], key: String = "instrument") throws -> InstrumentSource {
+  /// instruments ("Retro Synth"), an installed Audio Unit ("Alchemy", "Apple: DLSMusicDevice"),
+  /// or an instrument from a sound library (a "sound" from list_instruments, or its name if
+  /// only one has it).
+  static func resolve(
+    _ text: String, audioUnits: [AgentAudioUnit], libraries: [AgentSoundLibrary] = [], key: String = "instrument"
+  ) throws -> InstrumentSource {
     let trimmed = text.trimmingCharacters(in: .whitespaces)
     let wanted = AgentNames.simplified(trimmed)
     if let program = number(after: ["gm:", "gm", "program"], in: wanted) {
@@ -165,6 +171,11 @@ enum AgentInstruments {
       AgentNames.simplified($0.name) == wanted || AgentNames.simplified("\($0.manufacturer):\($0.name)") == wanted
     }) {
       return .audioUnit(unit.reference)
+    }
+    if let sound = AgentLibrary.sound(trimmed, kinds: [.instrument], in: libraries),
+      SamplerInstrument.isPlayable(sound.item.path)
+    {
+      return sound.instrument
     }
     // A unique part of a General MIDI name ("vibraphone", "fretless").
     let partial = programs.filter { $0.1.contains(wanted) }

@@ -8,7 +8,7 @@ import Foundation
 /// Every tool an agent can use in Ongaku, and the guide agents get when they connect.
 public enum AgentToolbox {
   public static let tools: [AgentTool] =
-    readingTools + songTools + trackTools + noteTools + sessionPlayerTools + mixingTools + listeningTools
+    readingTools + songTools + trackTools + noteTools + sessionPlayerTools + mixingTools + listeningTools + libraryTools
 
   public static func tool(named name: String) -> AgentTool? {
     tools.first { $0.name == name }
@@ -45,7 +45,9 @@ public enum AgentToolbox {
     3. set_chords, from chord symbols or a progression (list_session_players lists them).
     4. add_drummer, then add_session_player for bass and keys; they follow the sections \
     and chords.
-    5. create_track and create_region with notes for melodies and parts of your own.
+    5. create_track and create_region with notes for melodies and parts of your own. If \
+    the person has added sound libraries, list_instruments with a search finds their \
+    instruments (a sampled piano, strings…), and find_loops and add_loop their loops.
     6. play so the person can listen; ask what they think, and keep changing it.
     7. Mix: update_track for levels and pan, add_effect (EQ, compression), an aux track \
     with a Reverb and set_send to it, add_automation for fades and builds.

@@ -13,6 +13,7 @@ When you switch it on, Ongaku Studio runs a small MCP server on your Mac. An age
 - **Read the song**: tempo, key, sections, chords, tracks, regions and notes.
 - **Set up the song**: tempo, time signature, key and key changes, the cycle, Arrangement sections, markers and the Chord track.
 - **Write parts**: create tracks with any sound from the Library, write notes into regions, transform and quantize them, and copy and move regions.
+- **Use your sound libraries**: if you've added libraries in **Settings › Libraries**, an agent can search their instruments (a sampled grand piano, strings, a SoundFont preset) and play them on tracks, find loops by instrument, key, tempo and genre and add them to the song (fitted to its tempo and key, as dragging from the Loop Browser does), and give the Convolution Reverb an impulse response.
 - **Use the session players**: add the Drummer and the Bass and Keyboard players to sections, change their style and settings, or ask for a new take (see [Chapter 5](05-session-players.md)).
 - **Mix**: set levels, pan, mute and solo; add effects and change their settings and presets; send tracks to an aux with a reverb; draw automation; add MIDI effects such as the Arpeggiator (see [Chapter 7](07-mixing-and-automation.md) and [Chapter 8](08-instruments-effects-midi-fx.md)).
 - **Listen, in its way**: an agent can't hear, so it can *measure* the mix instead. It renders the song (faster than real time, nothing is played) and gets its loudness, peaks, stereo width and tonal balance compared with a typical finished master, for the whole song and each section.
@@ -27,6 +28,7 @@ An agent works on the song in the **frontmost project window**. If no song is op
 - Only programs on **your Mac** can connect, and only with a secret **token** that you give them.
 - Every change an agent makes is a normal edit, one per step. The Edit menu names them, such as **Undo Agent: Add Drummer**, so you can always undo.
 - Agents can't open or delete files. They can save the open song, and their bounces go only to **Music › Ongaku Studio › Bounces**.
+- From your sound libraries, agents see only the library names and the names, folders and tags of the sounds in them, as the Loop Browser shows them. A loop an agent adds is copied into the song, exactly as when you drag it in.
 - What an agent reads of your song (its notes, names, structure and measurements) goes to the AI service the agent uses, such as Anthropic for Claude. Ongaku Studio doesn't send your audio. An agent that can read files on your Mac, as Claude Code can, could still open a bounced file, so keep to agents you trust.
 
 ## Setting it up
@@ -82,6 +84,7 @@ Agents do best when you say what you're after musically and leave the clicking t
 - **Start broad, then refine.** "A gentle indie-folk song, about two minutes, in G" is a good start. Then: "the verse drums are too busy", "give the chorus a brighter keys part", "end with the intro again".
 - **Name things the way the song does.** "The Bass Player track", "the second chorus", "bar 17".
 - **Ask it to listen.** "Analyze the mix: is the chorus louder than the verse?" makes the agent measure rather than guess.
+- **Point it at your libraries.** "Use the Steinway from my Logic library for the piano", "find a funky bass loop near this tempo", "put the verse vocal in a small room": agents search libraries when asked, and otherwise reach for the built-in sounds.
 - **Play it yourself.** The agent can press play, but only you can hear whether it works. Tell it what you think.
 
 ### Built-in starting points
@@ -111,5 +114,5 @@ You don't need to know this to use an agent, but it helps to read what it says:
 - **You can keep working.** Edit, play and mix while an agent is connected. It reads the song afresh each time, so it sees your changes.
 - **The frontmost window.** If you have several songs open, the agent works on the one in front. Bring the right one forward before asking.
 - **Plug-in windows.** If a plug-in's window is open while an agent changes the plug-in, close and reopen the window to see the new settings.
-- **What agents can't do yet**: record audio, edit audio regions in detail (Flex, takes, comping), freeze tracks or import files. Ask them to tell you when you need to do something by hand.
+- **What agents can't do yet**: record audio, edit audio regions in detail (Flex, takes, comping), freeze tracks, or import files from outside your sound libraries. Ask them to tell you when you need to do something by hand.
 - **Measurements aren't ears.** Analyze Mix tells an agent where a mix stands against a typical master, which is a good guide, not a verdict. Trust your ears.

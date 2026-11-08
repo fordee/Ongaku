@@ -6,6 +6,7 @@
 //
 
 import AppKit
+import OngakuEngine
 import SwiftUI
 
 @main
@@ -17,6 +18,8 @@ struct OngakuApp: App {
     NSWindow.allowsAutomaticWindowTabbing = false
     // Agents can connect as soon as the app is open, if Settings › Agents allows it.
     AgentServer.shared.applySettings()
+    // Songs find their library instruments through the libraries added in Settings.
+    SamplerInstrumentResolver.resolve = { try await SoundLibraries.shared.url(for: $0) }
   }
 
   var body: some Scene {

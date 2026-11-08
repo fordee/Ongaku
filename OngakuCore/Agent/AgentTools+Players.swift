@@ -121,7 +121,7 @@ extension AgentToolbox {
       track = existing
     } else {
       var new = Track(name: uniqueTrackName(instrument == .bass ? "Bass Player" : "Keyboard Player", in: project), kind: .softwareInstrument)
-      new.channel.instrument = try arguments.optionalString("sound").map { try AgentInstruments.resolve($0, audioUnits: session.installedAudioUnits, key: "sound") }
+      new.channel.instrument = try arguments.optionalString("sound").map { try AgentInstruments.resolve($0, audioUnits: session.installedAudioUnits, libraries: session.soundLibraries, key: "sound") }
         ?? (instrument == .bass ? .generalMIDI(program: 33) : .generalMIDI(program: 4))
       commands.append(AddTrack(new))
       track = new

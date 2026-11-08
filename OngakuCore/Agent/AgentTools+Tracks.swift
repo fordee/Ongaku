@@ -11,7 +11,7 @@ extension AgentToolbox {
 
   private static let trackSettings: [String: AgentValue] = [
     "name": Schema.string("The track's name."),
-    "instrument": Schema.string("For instrument tracks: a sound from list_instruments, such as \"gm:33\", \"Fingered Bass\", \"drums\", \"TR-808 Kit\" or \"Retro Synth\"."),
+    "instrument": Schema.string("For instrument tracks: a sound from list_instruments, such as \"gm:33\", \"Fingered Bass\", \"drums\", \"TR-808 Kit\", \"Retro Synth\", or a library instrument's \"sound\"."),
     "color": Schema.choice(TrackColor.allCases.map(\.rawValue), "The track's colour."),
     "volumeDb": Schema.number("Fader level in dB, from -96 to +6 (0 is unity)."),
     "pan": Schema.number("-1 is hard left, 0 centre, 1 hard right."),
@@ -89,7 +89,7 @@ extension AgentToolbox {
       guard track.kind == .softwareInstrument else {
         throw AgentError.invalidArgument("instrument", "only instrument tracks have an instrument.")
       }
-      track.channel.instrument = try AgentInstruments.resolve(instrument, audioUnits: session.installedAudioUnits)
+      track.channel.instrument = try AgentInstruments.resolve(instrument, audioUnits: session.installedAudioUnits, libraries: session.soundLibraries)
     }
     if let color = try arguments.optionalChoice("color", TrackColor.self) { track.color = color }
     if let volume = try arguments.optionalDouble("volumeDb") {

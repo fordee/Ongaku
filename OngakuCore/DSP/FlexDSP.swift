@@ -8,10 +8,18 @@ import Foundation
 
 /// Renders flexed audio: the source (each channel's samples, from the region's start)
 /// played through a `FlexMap`, `duration` seconds long. In Flex Pitch mode, `pitchEdits`
-/// retune notes first.
+/// retune notes first. A `transpose` shifts the pitch of the whole result, keeping its timing.
 public enum FlexRenderer {
   public static func render(
-    _ channels: [[Float]], map: FlexMap, mode: FlexMode, pitchEdits: [PitchEdit] = [], sampleRate: Double
+    _ channels: [[Float]], map: FlexMap, mode: FlexMode, pitchEdits: [PitchEdit] = [], transpose: Int = 0, sampleRate: Double
+  ) -> [[Float]] {
+    let rendered = renderFlex(channels, map: map, mode: mode, pitchEdits: pitchEdits, sampleRate: sampleRate)
+    guard transpose != 0 else { return rendered }
+    return PitchShifter.shift(rendered, ratio: pow(2, Double(transpose) / 12), sampleRate: sampleRate) ?? rendered
+  }
+
+  private static func renderFlex(
+    _ channels: [[Float]], map: FlexMap, mode: FlexMode, pitchEdits: [PitchEdit], sampleRate: Double
   ) -> [[Float]] {
     let frameCount = Int((map.duration * sampleRate).rounded())
     guard frameCount > 0, !channels.isEmpty else { return channels.map { _ in [] } }

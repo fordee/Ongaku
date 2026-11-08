@@ -89,10 +89,12 @@ extension Project {
     public var markers: [FlexMarker]
     public var mode: FlexMode
     public var pitchEdits: [PitchEdit]
+    /// Semitones the whole region is transposed (loops following the song's key).
+    public var transpose: Int
 
     public init(
       fileID: AudioFileReference.ID, fileStartFrame: Int64, frameCount: Int64, markers: [FlexMarker], mode: FlexMode,
-      pitchEdits: [PitchEdit] = [], sourceFrameCount: Int64? = nil
+      pitchEdits: [PitchEdit] = [], sourceFrameCount: Int64? = nil, transpose: Int = 0
     ) {
       self.fileID = fileID
       self.fileStartFrame = fileStartFrame
@@ -101,24 +103,27 @@ extension Project {
       self.markers = markers
       self.mode = mode
       self.pitchEdits = pitchEdits
+      self.transpose = transpose
     }
   }
 
   /// What a flexed audio region needs rendered, or `nil` if it plays as recorded (Flex is off
-  /// on its track, or it has no markers, retuned notes or stretch).
+  /// on its track, or it has no markers, retuned notes, stretch or transposition).
   public func flexRenderKey(for region: Region, on track: Track) -> FlexRenderKey? {
     guard case .audio(let audio) = region.content, let file = audioFile(withID: audio.fileID) else { return nil }
     let isStretched = abs(audio.stretch - 1) > 0.0001
-    // A stretched region is rendered even with Flex off (Rhythmic, as Smart Tempo does).
-    guard let mode = track.flexMode ?? (isStretched ? .rhythmic : nil) else { return nil }
+    let isTransposed = region.transpose != 0
+    // A stretched or transposed region is rendered even with Flex off (Rhythmic, as Smart
+    // Tempo does).
+    guard let mode = track.flexMode ?? (isStretched || isTransposed ? .rhythmic : nil) else { return nil }
     let pitchEdits = mode == .pitch ? audio.pitchEdits.filter { abs($0.semitones) > 0.001 } : []
     let markers = track.flexMode == nil ? [] : audio.flexMarkers
-    guard !markers.isEmpty || !pitchEdits.isEmpty || isStretched else { return nil }
+    guard !markers.isEmpty || !pitchEdits.isEmpty || isStretched || isTransposed else { return nil }
     let seconds = duration(of: region)
     return FlexRenderKey(
       fileID: audio.fileID, fileStartFrame: audio.fileStartFrame, frameCount: Int64((seconds * file.sampleRate).rounded()),
       markers: markers, mode: mode, pitchEdits: pitchEdits,
-      sourceFrameCount: Int64((seconds * audio.stretch * file.sampleRate).rounded()))
+      sourceFrameCount: Int64((seconds * audio.stretch * file.sampleRate).rounded()), transpose: region.transpose)
   }
 
   /// The project as playback hears it with Flex: each flexed region plays its rendered file

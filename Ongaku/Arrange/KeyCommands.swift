@@ -150,6 +150,7 @@ extension ProjectWindowModel {
       case "x": toggleMixer()
       case "r": toggleRecording()
       case "y": toggleLibrary()
+      case "o": toggleLoopBrowser()
       case "a": toggleAutomation()
       case "i": toggleInspector()
       case "t": showToolMenu()

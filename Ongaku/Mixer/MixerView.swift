@@ -430,6 +430,8 @@ private struct InsertSlot: View {
   let inserts: [PluginReference]
   let plugin: PluginReference
 
+  @State private var isChoosingImpulseResponse = false
+
   var body: some View {
     Menu {
       menuItems
@@ -442,6 +444,9 @@ private struct InsertSlot: View {
     .buttonStyle(.plain)
     .menuIndicator(.hidden)
     .contextMenu { menuItems }
+    .sheet(isPresented: $isChoosingImpulseResponse) {
+      ImpulseResponsePicker(model: model, pluginID: plugin.id, channelID: channelID)
+    }
     .help("Click to open; hold for more")
     .accessibilityLabel("Insert \(plugin.name)\(plugin.isBypassed ? ", bypassed" : "")")
     .accessibilityIdentifier("insert-slot")
@@ -450,6 +455,10 @@ private struct InsertSlot: View {
   @ViewBuilder private var menuItems: some View {
     let index = inserts.firstIndex { $0.id == plugin.id } ?? 0
     Button("Show Plug-in Window…") { model.showInsertWindow(plugin.id, on: channelID) }
+    if OngakuEffect(plugin) == .convolutionReverb {
+      // The sound libraries' impulse responses, which the reverb's own window can't see.
+      Button("Impulse Response from Library…") { isChoosingImpulseResponse = true }
+    }
     Toggle("Bypass", isOn: Binding(
       get: { plugin.isBypassed },
       set: { model.perform(SetInsertBypassed(plugin.id, in: channelID, isBypassed: $0)) }))

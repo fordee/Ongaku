@@ -204,6 +204,12 @@ struct ProjectWindow: View {
           PanelSeparator()
         }
         EditingArea(model: model)
+        if model.isLoopBrowserVisible {
+          PanelSeparator()
+          LoopBrowserView(model: model)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("loop-browser")
+        }
       }
     }
     .background(Theme.window)

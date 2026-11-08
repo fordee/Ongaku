@@ -20,6 +20,8 @@ final class InstrumentChannel {
   private(set) var instrument: AVAudioUnit?
   private(set) var source: InstrumentSource?
   private(set) var scheduleMIDIEvent: AUScheduleMIDIEventBlock?
+  /// The library file the sampler last loaded, to load again after the engine restarts.
+  private var loadedSamplerFile: (url: URL, preset: SoundBankPreset?)?
   private var observerToken: Int?
   private unowned let engine: AVAudioEngine
   private unowned let destination: AVAudioMixerNode
@@ -33,8 +35,10 @@ final class InstrumentChannel {
 
   /// Whether loading `source` needs to wait for a plug-in to start up.
   static func loadsAsynchronously(_ source: InstrumentSource?) -> Bool {
-    if case .audioUnit = source { return true }
-    return false
+    switch source {
+    case .audioUnit, .sampler: true
+    default: false
+    }
   }
 
   /// Loads a built-in instrument (or none), replacing the current one. This is quick, so it
@@ -44,10 +48,11 @@ final class InstrumentChannel {
     guard !Self.isSameInstrument(newSource, source) || (instrument == nil && newSource != nil) else { return }
     source = newSource
 
+    loadedSamplerFile = nil
     switch newSource {
     case .generalMIDI, .generalMIDIPercussion:
       try loadSoundBank(newSource, into: reuseOrCreateSampler(format: format))
-    case nil, .audioUnit:
+    case nil, .audioUnit, .sampler:
       removeInstrument()
     }
   }
@@ -57,7 +62,27 @@ final class InstrumentChannel {
   /// tone, so call this after every restart.
   func reloadSoundBank() throws {
     guard let sampler = instrument as? AVAudioUnitSampler else { return }
+    if let file = loadedSamplerFile {
+      // Library instruments can be large: load them again off the main thread.
+      let unit = sampler
+      Task.detached { try? Self.loadFile(file.url, preset: file.preset, into: unit) }
+      return
+    }
     try loadSoundBank(source, into: sampler)
+  }
+
+  /// Loads a library file into Apple's sampler: a SoundFont or DLS bank's preset, or a whole
+  /// EXS instrument or Audio Unit preset.
+  nonisolated private static func loadFile(_ url: URL, preset: SoundBankPreset?, into sampler: AVAudioUnitSampler) throws {
+    if let preset {
+      let bankMSB = preset.isPercussion ? kAUSampler_DefaultPercussionBankMSB : kAUSampler_DefaultMelodicBankMSB
+      // SoundFont kits are bank 128; the bank's low 7 bits select among melodic banks.
+      let bankLSB = preset.isPercussion ? 0 : preset.bank & 0x7F
+      try sampler.loadSoundBankInstrument(
+        at: url, program: UInt8(clamping: preset.program), bankMSB: UInt8(bankMSB), bankLSB: UInt8(clamping: bankLSB))
+    } else {
+      try sampler.loadInstrument(at: url)
+    }
   }
 
   private func loadSoundBank(_ source: InstrumentSource?, into sampler: AVAudioUnitSampler) throws {
@@ -70,7 +95,7 @@ final class InstrumentChannel {
       try sampler.loadSoundBankInstrument(
         at: Self.generalMIDIBankURL, program: UInt8(clamping: kit),
         bankMSB: UInt8(kAUSampler_DefaultPercussionBankMSB), bankLSB: UInt8(kAUSampler_DefaultBankLSB))
-    case nil, .audioUnit:
+    case nil, .audioUnit, .sampler:
       break
     }
   }
@@ -78,6 +103,10 @@ final class InstrumentChannel {
   /// Loads an Audio Unit instrument, replacing the current one. Plug-ins load out of
   /// process, so a misbehaving plug-in can't take the app down with it.
   func load(_ newSource: InstrumentSource, format: AVAudioFormat) async throws {
+    if case .sampler(let library) = newSource {
+      try await loadSampler(library, as: newSource, format: format)
+      return
+    }
     guard case .audioUnit(let plugin) = newSource else {
       try loadBuiltIn(newSource, format: format)
       return
@@ -97,6 +126,28 @@ final class InstrumentChannel {
       unit.withAUAudioUnit { $0.fullState = fullState }
     }
     try install(unit, format: format)
+  }
+
+  /// Loads a sound library's instrument into Apple's sampler. The file is found by
+  /// `SamplerInstrumentResolver` (the app knows where the libraries are), and read off the
+  /// main thread, as big instruments take a while.
+  private func loadSampler(_ library: SamplerInstrument, as newSource: InstrumentSource, format: AVAudioFormat) async throws {
+    guard !Self.isSameInstrument(newSource, source) || instrument == nil else { return }
+    source = newSource
+    loadedSamplerFile = nil
+    guard let resolve = SamplerInstrumentResolver.resolve else { throw EngineError.missingSamplerInstrument(library) }
+    let url = try await resolve(library)
+    guard Self.isSameInstrument(source, newSource) else { return }
+    let sampler = try reuseOrCreateSampler(format: format)
+    let unit = sampler
+    let preset = library.preset
+    do {
+      try await Task.detached { try Self.loadFile(url, preset: preset, into: unit) }.value
+    } catch {
+      throw EngineError.samplerInstrumentFailed(library, error)
+    }
+    guard Self.isSameInstrument(source, newSource) else { return }
+    loadedSamplerFile = (url, preset)
   }
 
   /// Whether two sources are the same instrument. A plug-in whose saved settings changed is
@@ -125,6 +176,15 @@ final class InstrumentChannel {
       return sampler
     }
     let sampler = AVAudioUnitSampler()
+    // The sampler plays big instruments (Logic's orchestral ones, say) from disk through a
+    // request queue of fixed size, and Core Audio aborts the app when that overflows: many
+    // voices at once did, even rendered at real-time speed. Loading the samples into memory
+    // avoids it. This can only be set before the sampler is initialized, and it lasts.
+    var streams: UInt32 = 0
+    let status = sampler.withAudioUnit { (unit: borrowing AudioUnit) in
+      AudioUnitSetProperty(unit, kMusicDeviceProperty_StreamFromDisk, kAudioUnitScope_Global, 0, &streams, UInt32(MemoryLayout<UInt32>.size))
+    }
+    if status != noErr { throw NSError(domain: NSOSStatusErrorDomain, code: Int(status)) }
     try install(sampler, format: format)
     return sampler
   }
@@ -222,10 +282,34 @@ final class InstrumentChannel {
 
 public enum EngineError: Error, LocalizedError {
   case notAnInstrument(String)
+  /// A library instrument whose library (or file in it) can't be found.
+  case missingSamplerInstrument(SamplerInstrument)
+  case samplerInstrumentFailed(SamplerInstrument, any Error)
 
   public var errorDescription: String? {
     switch self {
     case .notAnInstrument(let name): "\(name) isn’t an instrument."
+    case .missingSamplerInstrument(let instrument):
+      "“\(instrument.path)” isn’t in your libraries. Add the “\(instrument.libraryName)” library in Settings › Libraries."
+    case .samplerInstrumentFailed(_, let error):
+      switch (error as NSError).code {
+      // kAudioFileFileNotFoundError / fnfErr: samples the instrument needs weren't found.
+      case -43:
+        "Some of its samples weren’t found. Add the folder with its samples as a library in Settings › Libraries."
+      // kAudioUnitErr_FormatNotSupported.
+      case -10868:
+        "Apple’s sampler can’t read this instrument: it may use something only Logic’s Sampler supports."
+      default:
+        error.localizedDescription
+      }
     }
   }
+}
+
+/// Finds sound library instruments' files, for the engine to load. Set by the app, which
+/// knows where the libraries are; it may also make a copy of an instrument pointing at
+/// where its samples are now.
+@MainActor
+public enum SamplerInstrumentResolver {
+  public static var resolve: ((SamplerInstrument) async throws -> URL)?
 }

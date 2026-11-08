@@ -254,6 +254,12 @@ private struct RegionInspector: View {
         row("Smart Tempo") {
           SmartTempoControl(model: model, region: region, stretch: audio.stretch)
         }
+        // Audio is pitch-shifted, keeping its timing: loops follow the song's key this way.
+        row("Transpose") {
+          ValueStepper(value: region.transpose, range: -24...24, accessibilityName: "Transpose") {
+            set(.transpose($0))
+          }
+        }
         row("Gain") {
           ValueStepper(
             value: Int(audio.gain.rounded()), range: Int(RegionParameter.gainRange.lowerBound)...Int(RegionParameter.gainRange.upperBound),

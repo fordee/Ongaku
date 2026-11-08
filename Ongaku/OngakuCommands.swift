@@ -187,6 +187,9 @@ struct OngakuCommands: Commands {
       Button(window?.isLibraryVisible == true ? "Hide Library" : "Show Library") { singleKey { window?.toggleLibrary() } }
         .keyboardShortcut("y", modifiers: [])
         .disabled(window == nil)
+      Button(window?.isLoopBrowserVisible == true ? "Hide Loop Browser" : "Show Loop Browser") { singleKey { window?.toggleLoopBrowser() } }
+        .keyboardShortcut("o", modifiers: [])
+        .disabled(window == nil)
       Button(window?.isInspectorVisible == true ? "Hide Inspector" : "Show Inspector") { singleKey { window?.toggleInspector() } }
         .keyboardShortcut("i", modifiers: [])
         .disabled(window == nil)

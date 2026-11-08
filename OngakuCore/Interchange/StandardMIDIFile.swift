@@ -309,6 +309,10 @@ public enum StandardMIDIFile {
           events.append((0, [0xC0 | UInt8(channel), UInt8(clamping: program)]))
         case .generalMIDIPercussion(let kit):
           events.append((0, [0xC0 | UInt8(channel), UInt8(clamping: kit)]))
+        case .sampler(let instrument):
+          if let preset = instrument.preset {
+            events.append((0, [0xC0 | UInt8(channel), UInt8(clamping: preset.program)]))
+          }
         case .audioUnit, nil:
           break
         }

@@ -392,7 +392,8 @@ public struct GlueRegions: EditCommand {
 /// A setting from Logic's Region Inspector.
 public enum RegionParameter: Sendable, Equatable {
   case looped(Bool)
-  /// MIDI regions only.
+  /// MIDI regions play their notes transposed; audio regions are pitch-shifted (rendered,
+  /// as Flex is).
   case transpose(Int)
   /// MIDI regions only.
   case velocityOffset(Int)
@@ -450,7 +451,7 @@ public struct SetRegionParameter: EditCommand {
         // The Loop switch loops to the next region, as in Logic's Region Inspector.
         region.isLooped = isLooped
         region.loopedLength = nil
-      case (.transpose(let value), .midi):
+      case (.transpose(let value), _):
         region.transpose = value
       case (.velocityOffset(let value), .midi):
         region.velocityOffset = value

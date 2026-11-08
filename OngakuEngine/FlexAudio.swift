@@ -26,7 +26,8 @@ public enum FlexAudio {
     let duration = Double(key.frameCount) / format.sampleRate
     let sourceDuration = Double(key.sourceFrameCount) / format.sampleRate
     let map = FlexMap(markers: key.markers, duration: duration, sourceDuration: sourceDuration)
-    let rendered = FlexRenderer.render(channels, map: map, mode: key.mode, pitchEdits: key.pitchEdits, sampleRate: format.sampleRate)
+    let rendered = FlexRenderer.render(
+      channels, map: map, mode: key.mode, pitchEdits: key.pitchEdits, transpose: key.transpose, sampleRate: format.sampleRate)
     try write(rendered, sampleRate: format.sampleRate, to: destination)
     return AudioFileReference(
       fileName: destination.lastPathComponent, sampleRate: format.sampleRate, channelCount: rendered.count,

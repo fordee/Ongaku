@@ -367,6 +367,9 @@ public enum InstrumentSource: Codable, Sendable, Equatable {
   case generalMIDIPercussion(kit: Int)
   /// A third-party or Apple Audio Unit instrument.
   case audioUnit(PluginReference)
+  /// Apple's sampler playing an instrument from a sound library (EXS, SoundFont, DLS or an
+  /// Audio Unit preset).
+  case sampler(SamplerInstrument)
 
   public static let defaultSampler = InstrumentSource.generalMIDI(program: 0)
 
@@ -376,6 +379,7 @@ public enum InstrumentSource: Codable, Sendable, Equatable {
     case .generalMIDI(let program): GeneralMIDI.programName(program)
     case .generalMIDIPercussion(let kit): GeneralMIDI.drumKitName(kit)
     case .audioUnit(let plugin): plugin.name
+    case .sampler(let instrument): instrument.name
     }
   }
 }

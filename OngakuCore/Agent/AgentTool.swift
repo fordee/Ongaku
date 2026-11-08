@@ -24,7 +24,8 @@ public protocol AgentSession: AnyObject {
   /// Undoes the last change, returning its name, or `nil` when there's nothing to undo.
   func undo() -> String?
   func redo() -> String?
-  func save() throws
+  /// Saves the song (one that's never been saved can't be: the person chooses where).
+  func save() async throws
   /// The Audio Unit instruments installed on this Mac.
   var installedAudioUnits: [AgentAudioUnit] { get }
   /// Third-party Audio Unit effects installed on this Mac (Ongaku's and Apple's are always
@@ -55,6 +56,16 @@ public protocol AgentSession: AnyObject {
   /// Analyze Whole Song with Ongaku Mastering on Stereo Out (added if it isn't there), as one
   /// undo step; `nil` if there was too little music to go on.
   func masterSong() async throws -> MasteringAnalysis.Result?
+
+  // MARK: Sound libraries
+
+  /// The sound libraries the person added in Settings (none by default).
+  var soundLibraries: [AgentSoundLibrary] { get }
+  /// Adds a loop or sample from a library at `position`, as dragging it from the Loop
+  /// Browser does, on `trackID` or a new track.
+  func addLibrarySound(_ sound: AgentLibrarySound, at position: Tick, onTrack trackID: Track.ID?) async throws -> AgentLibraryPlacement
+  /// Gives a Convolution Reverb a library impulse response, as one undo step.
+  func setImpulseResponse(_ sound: AgentLibrarySound, forPlugin pluginID: PluginReference.ID, on channelID: Track.ID) throws
 }
 
 /// One of a plug-in's parameters, in its own units.

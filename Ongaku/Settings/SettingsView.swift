@@ -285,6 +285,9 @@ struct SettingsView: View {
       Tab("Automation", systemImage: "point.topleft.down.to.point.bottomright.curvepath") {
         AutomationSettingsView()
       }
+      Tab("Libraries", systemImage: "music.note.list") {
+        LibrariesSettingsView()
+      }
       Tab("Agents", systemImage: "sparkles") {
         AgentSettingsView()
       }
@@ -634,6 +637,118 @@ private struct AutomationSettingsView: View {
       }
     }
     .settingsPane()
+  }
+}
+
+// MARK: - Libraries
+
+/// Sound library folders: loops and samples for the Loop Browser, and sampler instruments.
+private struct LibrariesSettingsView: View {
+  private let libraries = SoundLibraries.shared
+
+  var body: some View {
+    Form {
+      Section {
+        BuiltInSoundsRow()
+      } header: {
+        Text("Built-in Sounds")
+      }
+      Section {
+        if libraries.libraries.isEmpty {
+          Text("None yet. Ongaku Studio doesn’t come with loops or samples: add a library to use them.")
+            .foregroundStyle(.secondary)
+        }
+        ForEach(libraries.libraries) { library in
+          LibraryLocationRow(library: library)
+        }
+        HStack {
+          Spacer()
+          Button("Add Library…") { SoundLibraries.chooseFolders() }
+        }
+      } header: {
+        Text("Additional Libraries")
+      } footer: {
+        Text("Add any folder of sounds — Logic Pro’s or GarageBand’s sound library, a sample pack, a SoundFont collection. Ongaku Studio indexes the loops, samples and sampler instruments in it and keeps the index up to date as files change. Files stay where they are; the ones you use are copied into your song.")
+          .foregroundStyle(.secondary)
+      }
+    }
+    .settingsPane()
+  }
+}
+
+/// What comes with Ongaku Studio: always there, so it can't be removed or rescanned.
+private struct BuiltInSoundsRow: View {
+  var body: some View {
+    let programs = GeneralMIDI.families.reduce(0) { $0 + $1.programs.count }
+    HStack(alignment: .top, spacing: 10) {
+      Image(systemName: "shippingbox.fill")
+        .foregroundStyle(Theme.accent)
+        .font(.title2)
+      VStack(alignment: .leading, spacing: 2) {
+        Text("Ongaku Studio").fontWeight(.medium)
+        Text("\(InstrumentLibrary.ongakuInstruments().count) Ongaku instruments · \(programs) General MIDI sounds · \(GeneralMIDI.drumKits.count) drum kits")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+        Text("In the Library (Y) for every instrument track, with the Audio Unit instruments installed on this Mac.")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      }
+      Spacer()
+    }
+    .accessibilityElement(children: .combine)
+  }
+}
+
+private struct LibraryLocationRow: View {
+  let library: SoundLibraries.Library
+
+  var body: some View {
+    HStack(alignment: .top, spacing: 10) {
+      Image(systemName: "folder.fill")
+        .foregroundStyle(Theme.accent)
+        .font(.title2)
+      VStack(alignment: .leading, spacing: 2) {
+        Text(library.name).fontWeight(.medium)
+        Text(library.location.path)
+          .font(.caption)
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+          .truncationMode(.middle)
+        Text(summary)
+          .font(.caption)
+          .foregroundStyle(isProblem ? Theme.record : .secondary)
+          .accessibilityIdentifier("library-status")
+      }
+      Spacer()
+      Button("Rescan") { SoundLibraries.shared.rescan(library.id) }
+        .disabled(isScanning)
+      Button("Remove") { SoundLibraries.shared.remove(library.id) }
+    }
+    .accessibilityElement(children: .contain)
+  }
+
+  private var isScanning: Bool {
+    if case .scanning = library.status { true } else { false }
+  }
+
+  private var isProblem: Bool {
+    if case .unavailable = library.status { true } else { false }
+  }
+
+  private var summary: String {
+    switch library.status {
+    case .unavailable(let message): return message
+    case .scanning(let done): return "Indexing… \(done.formatted()) files"
+    case .ready:
+      let parts = [
+        (library.count(of: .loop), "loop", "loops"), (library.count(of: .oneShot), "sample", "samples"),
+        (library.count(of: .instrument), "instrument", "instruments"),
+        (library.count(of: .impulseResponse), "impulse response", "impulse responses"),
+      ]
+      .filter { $0.0 > 0 }
+      .map { "\($0.0.formatted()) \($0.0 == 1 ? $0.1 : $0.2)" }
+      return parts.isEmpty ? "No sounds found" : parts.joined(separator: " · ")
+    }
   }
 }
 

@@ -50,25 +50,25 @@ struct LibraryView: View {
       TextField("Search", text: $query)
         .textFieldStyle(.roundedBorder)
         .padding(8)
-      // A lazy stack rather than an outline List: opening the current sound's category as the
-      // view appears made the outline list crash inside SwiftUI.
+      // A lazy stack of the open folders' rows rather than an outline List: opening the
+      // current sound's category as the view appears made the outline list crash inside
+      // SwiftUI.
       ScrollView {
         LazyVStack(alignment: .leading, spacing: 0) {
-          ForEach(categories) { category in
-            let isOpen = isSearching || expanded.contains(category.id)
-            CategoryHeader(name: category.name, isOpen: isOpen) {
-              if expanded.contains(category.id) {
-                expanded.remove(category.id)
-              } else {
-                expanded.insert(category.id)
-              }
-            }
-            .disabled(isSearching)
-            if isOpen {
-              ForEach(category.items) { item in
-                LibraryRow(item: item, isLoaded: item.isLoaded(on: track.channel.instrument)) {
-                  model.setInstrument(item.makeSource(), for: track.id)
+          ForEach(rows(categories, isSearching: isSearching)) { row in
+            switch row.kind {
+            case .folder(let category, let isOpen):
+              CategoryHeader(name: category.name, depth: row.depth, isOpen: isOpen) {
+                if expanded.contains(category.id) {
+                  expanded.remove(category.id)
+                } else {
+                  expanded.insert(category.id)
                 }
+              }
+              .disabled(isSearching)
+            case .sound(let item):
+              LibraryRow(item: item, depth: row.depth, isLoaded: item.isLoaded(on: track.channel.instrument)) {
+                model.setInstrument(item.makeSource(), for: track.id)
               }
             }
           }
@@ -82,22 +82,45 @@ struct LibraryView: View {
       }
     }
     .onAppear {
-      if let current = catalog.category(containing: track.channel.instrument) {
-        expanded.insert(current)
-      }
+      expanded.formUnion(catalog.categoryPath(containing: track.channel.instrument))
     }
     .onChange(of: track.id) {
-      if let current = catalog.category(containing: model.selectedTrack?.channel.instrument) {
-        expanded.insert(current)
-      }
+      expanded.formUnion(catalog.categoryPath(containing: model.selectedTrack?.channel.instrument))
     }
   }
 
+  /// A row of the list: a folder's name, or a sound.
+  fileprivate struct Row: Identifiable {
+    enum Kind {
+      case folder(LibraryCatalog.Category, isOpen: Bool)
+      case sound(LibraryCatalog.Item)
+    }
+
+    var id: String
+    var depth: Int
+    var kind: Kind
+  }
+
+  /// The rows to show: every folder at the top, and inside each open one (all of them while
+  /// searching) its folders, then its sounds.
+  private func rows(_ categories: [LibraryCatalog.Category], isSearching: Bool) -> [Row] {
+    var rows: [Row] = []
+    func add(_ category: LibraryCatalog.Category, depth: Int) {
+      let isOpen = isSearching || expanded.contains(category.id)
+      rows.append(Row(id: "folder-\(category.id)", depth: depth, kind: .folder(category, isOpen: isOpen)))
+      guard isOpen else { return }
+      for child in category.children { add(child, depth: depth + 1) }
+      rows += category.items.map { Row(id: "sound-\($0.id)", depth: depth + 1, kind: .sound($0)) }
+    }
+    for category in categories { add(category, depth: 0) }
+    return rows
+  }
 }
 
 /// A category's name with a disclosure chevron. Search results are always open.
 private struct CategoryHeader: View {
   let name: String
+  var depth = 0
   let isOpen: Bool
   let toggle: () -> Void
 
@@ -111,10 +134,11 @@ private struct CategoryHeader: View {
           .foregroundStyle(Theme.tertiaryText)
           .rotationEffect(.degrees(isOpen ? 90 : 0))
           .frame(width: 12)
-        Text(name).fontWeight(.medium)
+        Text(name).fontWeight(.medium).lineLimit(1)
         Spacer()
       }
-      .padding(.horizontal, 10)
+      .padding(.leading, 10 + CGFloat(depth) * 14)
+      .padding(.trailing, 10)
       .padding(.vertical, 5)
       .contentShape(.rect)
     }
@@ -125,6 +149,7 @@ private struct CategoryHeader: View {
 
 private struct LibraryRow: View {
   let item: LibraryCatalog.Item
+  var depth = 1
   let isLoaded: Bool
   let choose: () -> Void
 
@@ -139,7 +164,7 @@ private struct LibraryRow: View {
           Image(systemName: "checkmark").foregroundStyle(Theme.accent)
         }
       }
-      .padding(.leading, 28)
+      .padding(.leading, 14 + CGFloat(depth) * 14)
       .padding(.trailing, 10)
       .padding(.vertical, 4)
       .background(isLoaded ? Theme.accent.opacity(0.28) : .clear)
@@ -155,4 +180,26 @@ private struct LibraryRow: View {
   keys.channel.instrument = .generalMIDI(program: 4)
   let model = ProjectWindowModel(document: OngakuDocument(project: Project(tracks: [keys])))
   return LibraryView(model: model).frame(height: 600)
+}
+
+#Preview("With a Sound Library") {
+  let bank = [
+    SoundBankPreset(name: "Bright Grand", program: 0, bank: 0, isPercussion: false),
+    SoundBankPreset(name: "Tine Electric", program: 4, bank: 0, isPercussion: false),
+    SoundBankPreset(name: "Vintage Kit", program: 0, bank: 128, isPercussion: true),
+  ]
+  SoundLibraries.shared = SoundLibraries(previewItems: [
+    "Studio Sounds": [
+      SoundLibraryItem(path: "Keys/Velvet Rhodes.exs", kind: .instrument, category: .keys),
+      SoundLibraryItem(path: "Keys/Vintage/Wurly 200.exs", kind: .instrument, category: .keys),
+      SoundLibraryItem(path: "Keys/Vintage/Clavinet D6.exs", kind: .instrument, category: .keys),
+      SoundLibraryItem(path: "Strings/Chamber Strings.exs", kind: .instrument, category: .strings),
+      SoundLibraryItem(path: "Banks/Studio Bank.sf2", kind: .instrument, presets: bank),
+    ],
+  ])
+  var keys = Track(name: "Keys", kind: .softwareInstrument)
+  keys.channel.instrument = .sampler(SamplerInstrument(libraryID: nil, libraryName: "Studio Sounds", path: "Keys/Velvet Rhodes.exs"))
+  let model = ProjectWindowModel(document: OngakuDocument(project: Project(tracks: [keys])))
+  model.selectedTrackID = keys.id
+  return LibraryView(model: model).frame(height: 700)
 }

@@ -112,12 +112,25 @@ extension AgentToolbox {
     name: "list_instruments", title: "List Instruments",
     description: """
       The sounds a track can play: the 128 General MIDI instruments (by family), the drum \
-      kits, Ongaku's own instruments, and the Audio Unit instruments installed on this Mac. \
-      Use a name or code from here as the "instrument" of create_track or update_track.
+      kits, Ongaku's own instruments, the Audio Unit instruments installed on this Mac, and \
+      the sampled instruments in the person's sound libraries (Settings › Libraries), which \
+      are often the best-sounding. Libraries can hold thousands, so search them: \
+      search "piano" or "strings". Use a name, code or library "sound" from here as the \
+      "instrument" of create_track or update_track.
       """,
-    properties: ["family": Schema.string("Only this General MIDI family, such as \"Bass\", \"Synth Lead\" or \"Strings\".")],
+    properties: [
+      "family": Schema.string("Only this General MIDI family, such as \"Bass\", \"Synth Lead\" or \"Strings\"."),
+      "search": Schema.string("Words to find in the sound libraries' instruments (names and folders), such as \"grand piano\"."),
+      "library": Schema.string("Only this sound library's instruments."),
+      "limit": Schema.integer("How many library instruments to return, up to 100 (25 if left out)."),
+    ],
     isReadOnly: true
   ) { arguments, session in
+    if arguments.has("search") || arguments.has("library") {
+      let libraries = try AgentLibrary.libraries(try arguments.optionalString("library"), in: session)
+      let found = AgentLibrary.instruments(matching: try arguments.optionalString("search"), in: libraries)
+      return AgentLibrary.results(found, limit: try AgentLibrary.limit(arguments), key: "libraryInstruments")
+    }
     let family = try arguments.optionalString("family").map(AgentNames.simplified)
     let families = GeneralMIDI.families.filter { family == nil || AgentNames.simplified($0.name) == family }
     if let family, families.isEmpty {
@@ -136,6 +149,14 @@ extension AgentToolbox {
         "Sampler: plays a sample across the keyboard",
       ]
       list["audioUnits"] = .array(session.installedAudioUnits.map { .string("\($0.manufacturer): \($0.name)") })
+      let libraries = session.soundLibraries
+      if !libraries.isEmpty {
+        list["soundLibraries"] = .array(libraries.map { library in
+          let count = AgentLibrary.instruments(matching: nil, in: [library]).count
+          return ["name": .string(library.name), "instruments": .int(count)]
+        })
+        list["libraryNote"] = "Pass search (and optionally library) to list the sound libraries' instruments."
+      }
       list["note"] = "General MIDI sounds load instantly and suit sketches; drum kits play General MIDI drum notes (kick 36, snare 38, closed hat 42)."
     }
     return .object(list)
@@ -204,9 +225,10 @@ extension AgentToolbox {
   }
 
   static let save = AgentTool(
-    name: "save", title: "Save", description: "Saves the song, as File › Save does."
+    name: "save", title: "Save",
+    description: "Saves the song, as File › Save does. A song that's never been saved can't be: ask the person to choose File › Save first, as only they can pick where it goes."
   ) { _, session in
-    try session.save()
+    try await session.save()
     return ["saved": .string(session.songName)]
   }
 }

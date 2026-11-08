@@ -116,10 +116,14 @@ struct RegionParameterTests {
         Track(name: "Audio", kind: .audio, regions: [audio]),
       ], audioFiles: [file])
     try SetRegionParameter(.transpose(12), for: [midi.id, audio.id]).apply(to: &project)
+    try SetRegionParameter(.velocityOffset(10), for: [midi.id, audio.id]).apply(to: &project)
     try SetRegionParameter(.gain(-3), for: [midi.id, audio.id]).apply(to: &project)
     try SetRegionParameter(.looped(true), for: [midi.id, audio.id]).apply(to: &project)
     #expect(project.region(withID: midi.id)?.transpose == 12)
-    #expect(project.region(withID: audio.id)?.transpose == 0)
+    // Both kinds transpose (audio by pitch-shifting); velocity is for MIDI only.
+    #expect(project.region(withID: audio.id)?.transpose == 12)
+    #expect(project.region(withID: midi.id)?.velocityOffset == 10)
+    #expect(project.region(withID: audio.id)?.velocityOffset == 0)
     #expect(project.region(withID: audio.id)?.content == .audio(AudioRegionContent(fileID: file.id, gain: -3)))
     #expect(project.region(withID: midi.id)?.isLooped == true)
     #expect(project.region(withID: audio.id)?.isLooped == true)

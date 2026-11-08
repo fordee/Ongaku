@@ -26,8 +26,9 @@ public struct Project: Codable, Sendable, Equatable {
   /// version 20 added Drummer regions; version 21 added the Chord track and session player
   /// regions; version 22 added plug-ins on Stereo Out (an older build would drop them) and
   /// input monitoring; version 23 saves whether the metronome is on; version 24 added key
-  /// changes.
-  public static let currentFormatVersion = 24
+  /// changes; version 25 added sampler instruments from sound libraries and transposed audio
+  /// regions (an older build would play those regions untransposed).
+  public static let currentFormatVersion = 25
 
   public var formatVersion: Int
   public var sampleRate: Double

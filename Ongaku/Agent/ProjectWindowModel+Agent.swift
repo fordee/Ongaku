@@ -52,16 +52,60 @@ extension ProjectWindowModel: AgentSession {
     return name
   }
 
-  /// Saves as File › Save does (a song that's never been saved asks where, in its window).
-  func save() throws {
+  /// Saves as File › Save does, waiting for the save without holding up the main thread.
+  ///
+  /// A song that's never been saved isn't saved here: only the person can choose where it
+  /// goes, and opening the Save panel from an agent's call ran it modally on the main thread,
+  /// where the document's own saving then waited on it forever.
+  func save() async throws {
     guard let document = hostWindow?.windowController?.document as? NSDocument else {
       throw AgentError.notPossible("This song can't be saved from here; ask the person to choose File › Save.")
     }
-    document.save(nil)
+    guard let url = document.fileURL, let type = document.fileType else {
+      throw AgentError.notPossible(
+        "This song hasn't been saved yet, so it has no place on disk. Ask the person to choose File › Save and pick where it goes; after that you can save it.")
+    }
+    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+      document.save(to: url, ofType: type, for: .saveOperation) { error in
+        if let error { continuation.resume(throwing: error) } else { continuation.resume() }
+      }
+    }
   }
 
   var installedAudioUnits: [AgentAudioUnit] {
     audioUnitInstruments.map { AgentAudioUnit(name: $0.name, manufacturer: $0.manufacturer, reference: $0.makeReference()) }
+  }
+
+  // MARK: - Sound libraries
+
+  var soundLibraries: [AgentSoundLibrary] {
+    soundLibraryStore.libraries.map { AgentSoundLibrary(id: $0.id, name: $0.name, items: $0.items, searchTexts: $0.searchTexts) }
+  }
+
+  /// Adds a library loop or sample as dropping it from the Loop Browser does, so it follows
+  /// the song's tempo and key the same way.
+  func addLibrarySound(_ sound: AgentLibrarySound, at position: Tick, onTrack trackID: Track.ID?) async throws -> AgentLibraryPlacement {
+    guard let url = soundLibraryStore.library(withID: sound.libraryID)?.url(for: sound.item) else {
+      throw AgentError.notFound("The “\(sound.libraryName)” library can't be found right now.")
+    }
+    let before = Set(project.tracks.flatMap(\.regions).map(\.id))
+    errorMessage = nil
+    await importAudio([url], at: position, onTrack: trackID, actionName: "Agent: Add \(sound.name)")
+    if let message = errorMessage {
+      // Back to the agent rather than an alert in the window.
+      errorMessage = nil
+      throw AgentError.notPossible(message)
+    }
+    projectDidChange()
+    return AgentLibraryPlacement(regionIDs: project.tracks.flatMap(\.regions).map(\.id).filter { !before.contains($0) })
+  }
+
+  func setImpulseResponse(_ sound: AgentLibrarySound, forPlugin pluginID: PluginReference.ID, on channelID: Track.ID) throws {
+    guard let url = soundLibraryStore.library(withID: sound.libraryID)?.url(for: sound.item) else {
+      throw AgentError.notFound("The “\(sound.libraryName)” library can't be found right now.")
+    }
+    try useImpulseResponse(at: url, forInsert: pluginID, on: channelID)
+    projectDidChange()
   }
 
   var installedEffects: [AgentAudioUnit] {
