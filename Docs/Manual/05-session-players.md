@@ -113,9 +113,10 @@ Pick who's playing. Click a style card to switch. The line of text under the car
 | **Hip-Hop** | Laid back | Laid-back, swung sixteenths with off-beat kicks |
 | **Songwriter** | Gentle | Sparse and gentle, cross-stick when quiet |
 | **Electronic** | On the grid | Four on the floor, off-beat open hats, snare rolls |
-| **Purdie Shuffle** | Half-time triplets | Half-time triplet shuffle: hi-hat on each beat's first and last triplet, ghost notes between, the backbeat on 3 |
+| **Shuffle** | Half-time triplets | Half-time triplet shuffle: hi-hat on each beat's first and last triplet, ghost notes between, the backbeat on 3 |
+| **Art Pop** | Singing hi-hat | Art-pop and ECM jazz: a singing hi-hat that opens and closes, a crisp backbeat, kicks around the beat |
 
-Changing the style also resets **Swing** to that style's usual amount. Hip-Hop, Funk and Purdie Shuffle start with some swing; the others start straight.
+Changing the style also resets **Swing** to that style's usual amount. Hip-Hop, Funk, Shuffle and Art Pop start with some swing; the others start straight.
 
 ### Loud or Soft, Busy or Simple (the pad)
 
@@ -169,9 +170,9 @@ On the Ongaku Drum Machine, which has no ride cymbal, open hi-hats play instead 
 
 **Fills** sets how often and how long the drummer fills, from **None** through **A few** and **Some** to **Lots**. Fills come at the end of the region (if **Fill into the Next Section** is on) and now and then every four bars inside it. With lots of fills, some are longer.
 
-**Swing** pushes the off-beats late, toward a triplet feel, from **Straight** through **A little** and **Swung** to **Shuffle**. Funk and Hip-Hop swing their sixteenth notes; the other styles swing eighths.
+**Swing** pushes the off-beats late, toward a triplet feel, from **Straight** through **A little** and **Swung** to **Shuffle**. Funk, Hip-Hop and Art Pop swing their sixteenth notes; the other styles swing eighths.
 
-In the **Purdie Shuffle** style, the knob is called **Ghosts** instead. The triplets already are the swing, so this knob sets how loud the ghost notes on the snare are, from **Whisper** through **Soft** and **Present** to **Hard**.
+In the **Shuffle** style, the knob is called **Ghosts** instead. The triplets already are the swing, so this knob sets how loud the ghost notes on the snare are, from **Whisper** through **Soft** and **Present** to **Hard**.
 
 To use a knob, drag up or down on it. Double-click it, or ⌥-click it, to set it back to zero.
 

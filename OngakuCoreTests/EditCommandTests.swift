@@ -710,7 +710,7 @@ extension EditCommandTests {
   }
 }
 
-// MARK: - The Purdie shuffle
+// MARK: - The shuffle
 
 extension EditCommandTests {
   private func shuffle(_ signature: TimeSignature = .fourFour, feel: DrummerPerformance.Feel = .normal) -> [MIDINote] {
@@ -723,7 +723,7 @@ extension EditCommandTests {
     notes.first { $0.pitch == pitch && abs($0.start.rawValue - tick) <= 6 }
   }
 
-  @Test func thePurdieShufflePlaysOnTriplets() {
+  @Test func theShufflePlaysOnTriplets() {
     let bar = shuffle()
     // The hi-hat on each beat's first and last triplet, never the middle one.
     for beat in Int64(0)..<4 {
@@ -742,7 +742,7 @@ extension EditCommandTests {
     #expect(!bar.contains { [240, 720].contains($0.start.rawValue % 960) }, "Triplets, not sixteenths")
   }
 
-  @Test func thePurdieShuffleInDoubleTimeAndTwelveEight() {
+  @Test func theShuffleInDoubleTimeAndTwelveEight() {
     let doubled = shuffle(feel: .doubleTime)
     let accents = doubled.filter { $0.pitch == 38 && $0.velocity > 60 }.map { ($0.start.rawValue + 6) / 960 }.sorted()
     #expect(accents == [1, 3], "Double time puts the backbeat on 2 and 4")
@@ -769,6 +769,31 @@ extension EditCommandTests {
     #expect(whisper.ghosts < 25 && hard.ghosts > 50, "Whispered \(whisper.ghosts), hard \(hard.ghosts)")
     #expect(abs(whisper.backbeat - hard.backbeat) <= 6, "The backbeat stays as it was")
     #expect(DrummerPerformance(style: .shuffle).swing == 0.4, "A new shuffle starts with soft ghosts")
+  }
+}
+
+// MARK: - Art pop
+
+extension EditCommandTests {
+  @Test func artPopPlaysASingingHiHatAroundTheBeat() {
+    let part = DrummerPerformance(style: .artPop, complexity: 0.6, loudness: 0.55, fills: 0, seed: 5)
+    let notes = part.notes(from: .zero, length: Tick(3840 * 8), tempoMap: TempoMap())
+    let hats = notes.filter { $0.pitch == 42 }
+    #expect(hats.contains { ($0.start.rawValue + 20) % 480 >= 240 }, "Sixteenth hi-hats, not just eighths")
+    #expect(notes.contains { $0.pitch == 46 }, "The hi-hat opens now and then")
+    // Never an open and a closed hat at once.
+    func step(_ note: MIDINote) -> Int64 { (note.start.rawValue + 120) / 240 }
+    let open = Set(notes.filter { $0.pitch == 46 }.map(step))
+    #expect(!hats.contains { open.contains(step($0)) }, "The closed hat makes way")
+    // The backbeat on 2 and 4 of every bar; beat 3 left open for the kick to play around.
+    for bar in Int64(0)..<8 {
+      for beat: Int64 in [1, 3] {
+        #expect(notes.contains { $0.pitch == 38 && $0.velocity > 60 && abs($0.start.rawValue - (bar * 3840 + beat * 960)) <= 8 })
+      }
+    }
+    #expect(DrummerPerformance(style: .artPop).swing == 0.08)
+    let quiet = DrummerPerformance(style: .artPop, complexity: 0.4, loudness: 0.2, fills: 0, seed: 5)
+    #expect(quiet.notes(from: .zero, length: Tick(3840), tempoMap: TempoMap()).contains { $0.pitch == 37 }, "Cross-stick when quiet")
   }
 }
 

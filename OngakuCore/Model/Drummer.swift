@@ -14,7 +14,7 @@ import Foundation
 /// until a setting changes or a new take is asked for.
 public struct DrummerPerformance: Codable, Sendable, Equatable {
   public enum Style: String, Codable, Sendable, CaseIterable, Identifiable {
-    case rock, pop, funk, hipHop, songwriter, electronic, shuffle
+    case rock, pop, funk, hipHop, songwriter, electronic, shuffle, artPop
 
     public var id: Self { self }
 
@@ -26,7 +26,8 @@ public struct DrummerPerformance: Codable, Sendable, Equatable {
       case .hipHop: "Hip-Hop"
       case .songwriter: "Songwriter"
       case .electronic: "Electronic"
-      case .shuffle: "Purdie Shuffle"
+      case .shuffle: "Shuffle"
+      case .artPop: "Art Pop"
       }
     }
 
@@ -39,6 +40,7 @@ public struct DrummerPerformance: Codable, Sendable, Equatable {
       case .songwriter: "Sparse and gentle, cross-stick when quiet"
       case .electronic: "Four on the floor, off-beat open hats, snare rolls"
       case .shuffle: "Half-time triplet shuffle: hi-hat on each beat's first and last triplet, ghost notes between, the backbeat on 3"
+      case .artPop: "Art-pop and ECM jazz: a singing hi-hat that opens and closes, a crisp backbeat, kicks around the beat"
       }
     }
 
@@ -49,6 +51,7 @@ public struct DrummerPerformance: Codable, Sendable, Equatable {
       case .funk: 0.15
       // In the shuffle, "swing" is how hard the ghost notes are (see `ghostVelocity`).
       case .shuffle: 0.4
+      case .artPop: 0.08
       default: 0
       }
     }
@@ -174,7 +177,7 @@ public struct DrummerPerformance: Codable, Sendable, Equatable {
   /// General MIDI drum notes.
   enum Drum {
     static let kick = 36, sideStick = 37, snare = 38, clap = 39, closedHat = 42, lowTom = 45, openHat = 46, midTom = 47,
-      crash = 49, highTom = 50, ride = 51, cowbell = 56, shaker = 70
+      crash = 49, highTom = 50, ride = 51, splash = 55, cowbell = 56, shaker = 70
   }
 
   /// One group of beats the groove is built on: four sixteenths (a quarter note), or six
@@ -289,6 +292,8 @@ public struct DrummerPerformance: Codable, Sendable, Equatable {
     case .hipHop: ([0: 0, 3: 0.3, 2: 0.6], [3: 0.5, 2: 0.7], [2: 0.1, 1: 0.5, 3: 0.65, 0: 0.75])
     case .songwriter: ([0: 0, 2: 0.6], [2: 0.75], [0: 0.2, 2: 0.55, 3: 0.85])
     case .electronic: ([0: 0, 3: 0.85], [0: 0, 3: 0.7], [0: 0, 3: 0.8])
+    // Art pop leaves beat 3 open and plays around the beat: the "a" of 1 and of 2, the "and" of 3.
+    case .artPop: ([0: 0, 3: 0.5, 2: 0.85], [3: 0.35, 1: 0.8], [2: 0.2, 3: 0.6, 0: 0.9])
     // The shuffle has its own triplet rules (see `shuffleBar`).
     case .shuffle: ([0: 0], [:], [:])
     }
@@ -304,10 +309,11 @@ public struct DrummerPerformance: Codable, Sendable, Equatable {
     case .songwriter: 0.5
     case .electronic: 0.15
     case .shuffle: 1.2
+    case .artPop: 0.9
     }
   }
 
-  private var swingsSixteenths: Bool { style == .funk || style == .hipHop }
+  private var swingsSixteenths: Bool { style == .funk || style == .hipHop || style == .artPop }
 
   private var baseVelocity: Double { 45 + min(max(loudness, 0), 1) * 75 }
 
@@ -339,9 +345,15 @@ public struct DrummerPerformance: Codable, Sendable, Equatable {
     }
 
     if crash {
-      add(Drum.crash, 0, base + 10)
+      add(style == .artPop && loudness < 0.6 ? splash : Drum.crash, 0, base + 10)
       if playsKickAndSnare { add(Drum.kick, 0, base + 8) }
     }
+
+    // Where the art-pop groove opens the hi-hat this bar, as steps from the bar's start; the closed hat
+    // stays out of the way there.
+    let openHats = style == .artPop ? artPopOpenHats(pulses, backbeats: backbeats, fillStart: fillStart, random: &random) : []
+    // His accents move from bar to bar: on the beat, or on the "e" and "a" for a lilt.
+    let accentsOffBeats = style == .artPop && complexity > 0.5 && random.unit() < 0.4
 
     for (index, pulse) in pulses.enumerated() {
       let isFill = index >= fillStart
@@ -370,9 +382,13 @@ public struct DrummerPerformance: Codable, Sendable, Equatable {
           let snareSteps: [Int] =
             feel == .doubleTime ? [pulse.step + pulse.length / 2] : isBackbeat ? [pulse.step] : []
           for step in snareSteps {
-            let quiet = loudness < 0.35 && (style == .songwriter || style == .pop)
+            let quiet = (loudness < 0.35 && (style == .songwriter || style == .pop)) || (loudness < 0.4 && style == .artPop)
             add(quiet ? Drum.sideStick : Drum.snare, step, base + 8)
             if style == .electronic || (style == .hipHop && loudness > 0.55) { add(Drum.clap, step, base) }
+            // A flam: a soft grace note just ahead of the backbeat.
+            if style == .artPop, !quiet, complexity > 0.55, random.unit() < 0.35 {
+              hits.append(Hit(pitch: Drum.snare, position: position(step) - Tick(30), velocity: Int(base * 0.45)))
+            }
           }
           // Ghost notes on the in-between sixteenths.
           if complexity > 0.35 {
@@ -396,11 +412,18 @@ public struct DrummerPerformance: Codable, Sendable, Equatable {
         case .hipHop: steps = complexity > 0.6 ? sixteenths : eighths
         case .electronic: steps = complexity > 0.45 ? sixteenths.filter { $0 != 2 } : []
         case .shuffle: steps = eighths  // Not used: the shuffle has its own bar.
+        case .artPop: steps = complexity < 0.25 ? eighths : sixteenths
         }
         if isCompound || pulse.length >= 6 { steps = complexity > 0.7 ? sixteenths : eighths }
-        if feel == .halfTime { steps = steps.filter { $0 % 2 == 0 } }
+        if feel == .halfTime && style != .artPop { steps = steps.filter { $0 % 2 == 0 } }
+        if style == .artPop {
+          steps = steps.filter { !openHats.contains(pulse.step + $0) }
+          // Busy parts go linear: the hand leaves the hat for the backbeat.
+          if complexity > 0.65, isBackbeat, playsKickAndSnare { steps = steps.filter { $0 != 0 } }
+        }
         for offset in steps {
-          let accent: Double = offset == 0 ? 10 : offset % 2 == 0 ? 2 : -10
+          var accent: Double = offset == 0 ? 10 : offset % 2 == 0 ? 2 : -10
+          if accentsOffBeats { accent = offset % 2 == 1 ? 8 : offset == 0 ? 2 : -6 }
           add(drum, pulse.step + offset, base * 0.72 + accent + (random.unit() - 0.5) * 8)
         }
         if style == .electronic, pulse.length >= 4 {
@@ -410,6 +433,25 @@ public struct DrummerPerformance: Codable, Sendable, Equatable {
         if style == .funk, index == pulses.count - 1, complexity > 0.5, pulse.length >= 4, random.unit() < 0.6 {
           add(Drum.openHat, pulse.step + 2, base * 0.8)
         }
+        if style == .artPop {
+          for step in openHats where step >= pulse.step && step < pulse.step + pulse.length {
+            add(Drum.openHat, step, base * 0.72 + 4)
+          }
+          // A splash on the last "and" now and then, with the kick under it.
+          if index == pulses.count - 1, complexity > 0.5, pulse.length >= 4, random.unit() < 0.25 {
+            add(splash, pulse.step + 2, base * 0.8)
+            if playsKickAndSnare { add(Drum.kick, pulse.step + 2, base - 2) }
+          }
+        }
+      }
+
+      // Art pop plays the toms as part of the groove: a high and a low tom answering each
+      // other in the gaps between backbeats.
+      if style == .artPop, playsToms, !isFill, !isBackbeat, index != 0, complexity > 0.6, pulse.length >= 4,
+        random.unit() < (complexity - 0.6) * 1.5
+      {
+        add(Drum.highTom, pulse.step + 1, base * 0.62)
+        add(Drum.lowTom, pulse.step + 3, base * 0.7)
       }
 
       // Percussion: a shaker in sixteenths, and a cowbell on the beat in busy funk.
@@ -449,9 +491,9 @@ public struct DrummerPerformance: Codable, Sendable, Equatable {
     }
   }
 
-  // MARK: - The Purdie shuffle
+  // MARK: - The shuffle
 
-  /// A bar of Bernard Purdie's half-time shuffle, on triplets: each pulse is three triplet
+  /// A bar of the half-time shuffle, on triplets: each pulse is three triplet
   /// partials. The hi-hat plays the first and last of each, a ghost note on the snare fills
   /// the middle one, the backbeat falls once a bar (beat 3 of 4/4; on 2 and 4 in double
   /// time), and the kick pushes the last triplet before a beat. Busier parts add kicks and
@@ -577,6 +619,29 @@ public struct DrummerPerformance: Codable, Sendable, Equatable {
     }
   }
 
+  // MARK: - Art pop
+
+  /// The art-pop splash: the Drum Machine has none, so its crash stands in.
+  private var splash: Int { kit == .generalMIDI ? Drum.splash : Drum.crash }
+
+  /// Where the hi-hat opens in a bar of the art-pop groove: a quick "bark" on the last
+  /// sixteenth before a backbeat, and on the "and" of the bar's last beat, more of them as
+  /// the part gets busier. Not on the ride, and not where a fill plays.
+  private func artPopOpenHats(_ pulses: [Pulse], backbeats: Set<Int>, fillStart: Int, random: inout SplitMix) -> Set<Int> {
+    let complexity = min(max(self.complexity, 0), 1)
+    guard playsCymbals, timekeepingDrum == Drum.closedHat, complexity > 0.3 else { return [] }
+    var steps: Set<Int> = []
+    for (index, pulse) in pulses.enumerated() where index < fillStart && pulse.length >= 4 {
+      if backbeats.contains(index + 1), random.unit() < complexity * 0.7 {
+        steps.insert(pulse.step + pulse.length - 1)
+      }
+      if index == pulses.count - 1, random.unit() < complexity * 0.6 {
+        steps.insert(pulse.step + 2)
+      }
+    }
+    return steps
+  }
+
   /// How hard the shuffle's ghost notes are: the triplets are already the swing, so the
   /// Swing setting sets them instead, from a whisper (0) to clearly heard (1).
   private var ghostVelocity: Double { 12 + 46 * min(max(swing, 0), 1) }
@@ -602,7 +667,9 @@ public struct DrummerPerformance: Codable, Sendable, Equatable {
       let fraction = Double(step - startStep) / Double(max(1, count))
       // Simple fills play eighths; busier ones sixteenths with the odd gap.
       if complexity < 0.3, step % 2 == 1 { continue }
-      if step != startStep, random.unit() < 0.15 * (1 - complexity) { continue }
+      // Art pop leaves space in its fills.
+      let gaps = style == .artPop ? 0.3 + 0.15 * (1 - complexity) : 0.15 * (1 - complexity)
+      if step != startStep, random.unit() < gaps { continue }
       let velocity = base * (0.7 + 0.35 * fraction) + (random.unit() - 0.5) * 6
       let pitch: Int
       if style == .electronic || !playsToms {
@@ -618,10 +685,13 @@ public struct DrummerPerformance: Codable, Sendable, Equatable {
         }
       }
       hits.append(Hit(pitch: pitch, position: barStart + Self.sixteenth * Int64(step), velocity: Int(velocity.rounded())))
-      // An electronic roll speeds up to thirty-seconds at the end.
-      if style == .electronic, complexity > 0.5, step >= endStep - min(4, count) {
+      // An electronic roll speeds up to thirty-seconds at the end; art pop flicks thirty-seconds
+      // round the toms.
+      let doubles = style == .electronic ? step >= endStep - min(4, count) : style == .artPop && random.unit() < 0.35
+      if style == .electronic || style == .artPop, complexity > 0.5, doubles {
         hits.append(Hit(
-          pitch: Drum.snare, position: barStart + Self.sixteenth * Int64(step) + Tick(120), velocity: Int(velocity.rounded())))
+          pitch: style == .artPop ? pitch : Drum.snare, position: barStart + Self.sixteenth * Int64(step) + Tick(120),
+          velocity: Int((velocity * (style == .artPop ? 0.8 : 1)).rounded())))
       }
     }
     return hits

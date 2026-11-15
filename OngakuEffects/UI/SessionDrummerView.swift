@@ -50,6 +50,7 @@ extension DrummerPerformance.Style {
     case .songwriter: "Gentle"
     case .electronic: "On the grid"
     case .shuffle: "Half-time triplets"
+    case .artPop: "Singing hi-hat"
     }
   }
 
@@ -62,6 +63,7 @@ extension DrummerPerformance.Style {
     case .songwriter: Color(hex: 0xD9A73A)
     case .electronic: Color(hex: 0x4C8FE8)
     case .shuffle: Color(hex: 0xB5835A)
+    case .artPop: Color(hex: 0x7FB55A)
     }
   }
 
@@ -74,6 +76,7 @@ extension DrummerPerformance.Style {
     case .songwriter: "music.note"
     case .electronic: "dot.radiowaves.left.and.right"
     case .shuffle: "music.quarternote.3"
+    case .artPop: "wind"
     }
   }
 }
@@ -757,7 +760,7 @@ private struct FeelControls: View {
             model.editSelected { $0.fills = value }
           }
           ValueKnob(
-            // In the Purdie Shuffle the triplets are the swing, so the knob sets the ghost notes.
+            // In the Shuffle the triplets are the swing, so the knob sets the ghost notes.
             name: performance.style == .shuffle ? "Ghosts" : "Swing", value: performance.swing,
             defaultValue: performance.style.defaultSwing,
             words: performance.style == .shuffle ? ["Whisper", "Soft", "Present", "Hard"] : ["Straight", "A little", "Swung", "Shuffle"],

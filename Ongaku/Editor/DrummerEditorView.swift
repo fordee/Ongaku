@@ -121,6 +121,7 @@ extension DrummerPerformance.Style {
     case .songwriter: "Gentle"
     case .electronic: "On the grid"
     case .shuffle: "Half-time triplets"
+    case .artPop: "Singing hi-hat"
     }
   }
 
@@ -133,6 +134,7 @@ extension DrummerPerformance.Style {
     case .songwriter: Color(hex: 0xD9A73A)
     case .electronic: Color(hex: 0x4C8FE8)
     case .shuffle: Color(hex: 0xB5835A)
+    case .artPop: Color(hex: 0x7FB55A)
     }
   }
 
@@ -145,6 +147,7 @@ extension DrummerPerformance.Style {
     case .songwriter: "music.note"
     case .electronic: "dot.radiowaves.left.and.right"
     case .shuffle: "music.quarternote.3"
+    case .artPop: "wind"
     }
   }
 }
@@ -855,7 +858,7 @@ private struct DrummerFeelControls: View {
         model.editDrummer("Drummer Fills") { $0.fills = value }
         preview = nil
       }
-      // In the Purdie Shuffle the triplets are the swing, so the knob sets the ghost notes.
+      // In the Shuffle the triplets are the swing, so the knob sets the ghost notes.
       let isShuffle = drummer.style == .shuffle
       knob(
         isShuffle ? "Ghosts" : "Swing", value: (preview ?? drummer).swing,
@@ -980,8 +983,12 @@ private struct DrummerEditorPreviewContent: View {
   DrummerEditorPreview()
 }
 
-#Preview("Purdie Shuffle") {
+#Preview("Shuffle") {
   DrummerEditorPreview(style: .shuffle)
+}
+
+#Preview("Art Pop") {
+  DrummerEditorPreview(style: .artPop)
 }
 
 #Preview("Full Screen") {

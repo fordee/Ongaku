@@ -602,10 +602,10 @@ A new Session Drummer starts with a Rock **Verse** and **Chorus** of 8 bars each
 
 **How the selected section is played.** These work as in the Drummer editor described in [Chapter 5](05-session-players.md):
 
-- **Style**: **Rock**, **Pop**, **Funk**, **Hip-Hop**, **Songwriter**, **Electronic** or **Purdie Shuffle**.
+- **Style**: **Rock**, **Pop**, **Funk**, **Hip-Hop**, **Songwriter**, **Electronic**, **Shuffle** or **Art Pop**.
 - **Loud or Soft, Busy or Simple**: drag the dot; right is busier, up is louder. The chart below shows the first two bars.
 - **The Kit**: click a piece to leave it out or bring it back (cymbals, toms, kick and snare, and shaker go in and out together). **Time on** chooses what keeps time: **Hi-Hat**, **Auto** (opens up to the ride when the part gets loud) or **Ride**.
-- **Groove**: **Fills** (None to Lots), **Swing** (Straight to Shuffle; in Purdie Shuffle this knob is **Ghosts**, for the ghost notes) and **Feel** (**Half Time**, **Normal**, **Double Time**). Double-click or Option-click **Fills** or **Swing** to put it back where a new section in that style starts.
+- **Groove**: **Fills** (None to Lots), **Swing** (Straight to Shuffle; in Shuffle this knob is **Ghosts**, for the ghost notes) and **Feel** (**Half Time**, **Normal**, **Double Time**). Double-click or Option-click **Fills** or **Swing** to put it back where a new section in that style starts.
 
 **The Sound bar (bottom).** Choose what plays the part:
 
