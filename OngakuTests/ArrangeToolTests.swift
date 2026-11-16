@@ -3,6 +3,7 @@
 //  OngakuTests
 //
 
+import AppKit
 import OngakuCore
 @testable import Ongaku
 import Testing
@@ -146,5 +147,25 @@ struct ArrangeToolTests {
     }
     #expect(first.fadeOut == 1, "Faded across the two-beat overlap")
     #expect(second.fadeIn == 1)
+  }
+}
+
+/// The control bar's project name, which stands in for the hidden title bar.
+@MainActor
+struct DocumentTitleTests {
+  @Test func theTitleFollowsTheWindow() {
+    let model = ProjectWindowModel(document: OngakuDocument())
+    let window = NSWindow(contentRect: .init(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
+    window.title = "Untitled"
+    model.hostWindow = window
+    #expect(model.documentTitle.name == "Untitled" && model.documentTitle.status == "Not saved")
+
+    window.representedURL = URL(fileURLWithPath: "/tmp/My Song.ongaku")
+    window.title = "My Song.ongaku"
+    #expect(model.documentTitle.name == "My Song" && model.documentTitle.status == "Saved")
+    window.isDocumentEdited = true
+    #expect(model.documentTitle.status == "Edited")
+    window.isDocumentEdited = false
+    #expect(model.documentTitle.status == "Saved")
   }
 }

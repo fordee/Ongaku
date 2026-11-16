@@ -232,7 +232,14 @@ final class ProjectWindowModel {
 
   @ObservationIgnored weak var undoManager: UndoManager?
   /// The window this model's views are in, for key commands.
-  @ObservationIgnored weak var hostWindow: NSWindow?
+  @ObservationIgnored weak var hostWindow: NSWindow? {
+    didSet { if hostWindow !== oldValue { observeDocumentTitle() } }
+  }
+  /// The project's name and whether it's saved, as the window has them. The control bar
+  /// shows them, since it hides the title bar.
+  var documentTitle = DocumentTitle()
+  @ObservationIgnored var documentTitleObservations: [NSKeyValueObservation] = []
+  @ObservationIgnored var documentTitleObservers: [any NSObjectProtocol] = []
   /// Where Delete, the clipboard and the editor's keys apply: the area clicked last. Set on
   /// every click, so it isn't observed itself; `highlightedArea` follows it when it changes.
   @ObservationIgnored var activeEditingArea: EditingArea = .tracks {

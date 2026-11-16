@@ -27,6 +27,7 @@ struct ControlBar: View {
       }
 
       TransportControls(model: model)
+      DocumentTitleView(title: model.documentTitle)
 
       Spacer(minLength: 8)
       LCDView(model: model)
@@ -68,6 +69,39 @@ struct ControlBar: View {
     .overlay(alignment: .bottom) {
       Rectangle().fill(Theme.separator).frame(height: 1)
     }
+  }
+}
+
+/// The project's name, as the hidden title bar would show it, with whether it's saved:
+/// "Not saved" until the first save, then "Edited" while there are unsaved changes.
+private struct DocumentTitleView: View {
+  let title: ProjectWindowModel.DocumentTitle
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 1) {
+      Text(title.name)
+        .font(Theme.font(12, weight: .semibold))
+        .foregroundStyle(Theme.text)
+      HStack(spacing: 4) {
+        if title.isEdited || !title.isSaved {
+          Circle().fill(Theme.secondaryText).frame(width: 5, height: 5)
+        }
+        Text(title.status)
+      }
+      .font(Theme.font(10))
+      .foregroundStyle(Theme.secondaryText)
+    }
+    .lineLimit(1)
+    .truncationMode(.middle)
+    // Gives way to the controls when the window is narrow.
+    .frame(minWidth: 40, maxWidth: 220, alignment: .leading)
+    .layoutPriority(-1)
+    .contentShape(.rect)
+    .gesture(WindowDragGesture())
+    .help(title.url.map { "\(title.name) — \($0.deletingLastPathComponent().path(percentEncoded: false))" } ?? "\(title.name) hasn't been saved yet")
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel("Project \(title.name), \(title.status)")
+    .accessibilityIdentifier("document-title")
   }
 }
 

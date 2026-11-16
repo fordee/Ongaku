@@ -55,10 +55,11 @@ The control bar replaces the normal window title bar. You can drag any empty par
 
 1. **Library** and **Inspector** buttons. Each lights up while its area is showing.
 2. **The transport**: **Go to Beginning**, **Back One Bar**, **Forward One Bar**, **Play** (which turns into **Stop** while playing) and **Record**.
-3. **The LCD**, the display in the middle (see [The LCD display](#the-lcd-display) below).
-4. **Cycle**, **Metronome**, **Count-in** and **Automation** buttons. These light up in their own colours while they are on.
-5. **Mixer** and **Editor** buttons, which show the mixer or editor pane below the tracks.
-6. **Zoom Out**, **Zoom In** and **Import Audio**.
+3. **The project's name**, with whether it's saved underneath: **Not saved** for a new project that hasn't been saved yet (its name is **Untitled**), **Edited** while there are changes you haven't saved, and **Saved** otherwise. Hold the pointer over it to see the folder the project is saved in.
+4. **The LCD**, the display in the middle (see [The LCD display](#the-lcd-display) below).
+5. **Cycle**, **Metronome**, **Count-in** and **Automation** buttons. These light up in their own colours while they are on.
+6. **Mixer** and **Editor** buttons, which show the mixer or editor pane below the tracks.
+7. **Zoom Out**, **Zoom In** and **Import Audio**.
 
 Hold the pointer over any button to see its name and keyboard shortcut. The shortcuts are also shown next to the matching commands in the **Transport** and **View** menus.
 
