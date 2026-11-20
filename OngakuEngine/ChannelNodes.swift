@@ -68,7 +68,9 @@ final class ChannelNodes {
 
     /// The routing for a channel strip's sends and output. A send to the aux the channel
     /// already outputs to is left out: it would need a second connection to the same input.
-    init(sends: [Send], output: ChannelOutput = .stereoOut, automatedSends: Set<Send.ID> = []) {
+    /// `sidechains` are the plug-ins whose side chain input this channel feeds (see
+    /// `ChannelNodes.sidechainInputs`), at full level from before the fader and mute.
+    init(sends: [Send], output: ChannelOutput = .stereoOut, automatedSends: Set<Send.ID> = [], sidechains: [PluginReference.ID] = []) {
       let sends = sends.filter { $0.destinationTrackID != output.trackID }
       func destination(_ send: Send) -> Destination {
         Destination(
@@ -76,7 +78,7 @@ final class ChannelNodes {
           isAutomated: automatedSends.contains(send.id))
       }
       postFader = sends.filter { !$0.isPreFader }.map(destination)
-      preFader = sends.filter(\.isPreFader).map(destination)
+      preFader = sends.filter(\.isPreFader).map(destination) + sidechains.map { Destination(trackID: $0, level: 1) }
       self.output = output.trackID
     }
 
@@ -137,7 +139,7 @@ final class ChannelNodes {
   /// - Parameter format: The format the channel mixes in: stereo at the engine's sample
   ///   rate. Every connection uses it explicitly; left to `nil`, an unconnected mixer
   ///   defaults to 44.1 kHz and the channel would resample twice on any other rate.
-  /// What plug-ins are told about the song's tempo and position.
+  /// What plug-ins are told about the song's tempo, position and transport.
   private let musicalContext: HostMusicalContext?
 
   init(
@@ -208,6 +210,10 @@ final class ChannelNodes {
       node.withAUAudioUnit { $0.parameterTree?.parameter(withAddress: address)?.value = engineValue }
     }
   }
+
+  /// Finds the plug-ins before the inserts (the instrument and its MIDI effects), which the
+  /// track's `InstrumentChannel` holds, so their parameters can be automated like inserts'.
+  var sourcePlugin: (PluginReference.ID) -> AVAudioNode? = { _ in nil }
 
   let volumeAutomation = AutomationQueue(address: FaderParameter.inputGain)
   let panAutomation = AutomationQueue(address: FaderParameter.outputPan)
@@ -324,8 +330,18 @@ final class ChannelNodes {
       guard let send = routing.flatMap({ $0.send(id) }) else { return nil }
       return (send.isPreFader ? preFaderEdges : faderEdges)[.aux(send.destination.trackID)]?.mixer
     case .plugin(let parameter):
-      return inserts.first { $0.reference.id == parameter.pluginID }?.unit
+      return pluginNode(parameter.pluginID)
     }
+  }
+
+  /// Any plug-in on the strip: an insert, or the instrument or a MIDI effect plug-in.
+  private func pluginNode(_ pluginID: PluginReference.ID) -> AVAudioNode? {
+    inserts.first { $0.reference.id == pluginID }?.unit ?? sourcePlugin(pluginID)
+  }
+
+  /// Scoped access to any loaded plug-in on the strip (see `pluginNode`).
+  func withPluginAudioUnit<Result>(_ pluginID: PluginReference.ID, _ body: (borrowing AUAudioUnit) -> Result) -> Result? {
+    pluginNode(pluginID)?.withAUAudioUnit(body)
   }
 
   private func target(for parameter: AutomationParameter) -> AutomationTarget? {
@@ -378,7 +394,8 @@ final class ChannelNodes {
     case .sendLevel(let id):
       return routing.flatMap { $0.send(id)?.destination.delay } ?? 0
     case .plugin(let pluginParameter):
-      guard let index = inserts.firstIndex(where: { $0.reference.id == pluginParameter.pluginID }) else { return 0 }
+      // A plug-in before the inserts (the instrument or a MIDI effect) is delayed by all of them.
+      let index = inserts.firstIndex { $0.reference.id == pluginParameter.pluginID } ?? inserts.startIndex
       return -inserts[index...].filter { !$0.reference.isBypassed }.reduce(0) { total, insert in
         total + Int((insert.unit.withAUAudioUnit { $0.latency } * format.sampleRate).rounded())
       }
@@ -614,7 +631,7 @@ final class ChannelNodes {
       } else {
         pendingInserts[reference.id] = Task { [weak self] in
           do {
-            let unit = try await AVAudioUnit.instantiate(with: Self.description(of: reference), options: [.loadOutOfProcess])
+            let unit = try await Self.instantiate(reference)
             guard let self, !Task.isCancelled else { return }
             self.pendingInserts[reference.id] = nil
             self.install(unit, for: reference)
@@ -630,9 +647,44 @@ final class ChannelNodes {
     rebuildChain()
   }
 
+  // MARK: - Side chains
+
+  /// The mixers feeding inserts' side chain inputs (their second input bus), by plug-in.
+  /// Other channels' routing treats each like an aux's input.
+  private(set) var sidechainInputs: [PluginReference.ID: AVAudioMixerNode] = [:]
+
+  /// Gives each insert with a side chain source, and a side chain input, a mixer into it.
+  private func syncSidechains() {
+    var wanted: Set<PluginReference.ID> = []
+    for insert in inserts where insert.reference.sidechainSourceID != nil && insert.unit.numberOfInputs > 1 {
+      let id = insert.reference.id
+      wanted.insert(id)
+      guard sidechainInputs[id] == nil else { continue }
+      let channels = max(1, insert.unit.inputFormat(forBus: 1).channelCount)
+      guard let busFormat = AVAudioFormat(standardFormatWithSampleRate: format.sampleRate, channels: channels) else { continue }
+      let mixer = AVAudioMixerNode()
+      engine.attach(mixer)
+      do {
+        try engine.connectNode(mixer, to: insert.unit, fromBus: 0, toBus: 1, format: busFormat)
+        sidechainInputs[id] = mixer
+      } catch {
+        engine.detach(mixer)
+      }
+    }
+    for (id, mixer) in sidechainInputs where !wanted.contains(id) {
+      engine.detach(mixer)
+      sidechainInputs[id] = nil
+    }
+  }
+
+  /// Whether a loaded insert has a side chain input.
+  func hasSidechainInput(_ pluginID: PluginReference.ID) -> Bool {
+    inserts.first { $0.reference.id == pluginID }.map { $0.unit.numberOfInputs > 1 } ?? false
+  }
+
   private func install(_ unit: AVAudioUnit, for reference: PluginReference) {
     if let musicalContext {
-      unit.withAUAudioUnit { $0.musicalContextBlock = musicalContext.block }
+      unit.withAUAudioUnit { musicalContext.attach(to: $0) }
     }
     if let state = reference.state,
       let fullState = try? PropertyListSerialization.propertyList(from: state, format: nil) as? [String: Any]
@@ -664,6 +716,7 @@ final class ChannelNodes {
 
     // Reconnecting interrupts the sound, so leave an unchanged chain alone.
     let chain = inserts.map(\.reference.id)
+    defer { syncSidechains() }
     guard chain != connectedChain else { return }
     connectedChain = chain
 
@@ -695,10 +748,34 @@ final class ChannelNodes {
     unit.withAUAudioUnit { $0.fullState = fullState }
   }
 
-  private static func description(of reference: PluginReference) -> AudioComponentDescription {
+  /// Loads a plug-in out of process. In a component description zero matches anything, so a
+  /// reference missing its type, subtype or maker would load whichever plug-in comes first
+  /// (one AVFAudio then throws on): it isn't loaded at all.
+  static func instantiate(_ reference: PluginReference) async throws -> AVAudioUnit {
+    guard reference.componentType != 0, reference.componentSubType != 0, reference.componentManufacturer != 0 else {
+      throw EngineError.incompletePlugin(reference.name)
+    }
+    return try await AVAudioUnit.instantiate(with: description(of: reference), options: [.loadOutOfProcess])
+  }
+
+  static func description(of reference: PluginReference) -> AudioComponentDescription {
     AudioComponentDescription(
       componentType: reference.componentType, componentSubType: reference.componentSubType,
       componentManufacturer: reference.componentManufacturer, componentFlags: 0, componentFlagsMask: 0)
+  }
+
+  /// Takes out the insert `matches` finds (its process quit), so the next `setInserts` loads
+  /// it again. Returns it, if it's on this channel.
+  func removeQuitPlugin(where matches: (AVAudioUnit) -> Bool) -> PluginReference? {
+    guard let index = inserts.firstIndex(where: { matches($0.unit) }) else { return nil }
+    let removed = inserts.remove(at: index)
+    if let mixer = sidechainInputs.removeValue(forKey: removed.reference.id) {
+      engine.detach(mixer)
+    }
+    engine.detach(removed.unit)
+    connectedChain = []
+    rebuildChain()
+    return removed.reference
   }
 
   /// Scoped access to a loaded insert, for its interface and saved settings.
@@ -730,6 +807,10 @@ final class ChannelNodes {
       engine.detach(insert.unit)
     }
     inserts = []
+    for mixer in sidechainInputs.values {
+      engine.detach(mixer)
+    }
+    sidechainInputs = [:]
     flushAutomation()
     if let observerToken {
       fader.withAUAudioUnit { $0.removeRenderObserver(observerToken) }

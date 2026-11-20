@@ -82,7 +82,7 @@ extension AgentToolbox {
   static let getNotes = AgentTool(
     name: "get_notes", title: "Get Notes",
     description: """
-      The notes in a MIDI region. Each note has an id, pitch (number and name, C4 = 60), \
+      The notes in a MIDI region. Each note has an id, pitch (number and name), \
       start and length in beats (quarter notes) from the region's start, and velocity. \
       Drummer and session player regions show the notes they currently play.
       """,

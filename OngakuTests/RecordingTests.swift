@@ -143,6 +143,65 @@ struct RecordingTests {
     #expect(sequence.notes.first.map { $0.length > Tick(300) } == true)
   }
 
+  @Test func eachTrackRecordsItsOwnMIDIChannel() async throws {
+    var keys = Track(name: "Keys", kind: .softwareInstrument)
+    keys.isRecordArmed = true
+    keys.midiInputChannel = 0
+    var bass = Track(name: "Bass", kind: .softwareInstrument)
+    bass.isRecordArmed = true
+    bass.midiInputChannel = 1
+    let engine = PlaybackEngine(project: Project(tracks: [keys, bass])) { _ in nil }
+    defer { engine.shutDown() }
+
+    var result: RecordingResult?
+    engine.onRecordingFinished = { result = $0 }
+    await engine.record()
+    let capture = try #require(engine.recordingSession?.midiCapture)
+    try await Task.sleep(for: .milliseconds(200))
+    capture.receive([0x90, 72, 90], atHostTime: mach_absolute_time())  // Channel 1: keys.
+    capture.receive([0x91, 40, 90], atHostTime: mach_absolute_time())  // Channel 2: bass.
+    try await Task.sleep(for: .milliseconds(200))
+    capture.receive([0x80, 72, 0], atHostTime: mach_absolute_time())
+    capture.receive([0x81, 40, 0], atHostTime: mach_absolute_time())
+    try await Task.sleep(for: .milliseconds(100))
+    engine.stop()
+
+    func pitches(_ trackID: Track.ID) -> [Int] {
+      guard case .midi(let sequence) = result?.midi.first(where: { $0.trackID == trackID })?.region.content else { return [] }
+      return sequence.notes.map(\.pitch)
+    }
+    #expect(pitches(keys.id) == [72])
+    #expect(pitches(bass.id) == [40])
+  }
+
+  @Test func whatsPlayedWithoutRecordingCanBeCaptured() async throws {
+    let track = Track(name: "Keys", kind: .softwareInstrument)
+    let engine = PlaybackEngine(project: Project(tracks: [track])) { _ in nil }
+    defer { engine.shutDown() }
+    #expect(engine.capturedPerformance(for: [track.id]) == nil, "Nothing played yet")
+
+    engine.play()
+    let capture = try #require(engine.performanceCapture, "Playing without recording remembers what's played")
+    try await Task.sleep(for: .milliseconds(300))
+    capture.receive([0x90, 67, 100], atHostTime: mach_absolute_time())
+    try await Task.sleep(for: .milliseconds(200))
+    capture.receive([0x80, 67, 0], atHostTime: mach_absolute_time())
+    // Captured while still playing.
+    #expect(engine.capturedPerformance(for: [track.id]) != nil)
+    try await Task.sleep(for: .milliseconds(100))
+    engine.stop()
+    #expect(engine.performanceCapture == nil)
+
+    let take = try #require(engine.capturedPerformance(for: [track.id])?.midi.first)
+    #expect(take.trackID == track.id && take.region.start == .zero, "From the bar it was played in")
+    guard case .midi(let sequence) = take.region.content else {
+      Issue.record("Expected MIDI")
+      return
+    }
+    #expect(sequence.notes.map(\.pitch) == [67])
+    #expect(engine.capturedPerformance(for: [track.id]) != nil, "Kept after stopping, until the next performance")
+  }
+
   /// With a one-bar count-in the playhead waits a bar before moving, and the metronome is
   /// heard for it even though it's switched off.
   @Test func countInDelaysTheStart() async throws {
@@ -192,7 +251,7 @@ extension RecordingTests {
         let time = hostTime ?? mach_absolute_time()
         player.played.append((bytes, AVAudioTime.seconds(forHostTime: time - min(time, player.start))))
       },
-      songPosition: { _ in nil }, tempo: { tempo })
+      songPosition: { _ in nil }, tempo: { tempo }, tempoMap: { TempoMap(bpm: tempo) })
     return (effects, player)
   }
 

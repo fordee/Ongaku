@@ -22,18 +22,6 @@ extension ProjectWindowModel {
     isGlobalTracksVisible.toggle()
   }
 
-  /// Something being renamed in a sheet.
-  enum RenameTarget: Identifiable, Equatable {
-    case marker(Marker.ID)
-    case section(ArrangementSection.ID)
-
-    var id: UUID {
-      switch self {
-      case .marker(let id), .section(let id): id
-      }
-    }
-  }
-
   // MARK: - Markers
 
   /// Navigate › Create Marker: a marker at the playhead (snapped), named in order.

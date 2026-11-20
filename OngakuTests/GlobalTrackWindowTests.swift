@@ -125,7 +125,9 @@ struct GlobalTrackWindowTests {
     #expect(window.project.arrangement.first?.length == bar * 4)
     window.duplicateSection(intro.id)
     #expect(window.project.arrangement.count == 2)
-    #expect(window.project.tracks[0].regions.count == 5, "Part 1 was copied")
+    // Part 1 (eight bars) crossed the four-bar section's end: it's cut there, and its first
+    // half copied.
+    #expect(window.project.tracks[0].regions.count == 6, "Part 1 was split and its first half copied")
     window.deleteSection(intro.id)
     #expect(window.project.arrangement.count == 1)
   }

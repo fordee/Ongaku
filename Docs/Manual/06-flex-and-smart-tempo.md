@@ -76,6 +76,8 @@ Quantizing audio does for a recording what quantizing does for MIDI. It finds th
 2. Select the audio region.
 3. In the Region Inspector, next to **Flex**, open **Quantize Audio** and choose a grid: **1/4 Note**, **1/8 Note**, **1/16 Note**, **1/32 Note**, or one of the triplet grids (**1/4 Triplet** to **1/32 Triplet**).
 
+   **Strength**, in the same menu, sets how far the hits move: **100 %** puts them right on the grid; **50 %** moves them halfway, keeping some of the original feel. Choose it before the grid.
+
 Ongaku Studio looks for the hits first, which may take a moment, then places a marker on each one and moves it onto the grid. Any markers already in the region are replaced. A hit that's too close to the region's edges, or that would have to cross its neighbour, is left where it is.
 
 If it can't find any hits, you'll see "No hits were found in “…” to quantize."
@@ -189,12 +191,11 @@ The region plays its recording at its original speed again, starting at the same
 
 ## Limitations
 
-- **Flexed, retuned and stretched regions can't be resized, split, joined or crossfaded.** If you try, the message names what's in the way and the button that removes it, for example "To resize, split, join or crossfade “Vocal”, first remove its flex markers (Remove Flex Markers): select it and use the button in the Region Inspector." Do your trimming and splitting first, then flex. Or remove the markers (**Remove Flex Markers**), the pitch changes (**Reset Retuned Notes**) or the stretch (**Remove Stretch**), make your edit, and flex again.
+- **Flexed, retuned and stretched regions can't be resized, split, joined or crossfaded.** If you try, the message names what's in the way and the button that removes it, for example "To split “Vocal”, first remove its flex markers (Remove Flex Markers): select it and use the button in the Region Inspector." Looping them, by the Loop handle or the Region Inspector's **Loop** switch, is refused the same way. Do your trimming and splitting first, then flex. Or remove the markers (**Remove Flex Markers**), the pitch changes (**Reset Retuned Notes**) or the stretch (**Remove Stretch**), make your edit, and flex again.
 - **Turning Flex off doesn't remove markers.** A region on a track with Flex set to **Off** can still have hidden flex markers or retuned notes, and those still stop you resizing or splitting it. The Region Inspector's **Remove Flex Markers** and **Reset Retuned Notes** buttons appear for such regions, so you can remove them without turning Flex back on.
 - **No formant preservation.** Flex Pitch changes pitch by speeding up or slowing down the sound itself. Small corrections sound natural, but moving a voice several semitones also changes its character: higher sounds thinner and smaller, lower sounds darker and bigger.
 - **Flex Pitch is for one note at a time.** It finds pitches between about 60 Hz and 1.2 kHz (roughly the range of a bass voice up to a high soprano). Very short sounds, under about 60 milliseconds, are skipped, so consonants, quick slides and grace notes aren't shown as notes.
 - **No hit markers to start from.** Ongaku Studio doesn't show where the hits are before you flex; you place markers by eye from the waveform. Only **Quantize Audio** finds hits for you.
-- **Quantize Audio always moves hits all the way** to the grid. There's no strength setting.
 - **Big stretches soften hits.** In Rhythmic and Flex Pitch modes, stretching a passage a long way can slightly smear sharp attacks. Use Slicing for drums if that happens.
 - **Smart Tempo needs a few seconds of audio** with a steady beat, and finds one tempo per region. It doesn't follow a recording that speeds up or slows down.
 - **Smart Tempo works on one region at a time**: the first selected region, shown in the Region Inspector.

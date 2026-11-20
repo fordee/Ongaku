@@ -43,6 +43,9 @@ struct MIDIEffectEditor: View {
     .padding(14)
     .frame(width: 300)
     .onChange(of: effect.settings) { draft = nil }
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("\(effect.name) Settings")
+    .accessibilityIdentifier("midi-effect-editor")
   }
 
   private var summary: String {
@@ -54,12 +57,15 @@ struct MIDIEffectEditor: View {
     case .transposer: "Shifts every note up or down."
     case .velocityProcessor: "Makes notes louder or softer, keeps them within a range, or fixes them at one velocity."
     case .randomizer: "Changes notes a little at random so a part sounds less mechanical (the same way each time it plays)."
+    case .audioUnit: "A MIDI effect plug-in. It plays after Ongaku Studio’s own MIDI effects, as the notes reach the instrument."
     }
   }
 
   @ViewBuilder
   private var controls: some View {
     switch settings {
+    case .audioUnit(let plugin):
+      Button("Open \(plugin.name)…") { model.showMIDIEffectWindow(plugin.id, on: trackID) }
     case .arpeggiator(let arp):
       Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
         row("Rate") { divisionPicker(arp.rate) { var a = arp; a.rate = $0; commit(.arpeggiator(a)) } }

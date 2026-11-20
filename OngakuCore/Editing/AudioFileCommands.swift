@@ -37,3 +37,43 @@ extension Region {
       content: .audio(AudioRegionContent(fileID: file.id)))
   }
 }
+
+/// Swaps an audio file for an edited copy (from the Audio File Editor): every region and
+/// take that played the old file plays the new one, as if the file itself had changed. The
+/// old file stays in the package, so undo brings it back.
+public struct ReplaceAudioFile: EditCommand {
+  public var oldFileID: AudioFileReference.ID
+  public var newFile: AudioFileReference
+  public var actionName: String
+
+  public init(_ oldFileID: AudioFileReference.ID, with newFile: AudioFileReference, actionName: String) {
+    self.oldFileID = oldFileID
+    self.newFile = newFile
+    self.actionName = actionName
+  }
+
+  public func apply(to project: inout Project) throws {
+    guard let old = project.audioFile(withID: oldFileID) else { throw EditError.audioFileNotFound(oldFileID) }
+    // Regions count frames into the file, so an edit mustn't move them.
+    guard newFile.frameCount == old.frameCount, newFile.sampleRate == old.sampleRate else {
+      throw EditError.invalidValue("The edited file must keep the original's length and sample rate.")
+    }
+    try AddAudioFile(newFile).apply(to: &project)
+    func repoint(_ content: inout RegionContent) {
+      if case .audio(var audio) = content, audio.fileID == oldFileID {
+        audio.fileID = newFile.id
+        content = .audio(audio)
+      }
+    }
+    for track in project.tracks.indices {
+      for region in project.tracks[track].regions.indices {
+        repoint(&project.tracks[track].regions[region].content)
+        if var folder = project.tracks[track].regions[region].takeFolder {
+          for take in folder.takes.indices { repoint(&folder.takes[take].content) }
+          project.tracks[track].regions[region].takeFolder = folder
+        }
+      }
+    }
+    project.audioFiles.removeAll { $0.id == oldFileID }
+  }
+}

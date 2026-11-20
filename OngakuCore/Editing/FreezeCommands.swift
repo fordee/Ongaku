@@ -28,6 +28,10 @@ public struct FreezeTrack: EditCommand {
     guard project.tracks[index].canFreeze else {
       throw EditError.invalidValue("Aux tracks and summing stacks can’t be frozen.")
     }
+    // Freezing unloads the instrument, which would silence its other outputs.
+    guard !project.tracks.contains(where: { $0.channel.instrumentOutput?.trackID == trackID }) else {
+      throw EditError.invalidValue("“\(project.tracks[index].name)” can’t be frozen while aux tracks play its instrument’s other outputs.")
+    }
     if let renderedChannel {
       project.tracks[index].channel.instrument = renderedChannel.instrument
       project.tracks[index].channel.inserts = renderedChannel.inserts
@@ -80,13 +84,15 @@ extension EditError {
 
 extension Project {
   /// Throws if an edit from `previous` to this project changed what a frozen track's freeze
-  /// file was rendered from: its regions, its instrument, its inserts (in Pre Fader mode) or
-  /// its freeze mode; or record-enabled it. Freezing and unfreezing themselves are allowed. `ProjectEditor` checks
+  /// file was rendered from: its regions, its MIDI effects, its instrument, its inserts (in Pre
+  /// Fader mode), those plug-ins' automation or its freeze mode; or record-enabled it. Freezing and unfreezing themselves are allowed. `ProjectEditor` checks
   /// this after every command, so no command can get round it.
   public func checkFrozenTracksUnchanged(from previous: Project) throws {
     for track in tracks where track.isFrozen {
       guard let old = previous.track(withID: track.id), old.freezeFile == track.freezeFile else { continue }
       let changed = old.regions != track.regions
+        || old.channel.midiEffects != track.channel.midiEffects
+        || old.automationInFreezeFile != track.automationInFreezeFile
         || old.channel.instrument != track.channel.instrument
         || old.freezeMode != track.freezeMode
         || (track.freezesInserts && old.channel.inserts != track.channel.inserts)
@@ -128,5 +134,19 @@ extension Project {
       }
     }
     return played
+  }
+}
+
+extension Track {
+  /// The automation a freeze file is rendered with: that of the plug-ins it plays through
+  /// (MIDI effects, the instrument, and in Pre Fader mode the inserts). Volume, pan, sends
+  /// and Source Only inserts stay live.
+  public var automationInFreezeFile: [AutomationLane] {
+    let liveInserts = freezesInserts ? [] : Set(channel.inserts.map(\.id))
+    let rendered = Set(channel.plugins.map(\.id)).subtracting(liveInserts)
+    return automation.filter { lane in
+      if case .plugin(let parameter) = lane.parameter { return rendered.contains(parameter.pluginID) }
+      return false
+    }
   }
 }

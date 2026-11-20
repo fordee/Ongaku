@@ -14,7 +14,8 @@ public enum AutomationParameter: Hashable, Codable, Sendable {
   case pan
   /// A send's level, in decibels.
   case sendLevel(Send.ID)
-  /// An insert's parameter, from 0 to 1 across its range.
+  /// A plug-in's parameter (an insert, a MIDI effect or the instrument), from 0 to 1 across
+  /// its range.
   case plugin(PluginParameter)
 
   /// The fader and pan, which every channel strip has.
@@ -106,7 +107,7 @@ public enum AutomationParameter: Hashable, Codable, Sendable {
 /// A parameter of a plug-in on a channel strip. Two are the same parameter when they're on
 /// the same plug-in at the same address; the name and initial value just describe it.
 public struct PluginParameter: Hashable, Codable, Sendable {
-  /// The insert's `PluginReference.ID`.
+  /// The plug-in's `PluginReference.ID` (see `ChannelStrip.plugins`).
   public var pluginID: PluginReference.ID
   /// The Audio Unit parameter address.
   public var address: UInt64
@@ -330,7 +331,7 @@ extension Project {
     for index in tracks.indices {
       let channel = tracks[index].channel
       let sendIDs = Set(channel.sends.map(\.id))
-      let pluginIDs = Set(channel.inserts.map(\.id))
+      let pluginIDs = Set(channel.plugins.map(\.id))
       tracks[index].automation.removeAll { lane in
         switch lane.parameter {
         case .volume, .pan: false
@@ -339,5 +340,15 @@ extension Project {
         }
       }
     }
+  }
+}
+
+extension ChannelStrip {
+  /// Every plug-in on the strip, in the order the music passes through them: MIDI effect
+  /// plug-ins, the instrument (if it's a plug-in), then the inserts. Each can be automated.
+  public var plugins: [PluginReference] {
+    var plugins = midiEffects.compactMap(\.plugin)
+    if case .audioUnit(let instrument) = instrument { plugins.append(instrument) }
+    return plugins + inserts
   }
 }

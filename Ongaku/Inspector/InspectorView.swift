@@ -31,6 +31,9 @@ struct InspectorView: View {
         if track.kind == .audio {
           FlexModeRow(model: model, track: track)
         }
+        if track.kind == .softwareInstrument {
+          MIDIInputChannelRow(model: model, track: track)
+        }
       } else {
         Text("No Track Selected")
           .font(Theme.font(11, weight: .medium))
@@ -62,6 +65,7 @@ struct InspectorView: View {
     .background(Theme.panel)
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Inspector")
+    .accessibilityIdentifier("inspector")
   }
 }
 
@@ -103,6 +107,39 @@ private struct TrackSummary: View {
     }
     .padding(.horizontal, 10)
     .frame(height: 44)
+  }
+}
+
+/// Which MIDI channel an instrument track plays and records from a keyboard, as Logic's
+/// MIDI input setting: every channel, or one, so a keyboard split or several controllers
+/// can play different tracks.
+private struct MIDIInputChannelRow: View {
+  let model: ProjectWindowModel
+  let track: Track
+
+  var body: some View {
+    HStack(spacing: 6) {
+      Text("MIDI In")
+        .font(Theme.font(10))
+        .foregroundStyle(Theme.secondaryText)
+      Spacer(minLength: 0)
+      Picker("MIDI Input Channel", selection: Binding(
+        get: { track.midiInputChannel },
+        set: { model.perform(SetMIDIInputChannel($0, for: track.id)) }
+      )) {
+        Text("All Channels").tag(Int?.none)
+        Divider()
+        ForEach(0..<16, id: \.self) { channel in
+          Text("Channel \(channel + 1)").tag(Int?.some(channel))
+        }
+      }
+      .labelsHidden()
+      .controlSize(.small)
+      .fixedSize()
+      .help("The MIDI channel this track plays and records from a keyboard")
+    }
+    .padding(.horizontal, 10)
+    .padding(.bottom, 6)
   }
 }
 
@@ -222,10 +259,17 @@ private struct RegionInspector: View {
         if isFlexOn {
           row("Flex") {
             Menu("Quantize Audio") {
-              ForEach(Self.grids.dropFirst(), id: \.name) { grid in
-                Button(grid.name) {
-                  if let ticks = grid.ticks { model.quantizeFlex(region.id, grid: ticks) }
+              Section("Grid") {
+                ForEach(Self.grids.dropFirst(), id: \.name) { grid in
+                  Button(grid.name) {
+                    if let ticks = grid.ticks { model.quantizeFlex(region.id, grid: ticks, strength: model.audioQuantizeStrength) }
+                  }
                 }
+              }
+              Divider()
+              // As the Piano Roll's quantize: how far hits move towards the grid.
+              Picker("Strength", selection: Binding(get: { model.audioQuantizeStrength }, set: { model.audioQuantizeStrength = $0 })) {
+                ForEach([1.0, 0.75, 0.5, 0.25], id: \.self) { Text("\(Int($0 * 100)) %").tag($0) }
               }
             }
             .fixedSize()
@@ -282,6 +326,27 @@ private struct RegionInspector: View {
             parse: Self.fadeMilliseconds
           ) {
             set(.fadeOut(Double($0) / 1000))
+          }
+        }
+        // As Logic's Curve: negative starts slowly, positive rises fast; 0 is straight.
+        if audio.fadeIn > 0 {
+          row("Fade In Curve") {
+            ValueStepper(
+              value: Int((audio.fadeInCurve * 100).rounded()), range: -100...100, step: 10, unit: " %",
+              accessibilityName: "Fade In Curve"
+            ) {
+              set(.fadeInCurve(Double($0) / 100))
+            }
+          }
+        }
+        if audio.fadeOut > 0 {
+          row("Fade Out Curve") {
+            ValueStepper(
+              value: Int((audio.fadeOutCurve * 100).rounded()), range: -100...100, step: 10, unit: " %",
+              accessibilityName: "Fade Out Curve"
+            ) {
+              set(.fadeOutCurve(Double($0) / 100))
+            }
           }
         }
       }

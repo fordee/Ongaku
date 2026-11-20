@@ -23,16 +23,18 @@ struct PianoRollView: View {
         switch model.shownEditor {
         case .pianoRoll: PianoRollGrid(model: model, region: region)
         case .stepEditor: StepEditorView(model: model, region: region)
+        case .eventList: EventListView(model: model, region: region)
         case .stepSequencer: StepSequencerView(model: model, region: region)
         case .drummer: DrummerEditorView(model: model, region: region)
         case .player: PlayerEditorView(model: model, region: region)
         case .takes: TakesEditorView(model: model, region: region)
         case .pitch: FlexPitchEditorView(model: model, region: region)
+        case .audioFile: AudioFileEditorView(model: model, region: region)
         }
       } else {
         ContentUnavailableView(
-          "No MIDI Region", systemImage: "pianokeys",
-          description: Text("Double-click a MIDI region to edit it here, or double-click an empty instrument lane to create one."))
+          "No Region", systemImage: "pianokeys",
+          description: Text("Double-click a region to edit it here, or double-click an empty instrument lane to create a MIDI region."))
           .foregroundStyle(Theme.secondaryText)
           .frame(maxWidth: .infinity, maxHeight: .infinity)
       }
@@ -117,7 +119,11 @@ private struct PianoRollHeader: View {
           .frame(width: 28, alignment: .trailing)
       }
 
-      if ![.stepSequencer, .drummer, .player].contains(model.shownEditor) {
+      if model.shownEditor == .audioFile, let region = model.region {
+        AudioFileEditorFunctions(model: model, region: region)
+      }
+
+      if ![.stepSequencer, .drummer, .player, .pitch, .eventList, .audioFile].contains(model.shownEditor) {
         Picker("Grid", selection: Binding(get: { model.gridSetting }, set: { model.gridSetting = $0 })) {
           Text(PianoRollModel.GridSetting.automatic.title).tag(PianoRollModel.GridSetting.automatic)
           Divider()
@@ -133,7 +139,8 @@ private struct PianoRollHeader: View {
         .help("What notes snap to. 1/8T and the other triplet grids put three notes where two straight ones go.")
       }
 
-      if model.shownEditor == .pianoRoll {
+      // Takes comping snaps to it too.
+      if model.shownEditor == .pianoRoll || model.shownEditor == .takes {
         Button("Snap", systemImage: "squareshape.split.3x3") { model.isSnapEnabled.toggle() }
           .buttonStyle(ThemeButtonStyle(isOn: model.isSnapEnabled, onColor: Theme.accent, width: 26, height: 20))
           .help(model.isSnapEnabled
@@ -201,11 +208,14 @@ private struct PianoRollHeader: View {
         MIDIDrawControls(model: model)
       }
 
-      HStack(spacing: 3) {
-        Button("Zoom Out", systemImage: "minus.magnifyingglass") { model.zoom(by: 1 / 1.5) }
-        Button("Zoom In", systemImage: "plus.magnifyingglass") { model.zoom(by: 1.5) }
+      // The Audio File Editor always fits the whole file.
+      if model.shownEditor != .audioFile {
+        HStack(spacing: 3) {
+          Button("Zoom Out", systemImage: "minus.magnifyingglass") { model.zoom(by: 1 / 1.5) }
+          Button("Zoom In", systemImage: "plus.magnifyingglass") { model.zoom(by: 1.5) }
+        }
+        .buttonStyle(ThemeButtonStyle(width: 26, height: 20))
       }
-      .buttonStyle(ThemeButtonStyle(width: 26, height: 20))
 
       Button("Close Editor", systemImage: "xmark") { model.window.isEditorVisible = false }
         .buttonStyle(ThemeButtonStyle(width: 22, height: 18))

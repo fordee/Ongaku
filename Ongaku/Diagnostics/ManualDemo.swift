@@ -23,6 +23,8 @@ enum ManualDemo {
     case regionInspectorAudio = "region-inspector-audio", loop, arrangement
     case stackExpanded = "stack-expanded", stackCollapsed = "stack-collapsed"
     case flexMenu = "flex-menu", flexMarkers = "flex-markers", smartTempo = "smart-tempo", library
+    case eventList = "event-list", audioFileEditor = "audio-file-editor", smartControls = "smart-controls"
+    case bounceInPlace = "bounce-in-place", stripSilence = "strip-silence"
   }
 
   static var scene: Scene? {
@@ -324,6 +326,28 @@ enum ManualDemo {
     case .library:
       select("Keys", in: model)
       model.isLibraryVisible = true
+    case .eventList:
+      guard let melody = region("Melody") else { return }
+      select("Lead", in: model)
+      model.selectedRegionIDs = [melody.id]
+      model.openEditor(for: melody.id)
+      model.pianoRoll.editorKind = .eventList
+    case .audioFileEditor:
+      guard let take = region("Vocal Take") else { return }
+      select("Vocals", in: model)
+      model.selectedRegionIDs = [take.id]
+      model.openEditor(for: take.id)
+      model.pianoRoll.editorKind = .audioFile
+    case .smartControls:
+      select("Keys", in: model)
+      model.bottomPane = .smartControls
+    case .bounceInPlace:
+      select("Keys", in: model)
+      model.showBounceInPlace()
+    case .stripSilence:
+      select("Vocals", in: model)
+      model.selectedRegionIDs = Set(region("Vocal Take").map { [$0.id] } ?? [])
+      model.showStripSilence()
     }
   }
 

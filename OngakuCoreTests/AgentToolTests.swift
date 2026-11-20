@@ -25,6 +25,11 @@ struct AgentToolTests {
 
     var project: Project { editor.project }
     var songName: String { "Test Song" }
+
+    /// As the app does, with the person's new-track colour (purple here, to tell).
+    func makeTrack(name: String, kind: TrackKind) -> Track {
+      Track(name: name, kind: kind, color: .purple)
+    }
     var installedAudioUnits: [AgentAudioUnit] { [] }
 
     func performEdit(_ command: any EditCommand, named actionName: String) throws {
@@ -156,17 +161,27 @@ struct AgentToolTests {
     #expect(throws: AgentError.self) { try AgentNotation.position("2:5", key: "at", tempoMap: tempoMap) }
   }
 
-  @Test func pitchesAreNamedWithMiddleCAsC4() async throws {
-    #expect(try AgentNotation.pitch("C4") == 60)
-    #expect(try AgentNotation.pitch("F#3") == 54)
-    #expect(try AgentNotation.pitch("Bb2") == 46)
-    #expect(try AgentNotation.pitch("C-1") == 0)
+  @Test func pitchesAreNamedWithMiddleCAsC3LikeThePianoRoll() async throws {
+    #expect(try AgentNotation.pitch("C3") == 60)
+    #expect(try AgentNotation.pitch("F#2") == 54)
+    #expect(try AgentNotation.pitch("Bb1") == 46)
+    #expect(try AgentNotation.pitch("C-2") == 0)
     #expect(try AgentNotation.pitch(.int(64)) == 64)
     #expect(try AgentNotation.pitch("closed hat") == 42)
     #expect(try AgentNotation.pitch("Kick") == 36)
-    #expect(AgentNotation.name(ofPitch: 61) == "C#4")
-    #expect(AgentNotation.name(ofPitch: 0) == "C-1")
+    #expect(AgentNotation.name(ofPitch: 61) == "C#3")
+    #expect(AgentNotation.name(ofPitch: 0) == "C-2")
     #expect(throws: AgentError.self) { try AgentNotation.pitch("H2") }
+  }
+
+  @Test func scientificPitchNamesCanBeChosen() async throws {
+    let (middleC, fSharp, names) = try AgentNotation.$pitchNaming.withValue(.scientific) {
+      (try AgentNotation.pitch("C4"), try AgentNotation.pitch("F#3"), [61, 0].map(AgentNotation.name(ofPitch:)))
+    }
+    #expect(middleC == 60 && fSharp == 54)
+    #expect(names == ["C#4", "C-1"])
+    #expect(AgentToolbox.instructions(pitchNaming: .scientific).contains("middle C (60) as C4"))
+    #expect(AgentToolbox.instructions().contains("middle C (60) as C3"))
   }
 
   @Test func keysMetersAndGrids() async throws {
@@ -220,6 +235,36 @@ struct AgentToolTests {
     let track = try await call("get_track", ["track": "lead"], in: session)
     #expect(track["number"] == .int(session.project.tracks.count))
     #expect(track["regions"]?.arrayValue?.count == 1)
+  }
+
+  @Test func regionsAreSplitJoinedAndSectionsEdited() async throws {
+    let session = Session()
+    let trackID = try #require(try await call("create_track", ["name": "Keys"], in: session)["id"])
+    let regionID = try #require(try await call("create_region", ["track": trackID, "start": 1, "bars": 2, "notes": ["C3 0 1", "E3 4 1"]], in: session)["id"])
+
+    let split = try await call("split_region", ["region": regionID, "at": "2"], in: session)
+    let halves = split["regions"]?.arrayValue ?? []
+    #expect(halves.count == 2)
+    #expect(session.project.tracks[0].regions.count == 2)
+
+    try await call("join_regions", ["regions": .array(halves.compactMap { $0["id"] })], in: session)
+    #expect(session.project.tracks[0].regions.count == 1)
+
+    try await call("edit_section", ["action": "repeat", "start": "1", "end": "3"], in: session)
+    #expect(session.project.tracks[0].regions.count == 2, "The two bars play again after themselves")
+    try await call("edit_section", ["action": "cut", "start": "1", "end": "2"], in: session)
+    #expect(session.project.tracks[0].regions.first?.start == .zero)
+    await #expect(throws: AgentError.self) { try await call("edit_section", ["action": "shuffle", "start": "1", "end": "2"], in: session) }
+  }
+
+  @Test func tracksAreMovedAndNewOnesGetTheSessionsDefaults() async throws {
+    let session = Session()
+    try await call("create_track", ["name": "Bass"], in: session)
+    try await call("create_track", ["name": "Drums"], in: session)
+    let moved = try await call("move_track", ["track": "Drums", "to": 1], in: session)
+    #expect(moved["tracks"] == ["Drums", "Bass"])
+    await #expect(throws: AgentError.self) { try await call("move_track", ["track": "Bass", "to": 5], in: session) }
+    #expect(session.project.tracks.allSatisfy { $0.color == .purple }, "Tracks come from the session's makeTrack")
   }
 
   @Test func notesCanBeReplacedTransformedAndDeleted() async throws {

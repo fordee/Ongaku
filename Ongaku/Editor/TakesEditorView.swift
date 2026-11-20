@@ -17,8 +17,6 @@ struct TakesEditorView: View {
   static let nameWidth: CGFloat = 120
 
   /// The take being renamed, and the name being typed.
-  @State private var renamingTakeID: Take.ID?
-  @State private var name = ""
 
   var body: some View {
     if let folder = region.takeFolder {
@@ -26,25 +24,15 @@ struct TakesEditorView: View {
         VStack(spacing: 0) {
           ForEach(folder.takes.reversed()) { take in
             TakeRow(model: model, region: region, take: take, comp: folder.comp) {
-              name = take.name
-              renamingTakeID = take.id
+              model.window.renameTarget = .take(take.id, in: region.id)
             }
           }
         }
+        .overlay(alignment: .topLeading) { EditorPlayhead(model: model, region: region, leading: TakesEditorView.nameWidth) }
       }
       .background(Theme.lanes)
       .accessibilityElement(children: .contain)
       .accessibilityLabel("Takes")
-      .alert("Rename Take", isPresented: Binding(get: { renamingTakeID != nil }, set: { if !$0 { renamingTakeID = nil } })) {
-        TextField("Name", text: $name)
-        Button("Rename") {
-          if let renamingTakeID, name != folder.take(withID: renamingTakeID)?.name {
-            model.window.perform(RenameTake(renamingTakeID, in: region.id, to: name))
-          }
-          renamingTakeID = nil
-        }
-        Button("Cancel", role: .cancel) { renamingTakeID = nil }
-      }
     }
   }
 }

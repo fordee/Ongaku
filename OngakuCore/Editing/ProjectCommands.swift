@@ -39,23 +39,6 @@ public struct SetTimeSignature: EditCommand {
   }
 }
 
-public struct SetKeySignature: EditCommand {
-  public var keySignature: KeySignature
-
-  public init(_ keySignature: KeySignature) {
-    self.keySignature = keySignature
-  }
-
-  public var actionName: String { "Key Signature Change" }
-
-  public func apply(to project: inout Project) throws {
-    project.keySignature = keySignature
-    project.removeRedundantKeyChanges()
-    // Players use the key's chord where the Chord track has none.
-    project.renderPlayerRegions()
-  }
-}
-
 public struct SetCycle: EditCommand {
   public var cycle: CycleRange
 
@@ -110,13 +93,19 @@ public struct UpdateTempoChange: EditCommand {
       throw EditError.invalidValue("The tempo change no longer exists.")
     }
     let destination = oldPosition == .zero ? .zero : max(Tick(1), position)
+    // Ramps stay with their changes (the moved one included), as long as there's a change after to ramp to.
+    var ramping = Set(project.tempoMap.tempoChanges.filter(\.rampsToNext).map(\.position))
+    if ramping.remove(oldPosition) != nil { ramping.insert(destination) }
     project.tempoMap.removeTempoChange(at: oldPosition)
     try project.tempoMap.setTempo(bpm, at: destination)
+    for position in ramping where position != project.tempoMap.tempoChanges.last?.position {
+      project.tempoMap.setRamp(true, at: position)
+    }
   }
 }
 
 /// Removes a tempo change; the first tempo can't be removed.
-public struct RemoveTempoChange: EditCommand {
+public struct DeleteTempoChange: EditCommand {
   public var position: Tick
 
   public init(at position: Tick) {
@@ -156,19 +145,59 @@ public struct MoveTimeSignatureChange: EditCommand {
 }
 
 /// Removes a time signature change; the first one can't be removed.
-public struct RemoveTimeSignatureChange: EditCommand {
+public struct DeleteTimeSignatureChange: EditCommand {
   public var barIndex: Int
 
   public init(atBarIndex barIndex: Int) {
     self.barIndex = barIndex
   }
 
-  public var actionName: String { "Delete Time Signature" }
+  public var actionName: String { "Delete Time Signature Change" }
 
   public func apply(to project: inout Project) throws {
     guard barIndex != 0 else { throw EditError.invalidValue("The first time signature can be changed but not deleted.") }
     project.tempoMap.removeTimeSignatureChange(atBarIndex: barIndex)
     project.renderDrummerRegions()
     project.renderPlayerRegions()
+  }
+}
+
+/// Makes a tempo change ramp smoothly to the next one, or step again, as Logic's tempo
+/// curves.
+public struct SetTempoRamp: EditCommand {
+  public var position: Tick
+  public var ramps: Bool
+
+  public init(at position: Tick, ramps: Bool) {
+    self.position = position
+    self.ramps = ramps
+  }
+
+  public var actionName: String { ramps ? "Tempo Ramp" : "Tempo Step" }
+
+  public func apply(to project: inout Project) throws {
+    guard let index = project.tempoMap.tempoChanges.firstIndex(where: { $0.position == position }) else {
+      throw EditError.invalidValue("There's no tempo change there.")
+    }
+    guard !ramps || index + 1 < project.tempoMap.tempoChanges.count else {
+      throw EditError.invalidValue("Add a tempo change after this one to ramp to it.")
+    }
+    project.tempoMap.setRamp(ramps, at: position)
+  }
+}
+
+/// Replaces the whole song with another version of it (File › Revert to Backup), as one
+/// step that can be undone.
+public struct RevertProject: EditCommand {
+  public var project: Project
+  public var actionName: String
+
+  public init(to project: Project, actionName: String = "Revert to Backup") {
+    self.project = project
+    self.actionName = actionName
+  }
+
+  public func apply(to project: inout Project) throws {
+    project = self.project
   }
 }

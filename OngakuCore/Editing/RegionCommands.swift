@@ -73,7 +73,7 @@ public struct MoveRegion: EditCommand {
 
 /// Changes a region's start and length while keeping its content where it is on the
 /// timeline, like dragging the edges of a region in Logic.
-public struct TrimRegion: EditCommand {
+public struct ResizeRegion: EditCommand {
   public var regionID: Region.ID
   public var start: Tick
   public var length: Tick
@@ -92,7 +92,7 @@ public struct TrimRegion: EditCommand {
     }
     let location = try project.requireRegionLocation(regionID)
     var region = project.tracks[location.track].regions[location.region]
-    try region.requireNotTakeFolder()
+    try region.requireEditable(for: .resize)
     let shift = start - region.start
 
     switch region.content {
@@ -148,7 +148,7 @@ public struct SplitRegion: EditCommand {
   public func apply(to project: inout Project) throws {
     let location = try project.requireRegionLocation(regionID)
     var left = project.tracks[location.track].regions[location.region]
-    try left.requireNotTakeFolder()
+    try left.requireEditable(for: .split)
     guard position > left.start, position < left.end else {
       throw EditError.invalidValue("The split position must be inside the region.")
     }
@@ -229,6 +229,25 @@ public struct SetRegionMuted: EditCommand {
   }
 }
 
+public struct RenameRegion: EditCommand {
+  public var regionID: Region.ID
+  public var name: String
+
+  public init(_ regionID: Region.ID, to name: String) {
+    self.regionID = regionID
+    self.name = name
+  }
+
+  public var actionName: String { "Rename Region" }
+
+  public func apply(to project: inout Project) throws {
+    let location = try project.requireRegionLocation(regionID)
+    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { throw EditError.invalidValue("A region name can’t be empty.") }
+    project.tracks[location.track].regions[location.region].name = trimmed
+  }
+}
+
 /// Checks that a region can be placed on a track.
 private func validate(_ region: Region, on track: Track, in project: Project) throws {
   guard region.content.trackKind == track.kind else {
@@ -249,7 +268,7 @@ private func validate(_ region: Region, on track: Track, in project: Project) th
 /// MIDI regions keep the notes and controllers that played (those inside their region and
 /// not muted). Audio regions can only be joined when they play one unbroken stretch of the
 /// same file, such as the pieces of a split recording: other audio would need a new file.
-public struct GlueRegions: EditCommand {
+public struct JoinRegions: EditCommand {
   public var regionIDs: Set<Region.ID>
 
   public init(_ regionIDs: Set<Region.ID>) {
@@ -312,7 +331,7 @@ public struct GlueRegions: EditCommand {
     for trackIndex in project.tracks.indices {
       let regions = project.tracks[trackIndex].regions.filter { regionIDs.contains($0.id) }
       guard regions.count > 1 else { continue }
-      for region in regions { try region.requireNotTakeFolder() }
+      for region in regions { try region.requireEditable(for: .join) }
       var joined = try join(regions, in: project)
       // Matching drummers or players carry on as one, played over the whole length.
       if let part = Self.generatedPart(of: regions) {
@@ -347,12 +366,23 @@ public struct GlueRegions: EditCommand {
 
     switch first.content {
     case .midi:
+      // Regions playing with different transpose, velocity or quantize settings are joined as
+      // they sound: each one's settings are written into its notes, and the joined region
+      // plays them as they are.
+      let bakesParameters = sorted.contains { !$0.hasSamePlaybackParameters(as: first) }
+      if bakesParameters {
+        joined.transpose = 0
+        joined.velocityOffset = 0
+        joined.playbackQuantize = nil
+        joined.playbackQuantizeAlternative = nil
+      }
       var notes: [MIDINote] = []
       var controls: [MIDIControlEvent] = []
       for region in playing.isEmpty ? sorted : playing {
         guard case .midi(let sequence) = region.content else { continue }
         let offset = region.start - start
-        for note in sequence.notes where note.start >= .zero && note.start < region.length {
+        let regionNotes = bakesParameters ? region.notesWithPlaybackParameters(keepingMuted: true) : sequence.notes
+        for note in regionNotes where note.start >= .zero && note.start < region.length {
           var moved = note
           moved.start += offset
           notes.append(moved)
@@ -406,6 +436,9 @@ public enum RegionParameter: Sendable, Equatable {
   case fadeIn(Double)
   /// Audio regions only, in seconds (kept within the region).
   case fadeOut(Double)
+  /// Audio regions only, from −1 to 1 (see `AudioEnvelope.fadeShape`).
+  case fadeInCurve(Double)
+  case fadeOutCurve(Double)
 
   public static let gainRange: ClosedRange<Double> = -96...30
 }
@@ -429,6 +462,7 @@ public struct SetRegionParameter: EditCommand {
     case .playbackQuantize: "Quantize Region"
     case .gain: "Change Region Gain"
     case .fadeIn, .fadeOut: "Change Fade"
+    case .fadeInCurve, .fadeOutCurve: "Change Fade Curve"
     }
   }
 
@@ -449,6 +483,7 @@ public struct SetRegionParameter: EditCommand {
       switch (parameter, region.content) {
       case (.looped(let isLooped), _):
         // The Loop switch loops to the next region, as in Logic's Region Inspector.
+        if isLooped { try region.requireEditable(for: .loop) }
         region.isLooped = isLooped
         region.loopedLength = nil
       case (.transpose(let value), _):
@@ -467,6 +502,12 @@ public struct SetRegionParameter: EditCommand {
         region.content = .audio(audio)
       case (.fadeOut(let seconds), .audio(var audio)):
         audio.fadeOut = min(max(0, seconds), max(0, project.duration(of: region) - audio.fadeIn))
+        region.content = .audio(audio)
+      case (.fadeInCurve(let curve), .audio(var audio)):
+        audio.fadeInCurve = min(max(curve, -1), 1)
+        region.content = .audio(audio)
+      case (.fadeOutCurve(let curve), .audio(var audio)):
+        audio.fadeOutCurve = min(max(curve, -1), 1)
         region.content = .audio(audio)
       default:
         continue
@@ -509,8 +550,8 @@ public struct CrossfadeRegions: EditCommand {
     }
     var first = project.tracks[firstLocation.track].regions[firstLocation.region]
     var second = project.tracks[secondLocation.track].regions[secondLocation.region]
-    try first.requireNotTakeFolder()
-    try second.requireNotTakeFolder()
+    try first.requireEditable(for: .crossfade)
+    try second.requireEditable(for: .crossfade)
     if second.start < first.start { swap(&first, &second) }
     guard case .audio(var firstAudio) = first.content, case .audio(var secondAudio) = second.content,
       let firstFile = project.audioFile(withID: firstAudio.fileID), let secondFile = project.audioFile(withID: secondAudio.fileID)
@@ -543,6 +584,10 @@ public struct CrossfadeRegions: EditCommand {
     }
     firstAudio.fadeOut = min(overlap, project.duration(of: first) - firstAudio.fadeIn)
     secondAudio.fadeIn = min(overlap, project.duration(of: second) - secondAudio.fadeOut)
+    // Equal power, as Logic's crossfades are: the two square-root curves keep the level
+    // steady through the overlap, where straight fades would dip by 3 dB.
+    firstAudio.fadeOutCurve = 0.5
+    secondAudio.fadeInCurve = 0.5
     first.content = .audio(firstAudio)
     second.content = .audio(secondAudio)
 
@@ -550,27 +595,6 @@ public struct CrossfadeRegions: EditCommand {
     project.tracks[track].regions.removeAll { $0.id == first.id || $0.id == second.id }
     project.tracks[track].regions += [first, second]
     project.tracks[track].sortRegions()
-  }
-}
-
-extension Region {
-  /// Take folders are resized, split and joined by flattening them first, and flexed regions
-  /// by removing their markers.
-  func requireNotTakeFolder() throws {
-    if takeFolder != nil {
-      throw EditError.invalidValue("“\(name)” is a take folder. Flatten it first to resize, split, join or crossfade it.")
-    }
-    // Flex markers are placed in the region's own time, which these edits would shift. They
-    // stay when Flex is turned off (hidden), so the message says where to remove them.
-    guard case .audio(let audio) = content else { return }
-    var fixes: [String] = []
-    if !audio.flexMarkers.isEmpty { fixes.append("its flex markers (Remove Flex Markers)") }
-    if !audio.pitchEdits.isEmpty { fixes.append("its retuned notes (Reset Retuned Notes)") }
-    if abs(audio.stretch - 1) > 0.0001 { fixes.append("its Smart Tempo stretch (Remove Stretch)") }
-    if !fixes.isEmpty {
-      throw EditError.invalidValue(
-        "To resize, split, join or crossfade “\(name)”, first remove \(fixes.formatted(.list(type: .and))): select it and use the button in the Region Inspector.")
-    }
   }
 }
 
@@ -658,5 +682,13 @@ public struct SetDrummerPerformance: EditCommand {
       }
     }
     guard changed else { throw EditError.invalidValue("Select a Drummer region.") }
+  }
+}
+
+extension Region {
+  /// Whether two regions play their notes with the same transpose, velocity and quantize.
+  func hasSamePlaybackParameters(as other: Region) -> Bool {
+    transpose == other.transpose && velocityOffset == other.velocityOffset
+      && playbackQuantize == other.playbackQuantize && playbackQuantizeAlternative == other.playbackQuantizeAlternative
   }
 }

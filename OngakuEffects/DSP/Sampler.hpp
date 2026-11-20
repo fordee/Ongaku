@@ -24,11 +24,34 @@ struct SamplerSample {
   double sampleRate;
 };
 
+/// One of the Sampler's zones: a sample and where it plays (see `SamplerZoneSettings`).
+struct SamplerKeyZone {
+  SamplerSample sample;
+  int lowKey, highKey;
+  int lowVelocity, highVelocity;
+  /// The key that plays the sample at its own pitch, or −1 to follow the Root Note knob.
+  int root;
+  /// Cents.
+  float tune;
+  /// Linear.
+  float gain;
+  /// −1 (left) to 1 (right).
+  float pan;
+};
+
+/// The Sampler's zones. The Audio Unit owns the memory (and the samples') and keeps it alive
+/// until the Sampler has stopped using it.
+struct SamplerKeymap {
+  SamplerKeyZone const *zones;
+  int count;
+};
+
 namespace ongaku {
 
-/// A sampler in the spirit of Logic's Quick Sampler: one sample played across the keyboard,
-/// pitched from its root note, between start and end markers, with an optional loop (with
-/// a crossfade), then a resonant filter, envelopes, an LFO and glide.
+/// A sampler in the spirit of Logic's Sampler: zones of samples mapped across the keyboard
+/// and velocities (a single sample is one zone over everything), each pitched from its
+/// root note, between start and end markers, with an optional loop (with a crossfade),
+/// then a resonant filter, envelopes, an LFO and glide. Every zone a note falls in plays.
 class Sampler {
 public:
   static constexpr AUParameterAddress firstAddress = splStart;
@@ -58,16 +81,23 @@ public:
     mSustainPedal = false;
   }
 
-  /// Replaces the sample (or removes it, with null). Called from any thread; the render
-  /// thread picks it up at its next buffer and stops the notes playing the old one.
-  void setSample(SamplerSample const *sample) { __atomic_store_n(&mPending, sample, __ATOMIC_RELEASE); }
+  /// Replaces the zones (or removes them, with null). Called from any thread; the render
+  /// thread picks them up at its next buffer and stops the notes playing samples that are
+  /// no longer in a zone (their memory may go away). Notes playing samples still there
+  /// carry on.
+  void setKeymap(SamplerKeymap const *keymap) { __atomic_store_n(&mPending, keymap, __ATOMIC_RELEASE); }
 
-  /// Where a voice is in the sample (0–1 of its length), or −1 for none, for drawing
-  /// playheads on the waveform.
+  /// The sample the window is showing (by its first channel), whose playheads `playhead`
+  /// reports; null for every voice's.
+  void setShownSample(float const *left) { __atomic_store_n(&mShown, left, __ATOMIC_RELAXED); }
+
+  /// Where a voice playing the shown sample is in it (0–1 of its length), or −1 for none,
+  /// for drawing playheads on the waveform.
   float playhead(int index) const {
+    float const *shown = __atomic_load_n(&mShown, __ATOMIC_RELAXED);
     int found = 0;
     for (auto const &voice : mVoices) {
-      if (!voice.amp.isActive()) continue;
+      if (!voice.amp.isActive() || (shown != nullptr && voice.sample.left != shown)) continue;
       if (found++ == index) return voice.shownPosition;
     }
     return -1;
@@ -76,8 +106,8 @@ public:
   // MARK: MIDI
 
   void midi(uint8_t status, uint8_t data1, uint8_t data2) {
-    // Notes at the start of a buffer arrive before it renders, so take up a new sample now.
-    takeNewSample();
+    // Notes at the start of a buffer arrive before it renders, so take up new zones now.
+    takeNewKeymap();
     switch (status & 0xF0) {
       case 0x90:
         if (data2 > 0) { noteOn(data1, data2); } else { noteOff(data1); }
@@ -99,19 +129,21 @@ public:
 
   void process(std::span<float *> outputs, int frameCount) {
     if (outputs.empty()) return;
-    takeNewSample();
-    if (mSample == nullptr || mSample->frames < 2) return;
+    takeNewKeymap();
+    if (mKeymap == nullptr) return;
 
     updateSettings();
     float *left = outputs[0];
     float *right = outputs.size() > 1 ? outputs[1] : nullptr;
-    Region region = currentRegion();
+    for (auto &voice : mVoices) {
+      if (voice.amp.isActive()) voice.region = currentRegion(voice.sample);
+    }
     for (int start = 0; start < frameCount; start += controlInterval) {
       int frames = std::min(controlInterval, frameCount - start);
       float lfo = nextLFO(frames);
       for (auto &voice : mVoices) {
         if (!voice.amp.isActive()) continue;
-        renderVoice(voice, region, left + start, right ? right + start : nullptr, frames, lfo);
+        renderVoice(voice, left + start, right ? right + start : nullptr, frames, lfo);
       }
     }
     float gain = std::pow(10.0f, value(splGain) / 20);
@@ -127,14 +159,41 @@ public:
 private:
   static constexpr int controlInterval = 16;
 
-  /// Switches to a sample given by `setSample`, stopping the notes playing the old one
-  /// (whose memory may go away). On the render thread.
-  void takeNewSample() {
-    SamplerSample const *sample = __atomic_load_n(&mPending, __ATOMIC_ACQUIRE);
-    if (sample == mSample) return;
-    mSample = sample;
-    reset();
+  /// Switches to zones given by `setKeymap`, stopping the notes playing samples no longer
+  /// in any zone (whose memory may go away). On the render thread.
+  void takeNewKeymap() {
+    SamplerKeymap const *keymap = __atomic_load_n(&mPending, __ATOMIC_ACQUIRE);
+    if (keymap == mKeymap) return;
+    mKeymap = keymap;
+    if (keymap == nullptr) {
+      reset();
+      return;
+    }
+    for (auto &voice : mVoices) {
+      if (!voice.amp.isActive()) continue;
+      bool isKept = false;
+      for (int index = 0; index < keymap->count && !isKept; ++index) {
+        isKept = keymap->zones[index].sample.left == voice.sample.left;
+      }
+      if (!isKept) {
+        voice.amp.reset();
+        voice.filterEnvelope.reset();
+        voice.note = -1;
+        voice.shownPosition = -1;
+      }
+    }
   }
+
+  /// The markers in sample frames, and the loop in the voice's playing order.
+  struct Region {
+    double start = 0, end = 0;
+    bool reverse = false;
+    /// The loop, as distances from the start of play (0 … end − start).
+    double loopStart = 0, loopEnd = 0;
+    /// 0 off, 1 forward, 2 alternate.
+    int loop = 0;
+    double crossfade = 0;
+  };
 
   struct Voice {
     int note = -1;
@@ -152,17 +211,14 @@ private:
     bool isHeld = false;
     bool isSustained = false;
     uint64_t age = 0;
-  };
-
-  /// The markers in sample frames, and the loop in the voice's playing order.
-  struct Region {
-    double start = 0, end = 0;
-    bool reverse = false;
-    /// The loop, as distances from the start of play (0 … end − start).
-    double loopStart = 0, loopEnd = 0;
-    /// 0 off, 1 forward, 2 alternate.
-    int loop = 0;
-    double crossfade = 0;
+    /// The zone it's playing: its sample, and its root (−1 for the knob's), tuning, level
+    /// and pan, taken when the note starts.
+    SamplerSample sample {};
+    int root = -1;
+    float tune = 0;
+    float gain = 1;
+    float panLeft = 1, panRight = 1;
+    Region region;
   };
 
   float value(AUParameterAddress address) const { return mTargets[address - firstAddress]; }
@@ -170,9 +226,9 @@ private:
   bool isMono() const { return isOn(splVoices); }
   bool isOneShot() const { return isOn(splPlayMode); }
 
-  Region currentRegion() const {
+  Region currentRegion(SamplerSample const &sample) const {
     Region region;
-    double last = double(mSample->frames - 1);
+    double last = double(std::max<int64_t>(1, sample.frames - 1));
     double start = std::clamp(double(value(splStart)) / 100, 0.0, 1.0) * last;
     double end = std::clamp(double(value(splEnd)) / 100, 0.0, 1.0) * last;
     if (end < start) std::swap(start, end);
@@ -198,7 +254,7 @@ private:
     region.loop = !isOneShot() && region.loopEnd - region.loopStart >= 16 ? loop : 0;
     // The crossfade blends the end of the loop into what comes just before its start, so it
     // can be no longer than that, nor than half the loop.
-    double crossfade = double(value(splCrossfade)) / 1000 * mSample->sampleRate;
+    double crossfade = double(value(splCrossfade)) / 1000 * sample.sampleRate;
     region.crossfade = std::clamp(crossfade, 0.0, std::min(region.loopStart, (region.loopEnd - region.loopStart) / 2));
     return region;
   }
@@ -212,6 +268,23 @@ private:
     }
   }
 
+  /// Gives a voice a zone to play.
+  static void assign(Voice &voice, SamplerKeyZone const &zone) {
+    voice.sample = zone.sample;
+    voice.root = zone.root;
+    voice.tune = zone.tune;
+    voice.gain = zone.gain;
+    float pan = std::clamp(zone.pan, -1.0f, 1.0f);
+    voice.panLeft = std::min(1.0f, 1 - pan);
+    voice.panRight = std::min(1.0f, 1 + pan);
+    voice.region = Region();
+  }
+
+  static bool plays(SamplerKeyZone const &zone, int note, int velocity) {
+    return zone.sample.frames >= 2 && note >= zone.lowKey && note <= zone.highKey && velocity >= zone.lowVelocity &&
+           velocity <= zone.highVelocity;
+  }
+
   void start(Voice &voice) {
     voice.position = 0;
     voice.direction = 1;
@@ -221,11 +294,18 @@ private:
   }
 
   void noteOn(int note, int velocity) {
-    if (mSample == nullptr) return;
+    if (mKeymap == nullptr) return;
     float level = velocity / 127.0f;
     if (isMono()) {
+      // One note at a time, from the first zone it falls in.
+      SamplerKeyZone const *zone = nullptr;
+      for (int index = 0; index < mKeymap->count && !zone; ++index) {
+        if (plays(mKeymap->zones[index], note, velocity)) zone = &mKeymap->zones[index];
+      }
+      if (!zone) return;
       Voice &voice = mVoices[0];
-      bool legato = voice.amp.isActive() && !voice.amp.isReleasing() && mHeldCount > 0;
+      // Gliding into another zone's sample starts it afresh.
+      bool legato = voice.amp.isActive() && !voice.amp.isReleasing() && mHeldCount > 0 && voice.sample.left == zone->sample.left;
       pushHeld(note);
       voice.note = note;
       voice.velocity = level;
@@ -233,16 +313,41 @@ private:
       voice.isSustained = false;
       if (!legato) {
         if (value(splGlide) <= 0 || !voice.amp.isActive()) voice.pitch = float(note);
+        assign(voice, *zone);
         voice.filter.reset();
         voice.filterRight.reset();
         start(voice);
       }
       return;
     }
-    // The voice already playing this note, a free voice, the quietest releasing one, or
-    // the oldest.
+    // A voice for every zone the note falls in (layers).
+    bool played = false;
+    for (int index = 0; index < mKeymap->count; ++index) {
+      SamplerKeyZone const &zone = mKeymap->zones[index];
+      if (!plays(zone, note, velocity)) continue;
+      Voice &voice = chooseVoice(note, zone);
+      voice.filter.reset();
+      voice.filterRight.reset();
+      voice.pitch = value(splGlide) > 0 && mLastNote >= 0 ? float(mLastNote) : float(note);
+      voice.note = note;
+      voice.velocity = level;
+      voice.isHeld = true;
+      voice.isSustained = false;
+      voice.age = ++mClock;
+      assign(voice, zone);
+      start(voice);
+      played = true;
+    }
+    if (played) mLastNote = note;
+  }
+
+  /// The voice already playing this note from this zone's sample, a free voice, the
+  /// quietest releasing one, or the oldest.
+  Voice &chooseVoice(int note, SamplerKeyZone const &zone) {
     Voice *chosen = nullptr;
-    for (auto &voice : mVoices) if (voice.note == note && voice.amp.isActive()) chosen = &voice;
+    for (auto &voice : mVoices) {
+      if (voice.note == note && voice.amp.isActive() && voice.sample.left == zone.sample.left) chosen = &voice;
+    }
     if (!chosen) for (auto &voice : mVoices) if (!voice.amp.isActive()) { chosen = &voice; break; }
     if (!chosen) {
       for (auto &voice : mVoices) {
@@ -252,17 +357,7 @@ private:
     if (!chosen) {
       chosen = &*std::min_element(mVoices.begin(), mVoices.end(), [](Voice const &a, Voice const &b) { return a.age < b.age; });
     }
-    Voice &voice = *chosen;
-    voice.filter.reset();
-    voice.filterRight.reset();
-    voice.pitch = value(splGlide) > 0 && mLastNote >= 0 ? float(mLastNote) : float(note);
-    voice.note = note;
-    voice.velocity = level;
-    voice.isHeld = true;
-    voice.isSustained = false;
-    voice.age = ++mClock;
-    start(voice);
-    mLastNote = note;
+    return *chosen;
   }
 
   void release(Voice &voice) {
@@ -357,13 +452,15 @@ private:
   }
 
   /// The sample at a distance into the region (in playing order), both channels.
-  void readAt(Region const &region, double distance, float &left, float &right) const {
+  static void readAt(SamplerSample const &sample, Region const &region, double distance, float &left, float &right) {
     double index = region.reverse ? region.end - distance : region.start + distance;
-    left = read(mSample->left, mSample->frames, index);
-    right = mSample->right ? read(mSample->right, mSample->frames, index) : left;
+    left = read(sample.left, sample.frames, index);
+    right = sample.right ? read(sample.right, sample.frames, index) : left;
   }
 
-  void renderVoice(Voice &voice, Region const &region, float *left, float *right, int frames, float lfo) {
+  void renderVoice(Voice &voice, float *left, float *right, int frames, float lfo) {
+    Region const &region = voice.region;
+    SamplerSample const &sample = voice.sample;
     // Glide toward the note over the glide time.
     float glideSeconds = value(splGlide) / 1000;
     float glide = glideSeconds > 0 ? 1 - std::exp(-float(frames) / (glideSeconds * mSampleRate / 4.6f)) : 1;
@@ -371,10 +468,12 @@ private:
 
     // Pitch: from the root note (if it follows the keys), transposed and tuned, with bend
     // and vibrato (the mod wheel adds more).
-    float keys = isOn(splFollowKeys) ? voice.pitch - std::round(value(splRoot)) : 0;
+    float root = voice.root >= 0 ? float(voice.root) : std::round(value(splRoot));
+    float keys = isOn(splFollowKeys) ? voice.pitch - root : 0;
     float vibrato = (value(splLfoPitch) + mModWheel * 50) / 100 * lfo;
-    float semitones = keys + std::round(value(splTranspose)) + value(splTune) / 100 + mPitchBend * value(splBendRange) + vibrato;
-    double step = std::exp2(double(semitones) / 12) * mSample->sampleRate / mSampleRate;
+    float semitones = keys + std::round(value(splTranspose)) + (value(splTune) + voice.tune) / 100 + mPitchBend * value(splBendRange) +
+                      vibrato;
+    double step = std::exp2(double(semitones) / 12) * sample.sampleRate / mSampleRate;
 
     bool filterOn = isOn(splFilterOn);
     if (filterOn) {
@@ -385,20 +484,20 @@ private:
       voice.filter.set(cutoff, value(splResonance) / 100, mSampleRate);
       voice.filterRight.set(cutoff, value(splResonance) / 100, mSampleRate);
     }
-    float velocityGain = 1 - value(splVelocity) / 100 * (1 - voice.velocity * voice.velocity);
+    float velocityGain = (1 - value(splVelocity) / 100 * (1 - voice.velocity * voice.velocity)) * voice.gain;
     float tremolo = 1 - value(splLfoAmp) / 100 * (0.5f + 0.5f * lfo);
     double length = region.end - region.start;
     double loopLength = region.loopEnd - region.loopStart;
 
     for (int i = 0; i < frames; ++i) {
       float sampleLeft, sampleRight;
-      readAt(region, voice.position, sampleLeft, sampleRight);
+      readAt(sample, region, voice.position, sampleLeft, sampleRight);
       // Approaching the end of a forward loop, fade into the audio before the loop start,
       // which is what follows when it jumps back.
       if (region.loop == 1 && region.crossfade > 0 && voice.position > region.loopEnd - region.crossfade &&
           voice.position < region.loopEnd) {
         float otherLeft, otherRight;
-        readAt(region, voice.position - loopLength, otherLeft, otherRight);
+        readAt(sample, region, voice.position - loopLength, otherLeft, otherRight);
         float t = float((voice.position - (region.loopEnd - region.crossfade)) / region.crossfade);
         float out = std::sqrt(1 - t), in = std::sqrt(t);
         sampleLeft = sampleLeft * out + otherLeft * in;
@@ -413,8 +512,8 @@ private:
         sampleLeft = voice.filter.process(sampleLeft);
         sampleRight = voice.filterRight.process(sampleRight);
       }
-      left[i] += sampleLeft * amplitude;
-      if (right) right[i] += sampleRight * amplitude;
+      left[i] += sampleLeft * amplitude * voice.panLeft;
+      if (right) right[i] += sampleRight * amplitude * voice.panRight;
 
       // Move on, looping once the loop is reached.
       voice.position += step * voice.direction;
@@ -437,7 +536,7 @@ private:
     }
     if (voice.amp.isActive()) {
       double index = region.reverse ? region.end - voice.position : region.start + voice.position;
-      voice.shownPosition = float(index / double(mSample->frames - 1));
+      voice.shownPosition = float(index / double(sample.frames - 1));
     } else {
       voice.note = -1;
       voice.shownPosition = -1;
@@ -446,8 +545,9 @@ private:
 
   std::array<float, size_t(parameterCount)> mTargets;
   std::array<Voice, voiceCount> mVoices;
-  SamplerSample const *mPending = nullptr;
-  SamplerSample const *mSample = nullptr;
+  SamplerKeymap const *mPending = nullptr;
+  SamplerKeymap const *mKeymap = nullptr;
+  float const *mShown = nullptr;
   std::array<int, 16> mHeld {};
   int mHeldCount = 0;
   int mLastNote = -1;

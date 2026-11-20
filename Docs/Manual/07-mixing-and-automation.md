@@ -78,7 +78,7 @@ A **plug-in** is a piece of software that processes sound. An **insert** is a pl
 
 1. On the track's strip (or the Stereo Out strip), click the **+** slot under **Audio FX**.
 2. The **Add Insert** menu opens with three groups:
-   - **Ongaku**: Ongaku Studio's own effects, in submenus by kind: **EQ**, **Dynamics**, **Reverb & Delay**, **Distortion**, **Imaging** and **Vocal**. These are described in [Chapter 8](08-instruments-effects-midi-fx.md).
+   - **Ongaku**: Ongaku Studio's own effects, in submenus by kind: **EQ**, **Dynamics**, **Reverb & Delay**, **Modulation**, **Distortion**, **Imaging**, **Utility**, **Vocal** and **Mastering**. These are described in [Chapter 8](08-instruments-effects-midi-fx.md).
    - **Apple (built into macOS)**: Apple's own Audio Unit effects that come with your Mac. Each is listed with Apple's name for the Audio Unit underneath, so you can tell them from Ongaku's:
 
      | Menu item | Apple's Audio Unit |
@@ -93,7 +93,7 @@ A **plug-in** is a piece of software that processes sound. An **insert** is a pl
      | **High Pass Filter** | Apple AUHipass |
      | **Low Pass Filter** | Apple AULowpass |
 
-   - **Audio Units**: other Audio Unit effects installed on your Mac, listed as "Maker: Name". If you have none, it says **No Audio Unit effects are installed**.
+   - **Audio Units**: other Audio Unit effects installed on your Mac, in a submenu for each maker. If you have none, it says **No Audio Unit effects are installed**. Plug-ins you've turned off in **Settings › Plug-ins**, or that failed their check there, aren't listed ([Chapter 9](09-library-bounce-files-settings.md#plug-ins)).
 3. Choose an effect. It appears in the slot, and a new **+** slot appears below it until all eight slots are used.
 
 Note that **Channel EQ**, **Compressor**, **Reverb** and **Delay** appear under both **Ongaku** and **Apple (built into macOS)**. They're different plug-ins: the Ongaku versions have the visual editors described in Chapter 8.
@@ -108,17 +108,60 @@ For an instrument plug-in, click the instrument slot (or the instrument name on 
 
 > Important: A plug-in's settings are stored in your song when you close its window (and whenever you save). Closing the window is one undoable step, called **Plug-in Settings**. Changes inside the window have their own undo in Ongaku's plug-ins (see [Chapter 8](08-instruments-effects-midi-fx.md)).
 
+### Presets for Apple's and other makers' plug-ins
+
+Ongaku's own plug-ins have their presets in their windows ([Chapter 8](08-instruments-effects-midi-fx.md)). Every other plug-in's window gets a **Presets** menu at the right of its title bar, as in Logic:
+
+- **Factory Presets**: the plug-in's own presets, if it has any. Choose one to load it. The menu then shows its name.
+- **My Presets**: presets you've saved in Ongaku Studio for this plug-in. Choose one to load it.
+- **Save Preset As…**: saves the plug-in's settings as they are now. Type a name and click **Save**. Saving with the name of an existing preset asks before replacing it.
+- **Delete Preset**: removes one of your presets.
+
+Your presets are offered in every song that uses the plug-in. They're kept by Ongaku Studio, so other apps don't see them, and they don't change the plug-in's own preset list.
+
 ### Bypassing, reordering and removing inserts
 
 Click and **hold** an insert's slot, or **Control-click** (right-click) it, for its menu:
 
 - **Bypass**: switches the plug-in off without removing it, so you can hear the track without it. A bypassed slot is dimmed. Choose **Bypass** again to switch it back on.
-- **Move Up** / **Move Down**: changes the order of the inserts.
+- **Side Chain**: for plug-ins with a side chain input, the track whose sound drives it (see below).
+- **Move Up** / **Move Down**: changes the order of the inserts. You can also **drag** an insert up or down its strip to a new place.
 - **Remove**: takes the plug-in off the strip and closes its window. Any automation of that plug-in's settings goes with it (undo brings both back).
+
+### Side chains
+
+Some plug-ins listen to a second signal, called a **side chain**, to decide what to do with the track's own sound. The classic use is a compressor on the bass that ducks every time the kick drum hits, so the two don't fight. A gate opened by another track's rhythm works the same way.
+
+If a plug-in has a side chain input, its slot's menu has a **Side Chain** submenu:
+
+1. Hold or Control-click the insert's slot and open **Side Chain**.
+2. Choose the track whose sound should drive it, or **None** to stop.
+
+What to know:
+
+- **The sound is taken before the source track's fader and mute.** You can mute the kick (a "ghost" kick) and it still drives the compressor, or turn its fader down without changing the ducking.
+- **Tracks that would feed the sound back aren't offered.** For example, a track can't drive a plug-in on an aux it sends to.
+- **A side-chained plug-in works while its own track plays.** On a track with nothing playing, the plug-in isn't running, so there's nothing for the side chain to act on.
+- Ongaku's own plug-ins and Apple's don't have side chain inputs; the menu appears for other makers' plug-ins that do.
 
 ### Instruments and MIDI FX
 
-On a software instrument track, the slot under **MIDI FX** shows the instrument. Click it to choose a different one (the same menu as on the track header). MIDI FX slots are above it, because MIDI effects change the notes before the instrument plays them. Like insert slots, a MIDI FX slot opens its effect when you click it, and shows its menu when you hold or Control-click it. Both are covered in [Chapter 8](08-instruments-effects-midi-fx.md).
+On a software instrument track, the slot under **MIDI FX** shows the instrument. Click it to choose a different one (the same menu as on the track header). MIDI FX slots are above it, because MIDI effects change the notes before the instrument plays them. Like insert slots, a MIDI FX slot opens its effect when you click it, and shows its menu when you hold or Control-click it. Both are covered in [Chapter 8](08-instruments-effects-midi-fx.md), including MIDI effect plug-ins from other makers.
+
+### Instruments with several outputs
+
+Some instruments, often drum plug-ins, have more than one output, so each drum can be mixed on its own channel strip. When a track's instrument has extra outputs, its instrument menu (on the track header or channel strip) has **Add Aux for Each Output**:
+
+1. Click the track's instrument name and choose **Add Aux for Each Output**.
+2. An aux track appears after the instrument track for each output after the first, named after the track and the output (for example "Kit Snare"). Each plays that output, with its own fader, inserts and sends.
+
+The instrument track itself plays the first output. Choosing the command again only adds outputs that don't have an aux yet. A track whose outputs have auxes can't be frozen, because freezing unloads the instrument and the auxes would go silent.
+
+### If a plug-in stops working
+
+Plug-ins from other makers run in their own processes, so if one crashes, Ongaku Studio keeps running. You'll see a message that the plug-in "quit unexpectedly and was started again": Ongaku starts it again with the settings last stored in your song, and closes its window if it was open. Changes you made in the window since it was last stored are lost.
+
+If the same plug-in quits three times, Ongaku Studio leaves it off until you open the song again, and says so. Its slot stays in place, so your settings aren't lost. If a plug-in keeps causing trouble, check it in **Settings › Plug-ins** ([Chapter 9](09-library-bounce-files-settings.md#plug-ins)).
 
 ## Sends, auxes and buses
 
@@ -198,6 +241,15 @@ Click the **Group** slot of any member to see the group's settings, under **Grou
 
 **Rename Group N…** is described above. **Delete Group N** removes the group (the tracks stay, just ungrouped). When the group is on, its slot has an accent-coloured outline.
 
+## VCA faders
+
+A **VCA** is a fader with no sound of its own that moves other faders, as in Logic. Assign the drums, or the whole band, to a VCA and one fader turns them all up or down, keeping their balance, even where they have volume automation of their own. Unlike a group, the tracks' own faders don't move: the VCA's level is added to each.
+
+1. Select the tracks (Shift- or Command-click their headers or strips).
+2. On one of their channel strips, click the **VCA** slot (above **Group**) and choose **New VCA with Selected Tracks**.
+
+A VCA strip ("VCA 1", "VCA 2"…) appears in the Mixer after the tracks, with how many tracks it moves, its fader and a mute button that mutes them all. To assign another track, choose the VCA in its **VCA** slot; choose **No VCA** to take it off. To remove a VCA, right-click its strip and choose **Delete VCA**: its tracks keep their own fader levels. VCAs move the faders in bounces, freezes and track exports as they do live.
+
 ## Plug-in delay compensation
 
 Some plug-ins need a moment to think. A look-ahead limiter such as the **Maximizer** listens slightly ahead so it can catch peaks before they happen, and the **Convolution Reverb** works in blocks. Both hand their sound back a little late. If nothing were done about it, a track with one of these on it would play slightly behind the others, and drums would flam against each other.
@@ -215,7 +267,7 @@ What it means for you:
 
 A big software instrument with several plug-ins can use a lot of your Mac's processing power. **Freezing** a track renders it to an audio file in the background; from then on, the track plays that file instead of running its instrument and plug-ins. The track sounds the same, but costs almost nothing to play. When you want to change it again, you unfreeze it.
 
-Audio and software instrument tracks can be frozen. Aux tracks and summing stacks can't, and a track with no regions has nothing to freeze.
+Audio and software instrument tracks can be frozen. Aux tracks and summing stacks can't, and a track with no regions has nothing to freeze. Neither can a track whose instrument's other outputs play through aux tracks (see [Instruments with several outputs](#instruments-with-several-outputs)).
 
 ### Choosing what freezing includes
 
@@ -251,6 +303,43 @@ If you try, you'll see a message such as "“Synth” is frozen. Unfreeze it to 
 
 > Tip: Freeze files are saved inside your song, so a frozen song opens frozen. They can always be made again, so unfreezing and re-freezing is safe.
 
+## Bounce in Place
+
+Freezing can always be undone; **Bounce in Place** commits. It renders a track's regions through its instrument and plug-ins into a new audio region, on a new audio track just below (named, say, "Synth Bounce"). Use it to turn a software instrument part into audio you can chop up, reverse in the [Audio File Editor](02-arranging-and-editing.md#the-audio-file-editor) or flex, or to print an effect you like.
+
+![The Bounce in Place dialog for the Keys track](images/bounce-in-place.png)
+
+1. Select the regions to bounce (all on one track), or select a track to bounce all its regions.
+2. Choose **Track › Bounce in Place…** (⌃B).
+3. Choose:
+   - **Source Regions**: whether the regions bounced are left as they are, muted (the default, so you can go back to them) or deleted.
+   - **Include effect plug-ins**: through the track's inserts, or only its instrument and MIDI FX.
+   - **Include volume and pan**: at the fader's level and pan, with their automation, or at 0 dB in the centre (the default, as the new track has its own fader).
+4. Click **Bounce**.
+
+The new region starts where the first region bounced starts and runs on until the sound has died away, so reverb and delay tails are kept. Sends aren't included: the new track can send to the same auxes. A track in a summing stack bounces into the stack. It's one step you can undo.
+
+## Smart Controls and MIDI controllers
+
+### Smart Controls
+
+**Smart Controls** (press **B**, or click **Smart Controls** in the control bar) puts eight big knobs for the selected track at the bottom of the window, like Logic's. They're the quickest way to shape a sound without opening plug-in windows.
+
+Until you choose its knobs, a track gets suggestions: the first eight settings of its instrument plug-in (or of its first effect), or, without either, its volume, pan and sends. To choose your own, **right-click a knob** and pick a control under **Map to**: the channel strip's (volume, pan, each send) or any setting of any of its plug-ins. Click a dashed **+** to fill an empty knob, and choose **Clear Knob** to empty one. Each track remembers its own knobs, and mapping can be undone.
+
+![Smart Controls for the Keys track: suggested knobs for its volume, pan and send](images/smart-controls.png)
+
+Turning a knob changes the control straight away. A plug-in setting is kept with the plug-in's settings; volume, pan and send levels are set on the channel strip. In **Touch** or **Latch** mode during playback, turning a knob records automation, as moving the control on the channel strip does.
+
+### Learning a MIDI controller (MIDI Learn)
+
+Any knob, fader or wheel on a MIDI controller can play a control:
+
+1. Right-click a Smart Control knob and choose **Learn MIDI Controller**. The knob turns yellow and the panel says it's waiting.
+2. Move the knob or fader on your MIDI controller. Ongaku Studio takes the first one it hears, and the knob shows it underneath ("CC 74 · Ch 1").
+
+From then on that controller moves that control, whether the Smart Controls panel is open or not, and its movements don't reach the track's instrument. Each controller plays one control and each control has one controller: learning again moves the assignment. To stop, right-click the knob and choose **Forget CC…**. Learning can be cancelled with **Cancel Learn**. Assignments are saved with the song, and only the front window listens to them.
+
 ## Automation
 
 ### What automation is
@@ -273,7 +362,9 @@ Click the parameter menu in the automation strip's header (it starts as **Volume
 
 - **Volume** and **Pan**.
 - Each send, as "Send to *aux name*".
-- Each insert, as a submenu of that plug-in's settings (for example **Compressor › Threshold**). A plug-in with nothing to automate says **No automatable parameters**.
+- Each plug-in, as a submenu of its settings (for example **Compressor › Threshold**): MIDI effect plug-ins, then the instrument if it's a plug-in (such as **Retro Synth › Cutoff**), then the inserts. A plug-in with nothing to automate says **No automatable parameters**.
+
+Automation of a frozen track's MIDI effects, instrument and (in Pre Fader mode) inserts is part of its freeze file, so it's locked until you unfreeze.
 
 Parameters that already have automation are marked with a dot (•). Choosing one shows its line in the strip. Until you add points, the strip shows the current setting as a dashed line.
 
@@ -336,10 +427,11 @@ See [Chapter 9](09-library-bounce-files-settings.md) for the other settings.
 
 - **Stereo Out can't be automated.** Its fader and its plug-ins' settings stay where you set them.
 - **Stereo Out's plug-ins aren't in freeze files**, and the metronome doesn't pass through them.
-- **Only volume, pan and send levels can be recorded by moving controls.** Plug-in settings are automated by drawing points, and instrument plug-in settings can't be automated at all (only inserts appear in the parameter menu).
+- **Only volume, pan and send levels can be recorded by moving controls.** Plug-in settings (inserts, the instrument and MIDI effect plug-ins, all in the parameter menu) are automated by drawing points. General MIDI and sound library instruments have no settings to automate.
 - **Plug-in values show in their own units only while the plug-in is loaded.** Otherwise the automation strip shows them as a percentage of their range.
 - **Each track shows one automation line at a time.** Switch between parameters with the parameter menu.
 - **Inserts are reordered with Move Up and Move Down**; you can't drag them between slots.
+- **Side chains are only delayed, never moved earlier.** If the keyed track is the later one (its instrument or plug-ins delay it), the side chain waits for it. But if the source track has a delaying plug-in such as the Maximizer, the side chain arrives that much late.
 - **Grouped tracks only record automation if they're in Touch or Latch themselves.** Groups link volume and pan; send knobs aren't linked.
 
 ## Quick reference
@@ -358,6 +450,9 @@ See [Chapter 9](09-library-bounce-files-settings.md) for the other settings.
 | Hear an audio track's input live | **I** button on the strip or track header |
 | Open a plug-in's window | Click the insert slot |
 | Bypass, reorder or remove an insert | Hold or Control-click the insert slot › **Bypass**, **Move Up**, **Move Down**, **Remove** |
+| Drive a plug-in from another track | Hold or Control-click the insert slot › **Side Chain** › the track |
+| Save a plug-in's settings as a preset | **Presets** menu in the plug-in window's title bar › **Save Preset As…** (Ongaku's own plug-ins: the save button in their header) |
+| Mix a multi-output instrument's outputs separately | The track's instrument menu › **Add Aux for Each Output** |
 | Add a send | Click **+** under **Sends**, choose an aux or **New Aux** |
 | Make a send pre-fader | Click the send's name › **Pre-Fader** |
 | Route a track to a bus | Click **Output**, choose an aux |

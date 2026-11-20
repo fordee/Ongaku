@@ -27,6 +27,15 @@ extension OngakuEffect {
     case .vocalStrip: "Vocal Strip"
     case .sessionDrummer: "Session Drummer"
     case .mastering: "Mastering"
+    case .chorus: "Chorus"
+    case .flanger: "Flanger"
+    case .phaser: "Phaser"
+    case .tremolo: "Tremolo"
+    case .gain: "Gain"
+    case .tuner: "Tuner"
+    case .multibandCompressor: "Multiband Compressor"
+    case .electricPiano: "Electric Piano"
+    case .organ: "Organ"
     }
   }
 }

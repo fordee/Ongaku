@@ -332,6 +332,90 @@ struct BounceRenderTests {
     #expect(heard.allSatisfy { abs($0.pitch - 81) < 0.3 }, "An octave up")
   }
 
+  /// A MIDI effect plug-in plays in time, after Ongaku's own MIDI effects, all through the
+  /// song: A3s on each beat, moved up a tone by the Transposer and then an octave by the
+  /// plug-in, are each heard as a B4 on their beat. When the plug-in is bypassed, only the
+  /// tone is.
+  @Test(arguments: [false, true])
+  func bouncesPlayThroughMIDIEffectPlugins(bypassed: Bool) async throws {
+    TestMIDIPlugins.register
+    var keys = Track(name: "Synth", kind: .softwareInstrument)
+    keys.channel.instrument = .audioUnit(OngakuInstrument.retroSynth.makeReference())
+    let octaveUp = PluginReference(description: TestMIDIPlugins.transposer, name: "Octave Up")
+    keys.channel.midiEffects = [
+      MIDIEffect(.audioUnit(octaveUp), isBypassed: bypassed), MIDIEffect(.transposer(Transposer(semitones: 2))),
+    ]
+    let notes = (0..<8).map { beat in
+      MIDINote(pitch: 57, velocity: 127, start: .quarterNotes(Double(beat)), length: .quarterNotes(0.5))
+    }
+    keys.regions = [Region(name: "Notes", start: .zero, length: .quarterNotes(8), content: .midi(MIDISequence(notes: notes)))]
+    let (_, output) = try await bounce(Project(tracks: [keys]), settings: BounceSettings(bitDepth: .thirtyTwoFloat, includeTail: false))
+
+    let (samples, _, _) = try samples(of: output)
+    let expected = bypassed ? 59.0 : 71.0
+    for beat in 0..<8 {
+      let start = beat * 24_000
+      let onset = try #require(onset(in: samples, after: start), "Beat \(beat + 1) should be heard")
+      let milliseconds = Double(onset - start) / 48
+      #expect(milliseconds >= 0 && milliseconds < 10, "Beat \(beat + 1) started \(milliseconds) ms late")
+      let heard = PitchDetector.notes(Array(samples[start..<(start + 12_000)]), sampleRate: 48_000)
+      #expect(heard.first.map { abs($0.pitch - expected) < 0.2 } == true, "Beat \(beat + 1): expected \(expected), heard \(heard.map(\.pitch))")
+    }
+  }
+
+  /// A track's sound reaches another track's plug-in through its side chain, taken before
+  /// the source's fader and mute (a muted "ghost" kick still drives a ducking compressor).
+  /// The test plug-in plays only its side chain, so the host track is silent without one.
+  /// (The engine only renders a plug-in while its own track plays, as here.)
+  @Test(arguments: [false, true])
+  func sideChainsCarryAnotherTracksSound(connected: Bool) async throws {
+    TestMIDIPlugins.register
+    var (project, url) = try toneProject { $0.isMuted = true }
+    let source = project.tracks[0].id
+    var listener = PluginReference(description: TestMIDIPlugins.sidechainListener, name: "Listener")
+    listener.sidechainSourceID = connected ? source : nil
+    var host = Track(name: "Bass", kind: .audio, regions: project.tracks[0].regions.map { region in
+      var copy = region
+      copy.id = UUID()
+      return copy
+    })
+    host.channel.inserts = [listener]
+    project.tracks.append(host)
+    let (_, output) = try await bounce(project, locate: url, settings: BounceSettings(bitDepth: .thirtyTwoFloat, includeTail: false))
+
+    let (samples, _, _) = try samples(of: output)
+    if connected {
+      #expect(firstFrame(above: 0.01, in: samples) == 24_000, "The side chain carries the tone, on time")
+      let peak = samples.map(abs).max() ?? 0
+      #expect(abs(20 * log10(peak) - 20 * log10(0.5)) < 0.2, "At full level, though its fader is muted (\(peak))")
+    } else {
+      #expect(samples.allSatisfy { abs($0) < 0.0001 }, "Nothing without a side chain")
+    }
+  }
+
+  /// An instrument's second output plays through the aux track that takes it; the
+  /// instrument's own track only hears its first.
+  @Test(arguments: [false, true])
+  func instrumentOutputsPlayThroughTheirAuxTracks(withAux: Bool) async throws {
+    TestMIDIPlugins.register
+    var kit = Track(name: "Kit", kind: .softwareInstrument)
+    kit.channel.instrument = .audioUnit(PluginReference(description: TestMIDIPlugins.twoOutputInstrument, name: "Two Outputs"))
+    kit.regions = [Region(name: "Kit", start: .zero, length: .quarterNotes(4), content: .midi(MIDISequence()))]
+    var project = Project(tracks: [kit])
+    if withAux {
+      try AddInstrumentOutputs(of: kit.id, outputNames: ["Rim"]).apply(to: &project)
+      #expect(project.tracks.map(\.name) == ["Kit", "Kit Rim"])
+    }
+    let (_, output) = try await bounce(project, settings: BounceSettings(bitDepth: .thirtyTwoFloat, includeTail: false))
+    let (samples, _, _) = try samples(of: output)
+    let peak = samples.map(abs).max() ?? 0
+    if withAux {
+      #expect(abs(peak - 0.5) < 0.01, "The rim output, at full level (\(peak))")
+    } else {
+      #expect(peak < 0.0001, "Only the silent first output (\(peak))")
+    }
+  }
+
   /// Controllers reach the instrument: volume (CC 7) down to 0 half way through a held note
   /// silences the rest of it.
   @Test func controllersShapeTheSound() async throws {

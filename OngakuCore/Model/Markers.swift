@@ -56,48 +56,6 @@ public struct ArrangementSection: Identifiable, Codable, Sendable, Equatable {
 }
 
 extension Project {
-  /// Moves everything that's placed on the timeline: regions (by their start), automation
-  /// points and markers. `newPosition` returns `nil` to delete the item; positions it
-  /// leaves unchanged stay put.
-  mutating func remapTimeline(_ newPosition: (Tick) -> Tick?) {
-    for trackIndex in tracks.indices {
-      var regions: [Region] = []
-      for var region in tracks[trackIndex].regions {
-        guard let start = newPosition(region.start) else { continue }
-        region.start = start
-        regions.append(region)
-      }
-      tracks[trackIndex].regions = regions
-      tracks[trackIndex].sortRegions()
-      for laneIndex in tracks[trackIndex].automation.indices {
-        let lane = tracks[trackIndex].automation[laneIndex]
-        let points = lane.points.compactMap { point -> AutomationPoint? in
-          guard let position = newPosition(point.position) else { return nil }
-          var moved = point
-          moved.position = position
-          return moved
-        }
-        tracks[trackIndex].automation[laneIndex].setPoints(points)
-      }
-    }
-    markers = markers.compactMap { marker in
-      guard let position = newPosition(marker.position) else { return nil }
-      var moved = marker
-      moved.position = position
-      return moved
-    }
-    sortMarkers()
-    // Key changes go with the music; the key at the start stays put.
-    keyChanges = keyChanges.compactMap { change in
-      guard let position = newPosition(change.position), position > .zero else { return nil }
-      var moved = change
-      moved.position = position
-      return moved
-    }
-    sortKeyChanges()
-    removeRedundantKeyChanges()
-  }
-
   mutating func sortMarkers() {
     markers.sort { $0.position < $1.position }
   }

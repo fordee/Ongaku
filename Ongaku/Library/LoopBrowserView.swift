@@ -51,6 +51,9 @@ struct LoopBrowserView: View {
     .frame(width: Self.width)
     .background(Theme.panel)
     .onDisappear { LoopPreviewer.shared.stop() }
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("Loop Browser")
+    .accessibilityIdentifier("loop-browser")
   }
 }
 

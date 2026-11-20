@@ -235,12 +235,13 @@ struct AutomationHeaderControls: View {
             parameterToggle(.sendLevel(send.id), selected: parameter)
           }
         }
-        // Each insert's parameters, read from the loaded plug-in.
-        if !track.channel.inserts.isEmpty {
+        // Each plug-in's parameters (MIDI effects, the instrument, then the inserts), read
+        // from the loaded plug-in.
+        if !track.channel.plugins.isEmpty {
           Divider()
-          ForEach(track.channel.inserts) { insert in
-            Menu(insert.name) {
-              let parameters = model.engine.automatableParameters(ofInsert: insert.id, onTrack: track.id)
+          ForEach(track.channel.plugins) { plugin in
+            Menu(plugin.name) {
+              let parameters = model.engine.automatableParameters(ofPlugin: plugin.id, onTrack: track.id)
               if parameters.isEmpty {
                 Text("No automatable parameters")
               }

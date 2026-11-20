@@ -88,6 +88,7 @@ private struct TileContext {
   let flexPreview: (regionID: Region.ID, markers: [FlexMarker])?
   let loopPreview: LoopPreview?
   let rowHeight: CGFloat
+  let laneHeight: CGFloat
 
   /// A collapsed stack's subtracks, whose regions its row shows.
   let collapsedMembers: [Track.ID: [Track]]
@@ -95,6 +96,7 @@ private struct TileContext {
   init(model: ProjectWindowModel, firstColumn: Int) {
     tracks = model.displayedTracks
     rowHeight = model.rowHeight
+    laneHeight = model.trackHeight
     collapsedMembers = Dictionary(uniqueKeysWithValues: model.collapsedStackIDs.map { ($0, model.project.stackMembers(of: $0)) })
     timeline = model.timeline
     selection = model.selectedRegionIDs
@@ -174,7 +176,7 @@ private struct TileContext {
       }
       return LaneTile.Row(trackID: track.id, color: track.color.color, items: items, showsFlex: track.flexMode != nil)
     }
-    return LaneTile(rows: tileRows, originX: originX, timeline: timeline, waveforms: tileWaveforms, rowHeight: rowHeight)
+    return LaneTile(rows: tileRows, originX: originX, timeline: timeline, waveforms: tileWaveforms, rowHeight: rowHeight, laneHeight: laneHeight)
   }
 }
 
@@ -222,12 +224,14 @@ struct LaneTile: View, Equatable {
   let waveforms: [AudioFileReference.ID: Waveform]
   /// How far apart the rows are (taller while automation is shown).
   let rowHeight: CGFloat
+  /// The lanes' height (vertical zoom), inside each row.
+  let laneHeight: CGFloat
 
   private typealias Layout = ProjectWindowModel.Layout
 
   nonisolated static func == (lhs: LaneTile, rhs: LaneTile) -> Bool {
     lhs.originX == rhs.originX && lhs.timeline == rhs.timeline && lhs.rows == rhs.rows
-      && Set(lhs.waveforms.keys) == Set(rhs.waveforms.keys) && lhs.rowHeight == rhs.rowHeight
+      && Set(lhs.waveforms.keys) == Set(rhs.waveforms.keys) && lhs.rowHeight == rhs.rowHeight && lhs.laneHeight == rhs.laneHeight
   }
 
   var body: some View {
@@ -239,7 +243,7 @@ struct LaneTile: View, Equatable {
         rowContext.translateBy(x: 0, y: CGFloat(index) * rowHeight)
         for item in row.items {
           if let summary = item.summary {
-            let bandHeight = (Layout.trackHeight - 6) / CGFloat(max(summary.bandCount, 1))
+            let bandHeight = (laneHeight - 6) / CGFloat(max(summary.bandCount, 1))
             let rect = CGRect(
               x: timeline.x(for: item.start) - originX, y: 3 + CGFloat(summary.band) * bandHeight,
               width: max(timeline.x(for: item.end) - timeline.x(for: item.start), 2), height: max(bandHeight - 1, 1))
@@ -252,8 +256,8 @@ struct LaneTile: View, Equatable {
           }
           RegionDrawing.draw(
             item.region, from: item.start, to: item.end, color: row.color, isSelected: item.isSelected,
-            originX: originX, visibleWidth: width, timeline: timeline, waveforms: waveforms, showsFlex: row.showsFlex,
-            in: &regionContext)
+            originX: originX, visibleWidth: width, timeline: timeline, waveforms: waveforms, height: laneHeight,
+            showsFlex: row.showsFlex, in: &regionContext)
         }
       }
     }
@@ -265,7 +269,7 @@ struct LaneTile: View, Equatable {
           ForEach(row.items.filter(\.isAccessible), id: \.region.id) { item in
             let startX = timeline.x(for: item.start)
             Color.clear
-              .frame(width: max(timeline.x(for: item.end) - startX, 3), height: Layout.trackHeight - 4)
+              .frame(width: max(timeline.x(for: item.end) - startX, 3), height: laneHeight - 4)
               .offset(x: startX - originX, y: CGFloat(index) * rowHeight + 2)
               .accessibilityElement()
               .accessibilityLabel("Region \(item.region.name)")
@@ -368,7 +372,12 @@ struct LaneInteractionLayer: View {
         }
         if let id = target.part.regionID {
           model.select(id, extending: false)
-          model.openEditor(for: id)
+          // Double-clicking the name in the title bar renames; anywhere else opens the editor.
+          if isInTitleBar(tap.location, row: target.row) {
+            model.renameTarget = .region(id)
+          } else {
+            model.openEditor(for: id)
+          }
         } else if let row = target.row, model.displayedTracks[row].kind == .softwareInstrument {
           // Like clicking an empty lane with Logic's pencil tool.
           model.createMIDIRegion(on: model.displayedTracks[row].id, at: model.position(forX: tap.location.x))
@@ -377,8 +386,8 @@ struct LaneInteractionLayer: View {
       .overlay(alignment: .topLeading) {
         if let marquee {
           Rectangle()
-            .fill(Color.accentColor.opacity(0.12))
-            .strokeBorder(Color.accentColor.opacity(0.8), lineWidth: 1)
+            .fill(Theme.accent.opacity(0.12))
+            .strokeBorder(Theme.accent.opacity(0.8), lineWidth: 1)
             .frame(width: marquee.width, height: marquee.height)
             .offset(x: marquee.minX, y: marquee.minY)
             .allowsHitTesting(false)
@@ -396,9 +405,9 @@ struct LaneInteractionLayer: View {
     let row = Int((location.y / model.rowHeight).rounded(.down))
     guard location.y >= 0, tracks.indices.contains(row) else { return Target(row: nil, part: .empty) }
     let y = location.y - CGFloat(row) * model.rowHeight
-    guard y >= 2, y <= Layout.trackHeight - 2 else { return Target(row: row, part: .empty) }
+    guard y >= 2, y <= model.trackHeight - 2 else { return Target(row: row, part: .empty) }
     // The end of a region's loops can be grabbed again to lengthen or shorten them.
-    if y < Layout.trackHeight / 2 {
+    if y < model.trackHeight / 2 {
       for region in tracks[row].regions.reversed() {
         guard let loopEnd = region.loopEnd, abs(location.x - model.x(for: loopEnd)) <= Self.edgeWidth else { continue }
         return Target(row: row, part: .loopHandle(region.id))
@@ -412,7 +421,7 @@ struct LaneInteractionLayer: View {
         if location.x <= startX + Self.edgeWidth { return Target(row: row, part: .leadingEdge(region.id)) }
         if location.x >= endX - Self.edgeWidth {
           // Like Logic: the upper half of the right edge loops, the lower half resizes.
-          if y < Layout.trackHeight / 2, region.takeFolder == nil { return Target(row: row, part: .loopHandle(region.id)) }
+          if y < model.trackHeight / 2, region.canEdit(.loop) { return Target(row: row, part: .loopHandle(region.id)) }
           return Target(row: row, part: .trailingEdge(region.id))
         }
       }
@@ -432,10 +441,17 @@ struct LaneInteractionLayer: View {
     model.position(forX: Self.edgeWidth) - model.position(forX: 0)
   }
 
+  /// Whether a point is in a region's title bar (where double-clicking renames it).
+  private func isInTitleBar(_ location: CGPoint, row: Int?) -> Bool {
+    guard let row else { return false }
+    let y = location.y - CGFloat(row) * model.rowHeight
+    return y < 2 + RegionDrawing.headerHeight
+  }
+
   /// Whether a point is in the lower half of its track's lane, where flex markers are made.
   private func isInFlexHalf(_ location: CGPoint, row: Int?) -> Bool {
     guard let row else { return false }
-    return location.y - CGFloat(row) * model.rowHeight > Layout.trackHeight / 2
+    return location.y - CGFloat(row) * model.rowHeight > model.trackHeight / 2
   }
 
   /// The flex marker a press in the lower half of an audio region on a Flex track drags: the
@@ -568,7 +584,7 @@ struct LaneInteractionLayer: View {
           if let trim = model.regionTrimPreview, trim.regionID == id, let region = region(id),
             trim.start != region.start || trim.end != region.end
           {
-            model.perform(TrimRegion(id, start: trim.start, length: trim.end - trim.start))
+            model.perform(ResizeRegion(id, start: trim.start, length: trim.end - trim.start))
           }
         case .loopHandle:
           if let preview = model.loopPreview {
@@ -674,6 +690,11 @@ struct LaneInteractionLayer: View {
     Button("Open in Editor") {
       guard let region = hoveredRegion() else { return }
       model.openEditor(for: region.id)
+    }
+    Button("Rename…") {
+      guard let region = hoveredRegion() else { return }
+      model.select(region.id, extending: false)
+      model.renameTarget = .region(region.id)
     }
     Button("New MIDI Region") {
       guard let row = hovered.row, model.displayedTracks.indices.contains(row),
@@ -804,7 +825,7 @@ struct RegionDragLayer: View {
             RegionDrawing.draw(
               region, from: region.start + preview.offset, to: region.end + preview.offset, color: track.color.color,
               isSelected: true, originX: renderRange.lowerBound, visibleWidth: width, timeline: timeline,
-              waveforms: waveforms, contentOffset: preview.offset, in: &rowContext)
+              waveforms: waveforms, contentOffset: preview.offset, height: model.trackHeight, in: &rowContext)
           }
         }
       }
@@ -869,11 +890,11 @@ enum RegionDrawing {
   static func draw(
     _ region: Region, from start: Tick, to end: Tick, color trackColor: Color, isSelected: Bool,
     originX: CGFloat, visibleWidth: CGFloat, timeline: TimelineScale, waveforms: [AudioFileReference.ID: Waveform],
-    contentOffset: Tick = .zero, showsFlex: Bool = false, in context: inout GraphicsContext
+    contentOffset: Tick = .zero, height: CGFloat = Layout.trackHeight, showsFlex: Bool = false, in context: inout GraphicsContext
   ) {
     let x = timeline.x(for: start) - originX
     let width = max(timeline.x(for: end) - timeline.x(for: start), 3)
-    let rect = CGRect(x: x, y: 2, width: width, height: Layout.trackHeight - 4)
+    let rect = CGRect(x: x, y: 2, width: width, height: height - 4)
     guard rect.maxX >= 0, rect.minX <= visibleWidth else { return }
     // Muted regions turn grey, as in Logic.
     let color = region.isMuted ? TrackColor.gray.color.opacity(0.6) : trackColor
@@ -980,21 +1001,29 @@ enum RegionDrawing {
     let tempoMap = timeline.tempoMap
     var shade = Path()
     var lines = Path()
+    /// The fade's line from its silent end to full level, along its curve.
+    func curve(from silentX: CGFloat, to fullX: CGFloat, shape: Double) -> [CGPoint] {
+      (0...16).map { step in
+        let progress = Double(step) / 16
+        let level = AudioEnvelope.fadeShape(progress, curve: shape)
+        return CGPoint(x: silentX + (fullX - silentX) * progress, y: body.maxY - (body.maxY - body.minY) * level)
+      }
+    }
     if content.fadeIn > 0 {
       let fadeEnd = tempoMap.tickPosition(atSeconds: tempoMap.seconds(at: start) + content.fadeIn)
       let x = min(timeline.x(for: fadeEnd) - originX, body.maxX)
-      shade.addLines([CGPoint(x: body.minX, y: body.minY), CGPoint(x: x, y: body.minY), CGPoint(x: body.minX, y: body.maxY)])
+      let line = curve(from: body.minX, to: x, shape: content.fadeInCurve)
+      shade.addLines([CGPoint(x: body.minX, y: body.minY)] + line)
       shade.closeSubpath()
-      lines.move(to: CGPoint(x: body.minX, y: body.maxY))
-      lines.addLine(to: CGPoint(x: x, y: body.minY))
+      lines.addLines(line)
     }
     if content.fadeOut > 0 {
       let fadeStart = tempoMap.tickPosition(atSeconds: tempoMap.seconds(at: end) - content.fadeOut)
       let x = max(timeline.x(for: fadeStart) - originX, body.minX)
-      shade.addLines([CGPoint(x: x, y: body.minY), CGPoint(x: body.maxX, y: body.minY), CGPoint(x: body.maxX, y: body.maxY)])
+      let line = curve(from: body.maxX, to: x, shape: content.fadeOutCurve)
+      shade.addLines([CGPoint(x: body.maxX, y: body.minY)] + line)
       shade.closeSubpath()
-      lines.move(to: CGPoint(x: x, y: body.minY))
-      lines.addLine(to: CGPoint(x: body.maxX, y: body.maxY))
+      lines.addLines(line)
     }
     context.fill(shade, with: .color(.black.opacity(0.35)))
     context.stroke(lines, with: .color(.white.opacity(0.85)), lineWidth: 1)
@@ -1059,6 +1088,21 @@ enum RegionDrawing {
   let track = Track(name: "Drums", kind: .audio, regions: [region], flexMode: .slicing)
   let model = ProjectWindowModel(document: OngakuDocument(project: Project(tracks: [track], audioFiles: [file])))
   return ArrangeView(model: model).frame(width: 900, height: 200)
+}
+
+#Preview("Fade curves") {
+  let file = AudioFileReference(fileName: "Pad.caf", sampleRate: 48_000, channelCount: 2, frameCount: 480_000)
+  // Fast in, slow out; then a straight in and an equal-power out.
+  let first = Region(
+    name: "Fast In, Slow Out", start: .zero, length: .quarterNotes(8),
+    content: .audio(AudioRegionContent(fileID: file.id, fadeIn: 1.5, fadeOut: 1.5, fadeInCurve: 1, fadeOutCurve: -1)))
+  let second = Region(
+    name: "Straight, Equal Power", start: .quarterNotes(8), length: .quarterNotes(8),
+    content: .audio(AudioRegionContent(fileID: file.id, fadeIn: 1.5, fadeOut: 1.5, fadeOutCurve: 0.5)))
+  let track = Track(name: "Pad", kind: .audio, regions: [first, second])
+  let model = ProjectWindowModel(document: OngakuDocument(project: Project(tracks: [track], audioFiles: [file])))
+  model.trackHeight = 110
+  return ArrangeView(model: model).frame(width: 900, height: 220)
 }
 
 /// The pointer over the lanes.

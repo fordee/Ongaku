@@ -86,10 +86,14 @@ final class MIDIEventQueue: @unchecked Sendable {
     readIndex.store(read, ordering: .releasing)
   }
 
-  /// A render observer that delivers this queue's events just before the instrument renders.
-  static func makeRenderObserver(queue: MIDIEventQueue, schedule: @escaping AUScheduleMIDIEventBlock) -> AURenderObserver {
+  /// A render observer that delivers this queue's events just before the instrument renders,
+  /// and records when it renders in `clock`.
+  static func makeRenderObserver(
+    queue: MIDIEventQueue, schedule: @escaping AUScheduleMIDIEventBlock, clock: RenderClock
+  ) -> AURenderObserver {
     { flags, timestamp, frameCount, _ in
       guard flags.contains(.unitRenderAction_PreRender) else { return }
+      clock.record(timestamp.pointee)
       let end = Int64(timestamp.pointee.mSampleTime) + Int64(frameCount)
       queue.deliver(before: end, to: schedule)
     }

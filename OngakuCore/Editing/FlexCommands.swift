@@ -42,8 +42,8 @@ public struct SetFlexMarkers: EditCommand {
   public func apply(to project: inout Project) throws {
     let location = try project.requireRegionLocation(regionID)
     var region = project.tracks[location.track].regions[location.region]
-    guard region.takeFolder == nil else { throw EditError.invalidValue("Flatten the take folder before flexing it.") }
-    guard case .audio(var audio) = region.content else { throw EditError.invalidValue("Only audio regions can be flexed.") }
+    try region.requireEditable(for: .flex)
+    guard case .audio(var audio) = region.content else { return }
     let duration = project.duration(of: region)
     guard FlexMap.isValid(markers, duration: duration, sourceDuration: duration * audio.stretch) else {
       throw EditError.invalidValue("Flex markers can’t pass each other or the region’s edges.")
@@ -166,8 +166,8 @@ public struct SetPitchEdits: EditCommand {
   public func apply(to project: inout Project) throws {
     let location = try project.requireRegionLocation(regionID)
     var region = project.tracks[location.track].regions[location.region]
-    guard region.takeFolder == nil else { throw EditError.invalidValue("Flatten the take folder before retuning it.") }
-    guard case .audio(var audio) = region.content else { throw EditError.invalidValue("Only audio regions can be retuned.") }
+    try region.requireEditable(for: .retune)
+    guard case .audio(var audio) = region.content else { return }
     guard edits.allSatisfy({ $0.end > $0.start && $0.start >= 0 && abs($0.semitones) <= 24 }) else {
       throw EditError.invalidValue("Notes can be moved up to two octaves.")
     }

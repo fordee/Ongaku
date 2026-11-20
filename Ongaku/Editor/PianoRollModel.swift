@@ -120,6 +120,8 @@ final class PianoRollModel {
   var newNoteVelocity = 100
   /// The Piano Roll or the Step Editor (see PianoRollModel+StepEditor.swift).
   var editorKind = EditorKind.pianoRoll
+  /// The frames of the open audio file selected in the Audio File Editor; `nil` for all of it.
+  var audioFileSelection: Range<Int64>?
 
   // Editing tools (see PianoRollModel+Editing.swift).
 

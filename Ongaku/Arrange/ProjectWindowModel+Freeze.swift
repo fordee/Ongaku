@@ -110,12 +110,17 @@ extension ProjectWindowModel {
   /// Whether two versions of a track would render the same freeze file.
   private static func rendersTheSame(_ track: Track, as other: Track?) -> Bool {
     guard let other else { return false }
-    return track.regions == other.regions && track.channel.instrument == other.channel.instrument
+    return track.regions == other.regions && track.channel.midiEffects == other.channel.midiEffects
+      && track.channel.instrument == other.channel.instrument
       && track.channel.inserts == other.channel.inserts && track.freezeMode == other.freezeMode
+      && track.automationInFreezeFile == other.automationInFreezeFile
   }
 
   private func closePluginWindows(of track: Track) {
     var pluginIDs = track.channel.inserts.map(\.id)
+    for effect in track.channel.midiEffects {
+      if case .audioUnit(let plugin) = effect.settings { pluginIDs.append(plugin.id) }
+    }
     if case .audioUnit(let instrument) = track.channel.instrument {
       pluginIDs.append(instrument.id)
     }

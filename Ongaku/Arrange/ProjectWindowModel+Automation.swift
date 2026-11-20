@@ -136,6 +136,11 @@ extension ProjectWindowModel {
   /// automation (and the grouped tracks moving with it record theirs, if they're in Touch or
   /// Latch too); otherwise it only changes what's heard until the move is committed.
   func controlChanged(_ parameter: AutomationParameter, to value: Double, on trackID: Track.ID) {
+    // A folder stack's fader moves its subtracks' instead.
+    if parameter == .volume, project.track(withID: trackID)?.isFolderStack == true {
+      folderVolumeChanged(trackID, to: value)
+      return
+    }
     engine.setLiveValue(parameter, value, onTrack: trackID)
     let partners = moveGroupLive(parameter, of: trackID, to: value)
     guard let track = project.track(withID: trackID), engine.isPlaying, track.automationMode.writes else { return }

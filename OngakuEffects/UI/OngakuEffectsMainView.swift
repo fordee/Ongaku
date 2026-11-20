@@ -45,7 +45,7 @@ struct OngakuEffectsMainView: View {
       case .drumMachine:
         DrumMachineView(audioUnit: audioUnit, tree: parameterTree)
       case .sampler:
-        SamplerView(audioUnit: audioUnit, tree: parameterTree)
+        SamplerView(audioUnit: audioUnit, tree: parameterTree, session: session)
       case .noiseGate:
         NoiseGateView(audioUnit: audioUnit, parameters: EffectParameters(tree: parameterTree))
       case .transientShaper:
@@ -68,6 +68,18 @@ struct OngakuEffectsMainView: View {
         }
       case .mastering:
         MasteringView(audioUnit: audioUnit, parameters: EffectParameters(tree: parameterTree), session: session)
+      case .chorus, .flanger, .phaser, .tremolo:
+        ModulationView(effect: audioUnit.effect, audioUnit: audioUnit, parameters: EffectParameters(tree: parameterTree))
+      case .gain:
+        GainView(audioUnit: audioUnit, parameters: EffectParameters(tree: parameterTree))
+      case .tuner:
+        TunerView(audioUnit: audioUnit, parameters: EffectParameters(tree: parameterTree))
+      case .multibandCompressor:
+        MultibandCompressorView(audioUnit: audioUnit, parameters: EffectParameters(tree: parameterTree))
+      case .electricPiano:
+        ElectricPianoView(audioUnit: audioUnit, parameters: EffectParameters(tree: parameterTree))
+      case .organ:
+        OrganView(audioUnit: audioUnit, parameters: EffectParameters(tree: parameterTree))
       }
     }
     .background(EffectStyle.background)

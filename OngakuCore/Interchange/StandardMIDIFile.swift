@@ -270,11 +270,28 @@ public enum StandardMIDIFile {
   /// cut at their region's end.
   public static func write(_ project: Project) -> Data {
     var conductor: [(tick: Int64, bytes: [UInt8])] = [(0, metaEvent(0x03, Array("Ongaku Studio".utf8)))]
-    for change in project.tempoMap.tempoChanges {
-      let microseconds = Int((60_000_000 / change.bpm).rounded())
-      conductor.append((change.position.rawValue, metaEvent(0x51, [
+    func tempoEvent(_ bpm: Double, at tick: Int64) {
+      let microseconds = Int((60_000_000 / bpm).rounded())
+      conductor.append((tick, metaEvent(0x51, [
         UInt8((microseconds >> 16) & 0xFF), UInt8((microseconds >> 8) & 0xFF), UInt8(microseconds & 0xFF),
       ])))
+    }
+    let tempoMap = project.tempoMap
+    for (index, change) in tempoMap.tempoChanges.enumerated() {
+      guard change.rampsToNext, index + 1 < tempoMap.tempoChanges.count else {
+        tempoEvent(change.bpm, at: change.position.rawValue)
+        continue
+      }
+      // A MIDI file can't ramp: a tempo per beat, each lasting exactly as long as that beat
+      // does in the ramp, so every beat lands where it plays.
+      let end = tempoMap.tempoChanges[index + 1].position
+      var beat = change.position
+      while beat < end {
+        let next = min(beat + Tick(Tick.perQuarterNote), end)
+        let seconds = tempoMap.seconds(at: next) - tempoMap.seconds(at: beat)
+        tempoEvent(60 * (next.quarterNotes - beat.quarterNotes) / seconds, at: beat.rawValue)
+        beat = next
+      }
     }
     for change in project.tempoMap.meterChanges {
       let position = project.tempoMap.tickPosition(ofBarIndex: change.barIndex)
@@ -293,8 +310,9 @@ public enum StandardMIDIFile {
       var controls: [(tick: Int64, bytes: [UInt8])] = []
       for region in project.playedRegions(of: track) where !region.isMuted {
         guard case .midi(let sequence) = region.content else { continue }
-        // Muted notes stay in Ongaku: a MIDI file can't say a note is muted.
-        for note in sequence.notes where !note.isMuted && note.start >= .zero && note.start < region.length {
+        // The notes as they play: with the region's transpose, velocity and quantize. Muted
+        // notes stay in Ongaku: a MIDI file can't say a note is muted.
+        for note in region.playedNotes where note.start >= .zero && note.start < region.length {
           let start = region.start + note.start
           let end = min(region.start + note.end, region.end)
           notes.append((start.rawValue, end.rawValue, note))

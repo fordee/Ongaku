@@ -291,6 +291,31 @@ New notes are one step long. Each click or drag is one undo step.
 
 **Gotcha:** The lanes on a drum track are only named for **General MIDI drum kits** and the **Drum Machine**. On a track playing another drum plug-in (including the Session Drummer), lanes are named by note, for example **C1**.
 
+## The Event List
+
+### What it is
+
+The **Event List** shows everything in a MIDI region as a list, one line per event in time order: notes, controllers (such as sustain or modulation), pitch bend and aftertouch. It's the place to see exactly what's there and to set numbers precisely. Choose **Event List** at the top of the editor.
+
+![The Event List showing a melody's notes and pitch bends](images/event-list.png)
+
+| Column | What it shows |
+|---|---|
+| **Position** | Where the event is in the song: bar, beat, sixteenth and tick |
+| **Status** | Note, Control, Pitch Bend, Aftertouch or Poly AT |
+| **Ch** | The MIDI channel (1–16) |
+| **Num** | A note's name (middle C is C3), or a controller's number and name |
+| **Val** | A note's velocity, or the event's value |
+| **Length** | A note's length in beats, sixteenths and ticks |
+
+### Editing in the list
+
+- **Click** a line to select it; **⌘-click** or **⇧-click** to add or take out more. The selection is the Piano Roll's, so it's still selected when you switch back.
+- **Double-click** a channel, number or value to type a new one, then press Return (Escape cancels). Note names can be typed as "D#3", "D♯3" or a MIDI number. A value outside its range is refused with a beep.
+- **Delete**, **Q** and the **⌥-arrow** keys work on the selected lines as they do in the Piano Roll.
+
+A controller's number can't be changed in the list: draw the new controller in MIDI Draw instead.
+
 ## The Step Sequencer
 
 ### What it is

@@ -112,8 +112,8 @@ public struct UpdateArrangementSection: EditCommand {
 
 /// Moves a section to another place in the song order, as dragging it in Logic's
 /// Arrangement track does: the sections are laid end to end again from where the first one
-/// starts, and everything in each one (regions that start in it, automation, markers)
-/// moves with it.
+/// starts, and everything in each one moves with it (regions crossing its edges are split
+/// there first).
 public struct MoveArrangementSection: EditCommand {
   public var sectionID: ArrangementSection.ID
   /// Where it goes in the order of sections, counted without it.
@@ -146,7 +146,12 @@ public struct MoveArrangementSection: EditCommand {
       placed.append(section)
       cursor = cursor + section.length
     }
-    project.remapTimeline { position in
+    // Regions crossing a section's edges are cut there, so each part moves with its section.
+    for section in old {
+      try project.splitRegions(at: section.start)
+      try project.splitRegions(at: section.end)
+    }
+    project.remapTimeline(keepingWhatPlaysAt: old.map(\.start) + old.map(\.end)) { position in
       guard let shift = shifts.first(where: { $0.range.contains(position) }) else { return position }
       return position + shift.offset
     }
@@ -169,10 +174,7 @@ public struct DeleteArrangementSection: EditCommand {
     guard let section = project.arrangement.first(where: { $0.id == sectionID }) else {
       throw EditError.invalidValue("The section no longer exists.")
     }
-    project.remapTimeline { position in
-      if section.range.contains(position) { return nil }
-      return position >= section.end ? position - section.length : position
-    }
+    try project.removeTime(section.range)
     project.arrangement.removeAll { $0.id == sectionID }
     for index in project.arrangement.indices where project.arrangement[index].start >= section.end {
       project.arrangement[index].start = project.arrangement[index].start - section.length
@@ -199,40 +201,10 @@ public struct DuplicateArrangementSection: EditCommand {
       throw EditError.invalidValue("The section no longer exists.")
     }
     let length = section.length
-    // What's in the section, copied before anything moves.
-    let copiedRegions: [[Region]] = project.tracks.map { track in
-      track.regions.filter { section.range.contains($0.start) }.map { region in
-        var copy = region
-        copy.id = UUID()
-        copy.start = copy.start + length
-        return copy
-      }
-    }
-    let copiedPoints: [[AutomationParameter: [AutomationPoint]]] = project.tracks.map { track in
-      Dictionary(uniqueKeysWithValues: track.automation.map { lane in
-        (lane.parameter, lane.points.filter { section.range.contains($0.position) }.map {
-          AutomationPoint(position: $0.position + length, value: $0.value)
-        })
-      })
-    }
-    let copiedMarkers = project.markers.filter { section.range.contains($0.position) }.map {
-      Marker(name: $0.name, position: $0.position + length)
-    }
-
-    project.remapTimeline { $0 >= section.end ? $0 + length : $0 }
+    try project.repeatTime(section.range, times: 1)
     for index in project.arrangement.indices where project.arrangement[index].start >= section.end {
       project.arrangement[index].start = project.arrangement[index].start + length
     }
-    for trackIndex in project.tracks.indices {
-      project.tracks[trackIndex].regions += copiedRegions[trackIndex]
-      project.tracks[trackIndex].sortRegions()
-      for laneIndex in project.tracks[trackIndex].automation.indices {
-        let lane = project.tracks[trackIndex].automation[laneIndex]
-        project.tracks[trackIndex].automation[laneIndex].setPoints(lane.points + (copiedPoints[trackIndex][lane.parameter] ?? []))
-      }
-    }
-    project.markers += copiedMarkers
-    project.sortMarkers()
     project.arrangement.append(ArrangementSection(id: copyID, name: section.name, start: section.end, length: length))
     project.arrangement.sort { $0.start < $1.start }
   }

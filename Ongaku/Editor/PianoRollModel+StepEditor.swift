@@ -24,30 +24,12 @@ enum StepLane: Hashable, Identifiable {
 }
 
 extension PianoRollModel {
-  /// Which editor the pane shows, like the tabs over Logic's editors.
-  enum EditorKind: String, CaseIterable, Identifiable {
-    case pianoRoll, stepEditor, stepSequencer, drummer, player, takes, pitch
-
-    var id: Self { self }
-
-    var title: String {
-      switch self {
-      case .pianoRoll: "Piano Roll"
-      case .stepEditor: "Step Editor"
-      case .stepSequencer: "Step Sequencer"
-      case .drummer: "Drummer"
-      case .player: "Player"
-      case .takes: "Takes"
-      case .pitch: "Flex Pitch"
-      }
-    }
-  }
-
-  /// The editors that suit the open region: the MIDI editors for MIDI, Takes for a take
-  /// folder, first (an audio take folder only has Takes; in a MIDI one the MIDI editors edit
-  /// the take that starts the comp).
+  /// The editors that suit the open region: the MIDI editors for MIDI, the Audio File
+  /// Editor for audio (after Flex Pitch, on a Flex Pitch track), and Takes for a take folder,
+  /// first (in a MIDI one the MIDI editors edit the take that starts the comp; in an audio
+  /// one the Audio File Editor edits its file).
   var availableEditors: [EditorKind] {
-    guard let region else { return [.pianoRoll, .stepEditor] }
+    guard let region else { return [.pianoRoll, .stepEditor, .eventList] }
     // A pattern region is edited in the Step Sequencer (convert it to edit its notes).
     if region.pattern != nil { return [.stepSequencer] }
     // So is a drummer region in the Drummer editor.
@@ -56,7 +38,8 @@ extension PianoRollModel {
     if region.player != nil { return [.player] }
     let isMIDI = if case .midi = region.content { true } else { false }
     let isFlexPitch = !isMIDI && track?.flexMode == .pitch && region.takeFolder == nil
-    return (region.takeFolder != nil ? [.takes] : []) + (isMIDI ? [.pianoRoll, .stepEditor] : []) + (isFlexPitch ? [.pitch] : [])
+    return (region.takeFolder != nil ? [.takes] : []) + (isMIDI ? [.pianoRoll, .stepEditor, .eventList] : [])
+      + (isFlexPitch ? [.pitch] : []) + (isMIDI ? [] : [.audioFile])
   }
 
   /// In a MIDI take folder, the take the Piano Roll and Step Editor change: the one that

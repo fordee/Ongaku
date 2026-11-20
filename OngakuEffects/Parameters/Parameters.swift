@@ -12,6 +12,9 @@ enum OngakuEffect: CaseIterable {
   case channelEQ, compressor, reverb, delay, retroSynth, drumMachine, sampler
   case noiseGate, transientShaper, maximizer, deEsser, saturation, doubler, convolutionReverb, vocalStrip
   case sessionDrummer, mastering
+  case chorus, flanger, phaser, tremolo
+  case gain, tuner, multibandCompressor
+  case electricPiano, organ
 
   init?(subType: FourCharCode) {
     guard let effect = Self.allCases.first(where: { $0.subType == subType }) else { return nil }
@@ -37,12 +40,22 @@ enum OngakuEffect: CaseIterable {
     case .vocalStrip: FourCharCode("ovox")
     case .sessionDrummer: FourCharCode("odrr")
     case .mastering: FourCharCode("omst")
+    case .chorus: FourCharCode("ocho")
+    case .flanger: FourCharCode("oflg")
+    case .phaser: FourCharCode("ophs")
+    case .tremolo: FourCharCode("otrm")
+    case .gain: FourCharCode("ogin")
+    case .tuner: FourCharCode("otun")
+    case .multibandCompressor: FourCharCode("ombc")
+    case .electricPiano: FourCharCode("oepn")
+    case .organ: FourCharCode("oorg")
     }
   }
 
   /// Instruments play MIDI and have no audio input.
   var isInstrument: Bool {
-    self == .retroSynth || self == .drumMachine || self == .sampler || self == .sessionDrummer
+    self == .retroSynth || self == .drumMachine || self == .sampler || self == .sessionDrummer || self == .electricPiano
+      || self == .organ
   }
 
   var kind: OngakuEffectKind {
@@ -64,6 +77,15 @@ enum OngakuEffect: CaseIterable {
     case .vocalStrip: .vocalStrip
     case .sessionDrummer: .sessionDrummer
     case .mastering: .mastering
+    case .chorus: .chorus
+    case .flanger: .flanger
+    case .phaser: .phaser
+    case .tremolo: .tremolo
+    case .gain: .gain
+    case .tuner: .tuner
+    case .multibandCompressor: .multibandCompressor
+    case .electricPiano: .electricPiano
+    case .organ: .organ
     }
   }
 
@@ -93,6 +115,12 @@ enum OngakuEffect: CaseIterable {
     case .vocalStrip: CGSize(width: 860, height: 360)
     case .sessionDrummer: CGSize(width: 1180, height: 560)
     case .mastering: CGSize(width: 960, height: 470)
+    case .chorus, .flanger, .phaser, .tremolo: CGSize(width: 720, height: 340)
+    case .gain: CGSize(width: 640, height: 320)
+    case .tuner: CGSize(width: 640, height: 360)
+    case .multibandCompressor: CGSize(width: 860, height: 480)
+    case .electricPiano: CGSize(width: 980, height: 440)
+    case .organ: CGSize(width: 1080, height: 500)
     }
   }
 
@@ -115,6 +143,15 @@ enum OngakuEffect: CaseIterable {
     case .vocalStrip: VocalStripParameters.tree
     case .sessionDrummer: SessionDrummerParameters.tree
     case .mastering: MasteringParameters.tree
+    case .chorus: ModulationParameters.chorus
+    case .flanger: ModulationParameters.flanger
+    case .phaser: ModulationParameters.phaser
+    case .tremolo: ModulationParameters.tremolo
+    case .gain: UtilityParameters.gain
+    case .tuner: UtilityParameters.tuner
+    case .multibandCompressor: MultibandParameters.tree
+    case .electricPiano: KeysParameters.electricPiano
+    case .organ: KeysParameters.organ
     }
   }
 
@@ -136,6 +173,14 @@ enum OngakuEffect: CaseIterable {
     // The drummer's kit is the Drum Machine's, so its kits are the presets.
     case .sessionDrummer: DrumMachineParameters.kits
     case .mastering: MasteringParameters.presets
+    case .chorus: ModulationParameters.chorusPresets
+    case .flanger: ModulationParameters.flangerPresets
+    case .phaser: ModulationParameters.phaserPresets
+    case .tremolo: ModulationParameters.tremoloPresets
+    case .gain: UtilityParameters.gainPresets
+    case .multibandCompressor: MultibandParameters.presets
+    case .electricPiano: KeysParameters.electricPianoPresets
+    case .organ: KeysParameters.organPresets
     default: []
     }
   }
@@ -149,6 +194,7 @@ enum OngakuEffect: CaseIterable {
     case .sampler: 0
     case .noiseGate, .transientShaper, .maximizer, .deEsser, .saturation, .doubler, .convolutionReverb, .vocalStrip: 0
     case .mastering: 0
+    case .chorus, .flanger, .phaser, .tremolo, .gain, .multibandCompressor, .electricPiano, .organ: 0
     default: nil
     }
   }
@@ -807,6 +853,219 @@ enum DoublerParameters {
     EffectSpecs.preset("Chorused", [(.dblDetune, 22), (.dblDrift, 75), (.dblMix, 70)]),
     EffectSpecs.preset("Subtle", [(.dblMix, 30), (.dblWidth, 60)]),
   ]
+}
+
+/// The Chorus, Flanger, Phaser and Tremolo (Modulation.hpp).
+enum ModulationParameters {
+  static let chorus = ParameterTreeSpec {
+    EffectSpecs.spec(.chrRate, "rate", "Rate", .hertz, 0.05...5, 0.6, logarithmic: true)
+    EffectSpecs.spec(.chrDepth, "depth", "Depth", .percent, 0...100, 50)
+    EffectSpecs.spec(.chrDelay, "delay", "Delay", .milliseconds, 5...30, 14)
+    EffectSpecs.spec(.chrWidth, "width", "Width", .percent, 0...100, 80)
+    EffectSpecs.spec(.chrMix, "mix", "Mix", .percent, 0...100, 50)
+  }
+
+  static let chorusPresets = [
+    EffectSpecs.preset("Classic Chorus", []),
+    EffectSpecs.preset("Shimmer", [(.chrRate, 1.4), (.chrDepth, 35), (.chrDelay, 9), (.chrWidth, 100)]),
+    EffectSpecs.preset("Slow and Wide", [(.chrRate, 0.2), (.chrDepth, 70), (.chrWidth, 100), (.chrMix, 45)]),
+    EffectSpecs.preset("Thickener", [(.chrRate, 0.35), (.chrDepth, 25), (.chrDelay, 20), (.chrMix, 35)]),
+    EffectSpecs.preset("Vibrato", [(.chrRate, 5), (.chrDepth, 45), (.chrDelay, 6), (.chrWidth, 0), (.chrMix, 100)]),
+  ]
+
+  static let flanger = ParameterTreeSpec {
+    EffectSpecs.spec(.flgRate, "rate", "Rate", .hertz, 0.02...5, 0.25, logarithmic: true)
+    EffectSpecs.spec(.flgDepth, "depth", "Depth", .percent, 0...100, 70)
+    EffectSpecs.spec(.flgDelay, "delay", "Delay", .milliseconds, 0.3...10, 1.5, logarithmic: true)
+    EffectSpecs.spec(.flgFeedback, "feedback", "Feedback", .percent, -95...95, 55)
+    EffectSpecs.spec(.flgWidth, "width", "Width", .percent, 0...100, 50)
+    EffectSpecs.spec(.flgMix, "mix", "Mix", .percent, 0...100, 100)
+  }
+
+  static let flangerPresets = [
+    EffectSpecs.preset("Jet", []),
+    EffectSpecs.preset("Gentle Sweep", [(.flgRate, 0.12), (.flgDepth, 50), (.flgFeedback, 25)]),
+    EffectSpecs.preset("Metallic", [(.flgRate, 0.5), (.flgDelay, 0.6), (.flgFeedback, 85)]),
+    EffectSpecs.preset("Hollow", [(.flgFeedback, -70), (.flgDepth, 60)]),
+    EffectSpecs.preset("Through Zero", [(.flgRate, 0.08), (.flgDelay, 0.3), (.flgDepth, 100), (.flgFeedback, 0)]),
+  ]
+
+  static let stages = ["2", "4", "6", "8", "12"]
+
+  static let phaser = ParameterTreeSpec {
+    EffectSpecs.spec(.phsRate, "rate", "Rate", .hertz, 0.02...8, 0.4, logarithmic: true)
+    EffectSpecs.spec(.phsDepth, "depth", "Depth", .percent, 0...100, 70)
+    EffectSpecs.spec(.phsStages, "stages", "Stages", .indexed, 0...4, 1, strings: stages)
+    EffectSpecs.spec(.phsCenter, "center", "Centre", .hertz, 100...6_000, 800, logarithmic: true)
+    EffectSpecs.spec(.phsFeedback, "feedback", "Feedback", .percent, -95...95, 40)
+    EffectSpecs.spec(.phsWidth, "width", "Width", .percent, 0...100, 50)
+    EffectSpecs.spec(.phsMix, "mix", "Mix", .percent, 0...100, 100)
+  }
+
+  static let phaserPresets = [
+    EffectSpecs.preset("Classic Phase", []),
+    EffectSpecs.preset("Slow Swirl", [(.phsRate, 0.1), (.phsDepth, 90), (.phsStages, 3), (.phsWidth, 100)]),
+    EffectSpecs.preset("Funky Four", [(.phsRate, 1.2), (.phsStages, 1), (.phsFeedback, 60), (.phsCenter, 1_200)]),
+    EffectSpecs.preset("Deep Twelve", [(.phsRate, 0.25), (.phsStages, 4), (.phsFeedback, 70)]),
+    EffectSpecs.preset("Subtle", [(.phsDepth, 40), (.phsFeedback, 10), (.phsMix, 60)]),
+  ]
+
+  static let shapes = ["Sine", "Triangle", "Square"]
+
+  static let tremolo = ParameterTreeSpec {
+    EffectSpecs.spec(.trmSync, "sync", "Sync", .boolean, 0...1, 0)
+    EffectSpecs.spec(.trmRate, "rate", "Rate", .hertz, 0.1...20, 5, logarithmic: true)
+    EffectSpecs.spec(.trmNote, "note", "Note", .indexed, 0...10, 5, strings: DelayParameters.notes)
+    EffectSpecs.spec(.trmDepth, "depth", "Depth", .percent, 0...100, 50)
+    EffectSpecs.spec(.trmShape, "shape", "Shape", .indexed, 0...2, 0, strings: shapes)
+    EffectSpecs.spec(.trmStereo, "stereo", "Stereo Phase", .degrees, 0...180, 0, unitName: "°")
+  }
+
+  static let tremoloPresets = [
+    EffectSpecs.preset("Amp Tremolo", []),
+    EffectSpecs.preset("Auto-Pan", [(.trmRate, 0.5), (.trmDepth, 100), (.trmStereo, 180)]),
+    EffectSpecs.preset("Eighth-Note Chop", [(.trmSync, 1), (.trmNote, 5), (.trmDepth, 100), (.trmShape, 2)]),
+    EffectSpecs.preset("Slow Throb", [(.trmRate, 2), (.trmDepth, 70), (.trmShape, 1)]),
+    EffectSpecs.preset("Wide Shimmer", [(.trmRate, 7), (.trmDepth, 35), (.trmStereo, 90)]),
+  ]
+}
+
+/// The Electric Piano and the Organ (Keys.hpp).
+enum KeysParameters {
+  static let electricPiano = ParameterTreeSpec {
+    EffectSpecs.spec(.epTone, "tone", "Tone", .percent, 0...100, 50)
+    EffectSpecs.spec(.epBell, "bell", "Bell", .percent, 0...100, 35)
+    EffectSpecs.spec(.epDecay, "decay", "Decay", .percent, 25...400, 100, logarithmic: true)
+    EffectSpecs.spec(.epVelocity, "velocity", "Velocity", .percent, 0...100, 70)
+    EffectSpecs.spec(.epTremoloRate, "tremoloRate", "Tremolo Rate", .hertz, 0.5...12, 4.5, logarithmic: true)
+    EffectSpecs.spec(.epTremoloDepth, "tremoloDepth", "Tremolo Depth", .percent, 0...100, 0)
+    EffectSpecs.spec(.epDrive, "drive", "Drive", .percent, 0...100, 10)
+    EffectSpecs.spec(.epVolume, "volume", "Volume", .decibels, -24...12, 0)
+  }
+
+  static let electricPianoPresets = [
+    EffectSpecs.preset("Classic Tines", []),
+    EffectSpecs.preset("Bright Bark", [(.epTone, 80), (.epBell, 60), (.epVelocity, 90), (.epDrive, 25)]),
+    EffectSpecs.preset("Mellow Ballad", [(.epTone, 25), (.epBell, 15), (.epDecay, 160), (.epDrive, 0)]),
+    EffectSpecs.preset("Suitcase Tremolo", [(.epTremoloDepth, 60), (.epTremoloRate, 4.5), (.epTone, 45)]),
+    EffectSpecs.preset("Driven", [(.epDrive, 55), (.epTone, 65), (.epBell, 45)]),
+  ]
+
+  /// The drawbars' footages, left to right.
+  static let footages = ["16′", "5⅓′", "8′", "4′", "2⅔′", "2′", "1⅗′", "1⅓′", "1′"]
+  static let vibratos = ["Off", "V1", "V2", "V3", "C1", "C2", "C3"]
+  static let rotarySpeeds = ["Off", "Slow", "Fast"]
+
+  static let organ = ParameterTreeSpec {
+    for (bar, footage) in footages.enumerated() {
+      ParameterSpec(
+        address: OngakuEffectsParameterAddress.orgFirstDrawbar.rawValue + AUParameterAddress(bar), identifier: "drawbar\(bar)",
+        name: "Drawbar \(footage)", units: .generic, valueRange: 0...8, defaultValue: bar < 3 ? 8 : 0)
+    }
+    EffectSpecs.spec(.orgPercussion, "percussion", "Percussion", .boolean, 0...1, 1)
+    EffectSpecs.spec(.orgPercussionHarmonic, "percussionHarmonic", "Percussion Harmonic", .indexed, 0...1, 1, strings: ["Second", "Third"])
+    EffectSpecs.spec(.orgPercussionDecay, "percussionDecay", "Percussion Decay", .indexed, 0...1, 0, strings: ["Fast", "Slow"])
+    EffectSpecs.spec(.orgClick, "click", "Key Click", .percent, 0...100, 40)
+    EffectSpecs.spec(.orgVibrato, "vibrato", "Vibrato", .indexed, 0...6, 6, strings: vibratos)
+    EffectSpecs.spec(.orgRotary, "rotary", "Rotary", .indexed, 0...2, 1, strings: rotarySpeeds)
+    EffectSpecs.spec(.orgDrive, "drive", "Drive", .percent, 0...100, 15)
+    EffectSpecs.spec(.orgVolume, "volume", "Volume", .decibels, -24...12, 0)
+  }
+
+  /// A registration: the drawbars as a Hammond player writes them ("888000000").
+  private static func registration(_ name: String, _ drawbars: String, _ extra: [(OngakuEffectsParameterAddress, AUValue)]) -> EffectPreset {
+    var values = Dictionary(uniqueKeysWithValues: extra.map { ($0.rawValue, $1) })
+    for (bar, digit) in drawbars.enumerated() {
+      values[OngakuEffectsParameterAddress.orgFirstDrawbar.rawValue + AUParameterAddress(bar)] = AUValue(String(digit)) ?? 0
+    }
+    return EffectPreset(name: name, values: values, resetsOthers: true)
+  }
+
+  static let organPresets = [
+    registration("Jazz Trio", "888000000", [(.orgPercussion, 1), (.orgPercussionHarmonic, 1), (.orgVibrato, 6), (.orgRotary, 1)]),
+    registration("Full Gospel", "888888888", [(.orgPercussion, 0), (.orgRotary, 2), (.orgDrive, 30), (.orgVibrato, 6)]),
+    registration("Rock Drive", "888600000", [(.orgPercussion, 0), (.orgRotary, 2), (.orgDrive, 65), (.orgClick, 60)]),
+    registration("Soft Ballad", "008600000", [(.orgPercussion, 0), (.orgRotary, 1), (.orgVibrato, 6), (.orgClick, 10), (.orgDrive, 0)]),
+    registration("Church Hymn", "688600000", [(.orgPercussion, 0), (.orgRotary, 0), (.orgVibrato, 6), (.orgClick, 20), (.orgDrive, 0)]),
+  ]
+}
+
+/// The Multiband Compressor (MultibandCompressor.hpp).
+enum MultibandParameters {
+  static let bandNames = ["Low", "Mid", "High"]
+
+  static func address(_ band: Int, _ field: OngakuBandField) -> AUParameterAddress {
+    OngakuEffectsParameterAddress.mbcFirstBand.rawValue + AUParameterAddress(10 * band + Int(field.rawValue))
+  }
+
+  static let tree = ParameterTreeSpec {
+    EffectSpecs.spec(.mbcLowCrossover, "lowCrossover", "Low Crossover", .hertz, 40...2_000, 200, logarithmic: true)
+    EffectSpecs.spec(.mbcHighCrossover, "highCrossover", "High Crossover", .hertz, 500...16_000, 3_000, logarithmic: true)
+    EffectSpecs.spec(.mbcAttack, "attack", "Attack", .milliseconds, 0.5...200, 10, logarithmic: true)
+    EffectSpecs.spec(.mbcRelease, "release", "Release", .milliseconds, 10...2_000, 150, logarithmic: true)
+    EffectSpecs.spec(.mbcOutput, "output", "Output", .decibels, -24...24, 0)
+    for (band, name) in bandNames.enumerated() {
+      ParameterSpec(
+        address: address(band, .threshold), identifier: "threshold\(band)", name: "\(name) Threshold",
+        units: .decibels, valueRange: -60...0, defaultValue: -20)
+      ParameterSpec(
+        address: address(band, .ratio), identifier: "ratio\(band)", name: "\(name) Ratio",
+        units: .ratio, valueRange: 1...20, defaultValue: 2.5, flags: EffectSpecs.logarithmic)
+      ParameterSpec(
+        address: address(band, .makeUp), identifier: "makeUp\(band)", name: "\(name) Make-Up",
+        units: .decibels, valueRange: -24...24, defaultValue: 0)
+    }
+  }
+
+  private static func preset(_ name: String, low: (AUValue, AUValue, AUValue), mid: (AUValue, AUValue, AUValue),
+    high: (AUValue, AUValue, AUValue), extra: [(OngakuEffectsParameterAddress, AUValue)] = []) -> EffectPreset
+  {
+    var values = Dictionary(uniqueKeysWithValues: extra.map { ($0.rawValue, $1) })
+    for (band, settings) in [low, mid, high].enumerated() {
+      values[address(band, .threshold)] = settings.0
+      values[address(band, .ratio)] = settings.1
+      values[address(band, .makeUp)] = settings.2
+    }
+    return EffectPreset(name: name, values: values, resetsOthers: true)
+  }
+
+  static let presets = [
+    preset("Gentle Glue", low: (-20, 2.5, 0), mid: (-20, 2.5, 0), high: (-20, 2.5, 0)),
+    preset("Tame the Lows", low: (-28, 4, 2), mid: (-18, 1.5, 0), high: (-18, 1.5, 0)),
+    preset("Smooth Vocal", low: (-22, 2, 0), mid: (-24, 3, 2), high: (-30, 4, 1), extra: [(.mbcLowCrossover, 180), (.mbcHighCrossover, 5_000)]),
+    preset("Drum Bus Punch", low: (-18, 3, 2), mid: (-22, 4, 3), high: (-20, 2, 1), extra: [(.mbcAttack, 25), (.mbcRelease, 90)]),
+    preset("Mastering Polish", low: (-16, 1.8, 0.5), mid: (-16, 1.6, 0.5), high: (-18, 1.8, 0.5),
+      extra: [(.mbcAttack, 30), (.mbcRelease, 250), (.mbcLowCrossover, 120), (.mbcHighCrossover, 6_000)]),
+  ]
+}
+
+/// Gain and the Tuner (Utility.hpp).
+enum UtilityParameters {
+  static let gain = ParameterTreeSpec {
+    EffectSpecs.spec(.ginGain, "gain", "Gain", .decibels, -48...24, 0)
+    EffectSpecs.spec(.ginInvertLeft, "invertLeft", "Invert Left", .boolean, 0...1, 0)
+    EffectSpecs.spec(.ginInvertRight, "invertRight", "Invert Right", .boolean, 0...1, 0)
+    EffectSpecs.spec(.ginSwap, "swap", "Swap Left and Right", .boolean, 0...1, 0)
+    EffectSpecs.spec(.ginMono, "mono", "Mono", .boolean, 0...1, 0)
+    EffectSpecs.spec(.ginWidth, "width", "Width", .percent, 0...200, 100)
+    EffectSpecs.spec(.ginBalance, "balance", "Balance", .pan, -100...100, 0)
+  }
+
+  static let gainPresets = [
+    EffectSpecs.preset("Unity", []),
+    EffectSpecs.preset("Mono Check", [(.ginMono, 1)]),
+    EffectSpecs.preset("Swap Sides", [(.ginSwap, 1)]),
+    EffectSpecs.preset("Flip Polarity", [(.ginInvertLeft, 1), (.ginInvertRight, 1)]),
+    EffectSpecs.preset("Extra Wide", [(.ginWidth, 150)]),
+  ]
+
+  static let tuner = ParameterTreeSpec {
+    EffectSpecs.spec(.tunReference, "reference", "Reference", .hertz, 430...450, 440)
+    ParameterSpec(
+      address: OngakuEffectsParameterAddress.tunFrequency.rawValue, identifier: "frequency", name: "Frequency",
+      units: .hertz, valueRange: 0...2_000, defaultValue: 0, flags: [.flag_IsReadable])
+    EffectSpecs.spec(.tunMute, "mute", "Mute While Tuning", .boolean, 0...1, 0)
+  }
 }
 
 enum ConvolutionReverbParameters {

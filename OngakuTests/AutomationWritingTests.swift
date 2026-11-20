@@ -90,6 +90,19 @@ struct AutomationWritingTests {
     #expect(!window.controlReleased(.volume, on: trackID), "A move while stopped changes the strip as usual")
   }
 
+  @Test func verticalZoomMakesEveryLaneTallerOrShorterWithinItsRange() {
+    let (window, _) = makeWindow(mode: .read)
+    typealias Layout = ProjectWindowModel.Layout
+    window.zoomTracksVertically(by: 1.25)
+    #expect(window.trackHeight == 80 && window.rowHeight == 80)
+    for _ in 0..<20 { window.zoomTracksVertically(by: 1.25) }
+    #expect(window.trackHeight == Layout.trackHeightRange.upperBound)
+    for _ in 0..<20 { window.zoomTracksVertically(by: 0.8) }
+    #expect(window.trackHeight == Layout.trackHeightRange.lowerBound)
+    window.isAutomationVisible = true
+    #expect(window.rowHeight == Layout.trackHeightRange.lowerBound + Layout.automationHeight)
+  }
+
   @Test func showingAutomationGivesEachTrackAStripBelowItsLane() {
     let (window, _) = makeWindow(mode: .read)
     defer { window.engine.shutDown() }

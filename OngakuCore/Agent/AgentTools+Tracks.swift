@@ -35,7 +35,7 @@ extension AgentToolbox {
     case let other?: throw AgentError.invalidArgument("kind", "“\(other)” isn't a kind; use instrument, audio or aux.")
     }
     let name = try arguments.optionalString("name")?.trimmingCharacters(in: .whitespaces)
-    var track = Track(name: name.flatMap { $0.isEmpty ? nil : $0 } ?? project.nextTrackName(for: kind), kind: kind)
+    var track = session.makeTrack(name: name.flatMap { $0.isEmpty ? nil : $0 } ?? project.nextTrackName(for: kind), kind: kind)
     try applySettings(arguments, to: &track, session: session)
     try session.performEdit(AddTrack(track), named: "Create Track")
     return AgentDescriptions.track(track, in: session.project)

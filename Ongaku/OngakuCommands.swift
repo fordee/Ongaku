@@ -21,6 +21,10 @@ extension FocusedValues {
 /// typed into a text field goes there.
 struct OngakuCommands: Commands {
   @FocusedValue(\.projectWindow) private var window
+  /// The single keys, as chosen in Settings › Key Commands.
+  private let bindings = KeyBindings.shared
+  private let templates = TemplateList.shared
+  @Environment(\.newDocument) private var newDocument
 
   /// Whether a text field is being edited, in which case Cut, Copy, Paste and Select All are
   /// its own.
@@ -108,21 +112,37 @@ struct OngakuCommands: Commands {
       .keyboardShortcut(.delete, modifiers: .command)
       .disabled(window?.canDeleteSelectedTracks != true)
       Divider()
-      Button("New Pattern Region") { window?.createPatternRegionAtPlayhead() }
-        .disabled(window?.canCreatePatternRegionAtPlayhead != true)
+      Button("Strip Silence…") { window?.showStripSilence() }
+        .keyboardShortcut("x", modifiers: .control)
+        .disabled(window?.selectedAudioRegionIDs.isEmpty != false)
+      Divider()
+      // At the playhead on the selected track, as the tracks' right-click menu makes them.
+      ForEach(ProjectWindowModel.NewRegionKind.allCases, id: \.self) { kind in
+        Button(kind.menuTitle) { window?.createRegionAtPlayhead(kind) }
+          .disabled(window?.canCreateRegionAtPlayhead(kind) != true)
+      }
       Divider()
       Button("Create Summing Stack") { window?.createSummingStack() }
         .keyboardShortcut("d", modifiers: [.command, .shift])
+        .disabled(window?.canCreateSummingStack != true)
+      Button("Create Folder Stack") { window?.createStack(folder: true) }
         .disabled(window?.canCreateSummingStack != true)
       Button("Flatten Stack") {
         if let window, let stackID = window.selectedStackID { window.flattenStack(stackID) }
       }
       .disabled(window?.selectedStackID == nil)
       Divider()
+      Button("Hide Track") { window?.toggleSelectedTracksHidden() }
+        .keyboardShortcut("h", modifiers: .control)
+        .disabled(window?.selectedTrackIDs.isEmpty != false)
+      Toggle("Show Hidden Tracks", isOn: Binding(
+        get: { window?.showsHiddenTracks ?? false }, set: { window?.showsHiddenTracks = $0 }))
+        .disabled(window?.project.tracks.contains(where: \.isHidden) != true && window?.showsHiddenTracks != true)
+      Divider()
       Button(window?.isGlobalTracksVisible == true ? "Hide Global Tracks" : "Show Global Tracks") {
         singleKey { window?.toggleGlobalTracks() }
       }
-      .keyboardShortcut("g", modifiers: [])
+      .keyboardShortcut(bindings.shortcut(for: .globalTracks))
       .disabled(window == nil)
       Button("Add Arrangement Marker") { window?.addArrangementSection() }
         .disabled(window == nil)
@@ -133,6 +153,35 @@ struct OngakuCommands: Commands {
         window?.toggleFreezeSelectedTracks()
       }
       .disabled(window?.canFreezeSelectedTracks != true)
+      Button("Bounce in Place…") { window?.showBounceInPlace() }
+        .keyboardShortcut("b", modifiers: .control)
+        .disabled(window?.bounceInPlaceTarget == nil)
+    }
+
+    CommandGroup(after: .newItem) {
+      Menu("New from Template") {
+        ForEach(templates.names, id: \.self) { name in
+          Button(name) {
+            AppSettings.pendingTemplate = name
+            newDocument(contentType: .ongakuProject)
+          }
+        }
+        if templates.names.isEmpty {
+          Text("No templates yet: use Save as Template…")
+        }
+      }
+      Button("Save as Template…") { window?.isShowingSaveTemplate = true }
+        .disabled(window == nil)
+      Menu("Revert to Backup") {
+        let backups = window?.document.backups ?? []
+        ForEach(backups, id: \.self) { backup in
+          Button(backup.formatted(date: .abbreviated, time: .standard)) { window?.revert(toBackupFrom: backup) }
+        }
+        if backups.isEmpty {
+          Text("No backups yet: they're made each time the song is saved")
+        }
+      }
+      .disabled(window == nil)
     }
 
     CommandGroup(replacing: .importExport) {
@@ -143,6 +192,8 @@ struct OngakuCommands: Commands {
         Divider()
         Button("Bounce…") { window?.showBounce() }
           .keyboardShortcut("b", modifiers: .command)
+        Button("Export All Tracks as Audio Files…") { window?.showExportAllTracks() }
+          .keyboardShortcut("e", modifiers: [.command, .shift])
         Button("Export Project as MIDI File…") { window?.isShowingMIDIExporter = true }
         Divider()
         Button("Mastering…") { window?.showMastering() }
@@ -152,6 +203,36 @@ struct OngakuCommands: Commands {
       .disabled(window == nil)
     }
 
+    // The editing keys that act on the area clicked last, so each has a menu item too.
+    CommandMenu("Functions") {
+      Button("Tool Menu") { singleKey { window?.showToolMenu() } }
+        .keyboardShortcut(bindings.shortcut(for: .toolMenu))
+        .disabled(window == nil)
+      Divider()
+      Button("Quantize Selected Notes") { singleKey { window?.pianoRoll.quantizeSelection() } }
+        .keyboardShortcut("q", modifiers: [])
+        .disabled(window?.isPianoRollEditing != true)
+      Button("Transpose Up a Semitone") { singleKey { window?.pianoRoll.transposeSelection(by: 1) } }
+        .keyboardShortcut(.upArrow, modifiers: .option)
+        .disabled(window?.isPianoRollEditing != true)
+      Button("Transpose Down a Semitone") { singleKey { window?.pianoRoll.transposeSelection(by: -1) } }
+        .keyboardShortcut(.downArrow, modifiers: .option)
+        .disabled(window?.isPianoRollEditing != true)
+      Button("Transpose Up an Octave") { singleKey { window?.pianoRoll.transposeSelection(by: 12) } }
+        .keyboardShortcut(.upArrow, modifiers: [.option, .shift])
+        .disabled(window?.isPianoRollEditing != true)
+      Button("Transpose Down an Octave") { singleKey { window?.pianoRoll.transposeSelection(by: -12) } }
+        .keyboardShortcut(.downArrow, modifiers: [.option, .shift])
+        .disabled(window?.isPianoRollEditing != true)
+      Divider()
+      Button("Nudge Left") { singleKey { window?.nudgeSelectionInActiveArea(by: -1) } }
+        .keyboardShortcut(.leftArrow, modifiers: .option)
+        .disabled(window == nil)
+      Button("Nudge Right") { singleKey { window?.nudgeSelectionInActiveArea(by: 1) } }
+        .keyboardShortcut(.rightArrow, modifiers: .option)
+        .disabled(window == nil)
+    }
+
     CommandMenu("Transport") {
       Group {
         Button(window?.engine.isPlaying == true ? "Stop" : "Play") { singleKey { window?.togglePlayback() } }
@@ -159,18 +240,26 @@ struct OngakuCommands: Commands {
         Button("Go to Beginning") { singleKey { window?.goToBeginning() } }
           .keyboardShortcut(.return, modifiers: [])
         Button("Back One Bar") { singleKey { window?.moveByBars(-1) } }
-          .keyboardShortcut(",", modifiers: [])
+          .keyboardShortcut(bindings.shortcut(for: .previousBar))
         Button("Forward One Bar") { singleKey { window?.moveByBars(1) } }
-          .keyboardShortcut(".", modifiers: [])
+          .keyboardShortcut(bindings.shortcut(for: .nextBar))
         Button(window?.engine.isRecording == true ? "Stop Recording" : "Record") { singleKey { window?.toggleRecording() } }
-          .keyboardShortcut("r", modifiers: [])
+          .keyboardShortcut(bindings.shortcut(for: .record))
+        Button("Capture as Recording") { window?.captureAsRecording() }
+          .disabled(window?.engine.isRecording == true)
         Divider()
         Button(window?.project.cycle.isEnabled == true ? "Turn Cycle Off" : "Turn Cycle On") { singleKey { window?.toggleCycle() } }
-          .keyboardShortcut("c", modifiers: [])
+          .keyboardShortcut(bindings.shortcut(for: .cycle))
         Button(window?.project.isMetronomeEnabled == true ? "Turn Metronome Off" : "Turn Metronome On") {
           singleKey { window?.toggleMetronome() }
         }
-        .keyboardShortcut("k", modifiers: [])
+        .keyboardShortcut(bindings.shortcut(for: .metronome))
+        Divider()
+        // Logic's recording modes, saved with the song.
+        Toggle("Autopunch", isOn: Binding(get: { window?.project.punch.isEnabled ?? false }, set: { _ in window?.toggleAutopunch() }))
+        Button("Set Autopunch to Locators") { window?.setPunchToLocators() }
+          .disabled(window?.locatorRange == nil)
+        Toggle("Replace", isOn: Binding(get: { window?.project.isReplaceRecording ?? false }, set: { _ in window?.toggleReplaceRecording() }))
         Divider()
         // Logic's marker key commands.
         Button("Create Marker") { window?.createMarker() }
@@ -185,28 +274,40 @@ struct OngakuCommands: Commands {
 
     CommandGroup(after: .toolbar) {
       Button(window?.isLibraryVisible == true ? "Hide Library" : "Show Library") { singleKey { window?.toggleLibrary() } }
-        .keyboardShortcut("y", modifiers: [])
+        .keyboardShortcut(bindings.shortcut(for: .library))
         .disabled(window == nil)
       Button(window?.isLoopBrowserVisible == true ? "Hide Loop Browser" : "Show Loop Browser") { singleKey { window?.toggleLoopBrowser() } }
-        .keyboardShortcut("o", modifiers: [])
+        .keyboardShortcut(bindings.shortcut(for: .loopBrowser))
         .disabled(window == nil)
       Button(window?.isInspectorVisible == true ? "Hide Inspector" : "Show Inspector") { singleKey { window?.toggleInspector() } }
-        .keyboardShortcut("i", modifiers: [])
+        .keyboardShortcut(bindings.shortcut(for: .inspector))
         .disabled(window == nil)
       Button(window?.isAutomationVisible == true ? "Hide Automation" : "Show Automation") { singleKey { window?.toggleAutomation() } }
-        .keyboardShortcut("a", modifiers: [])
+        .keyboardShortcut(bindings.shortcut(for: .automation))
         .disabled(window == nil)
       Button(window?.isEditorVisible == true ? "Hide Editor" : "Show Editor") { singleKey { window?.toggleEditor() } }
-        .keyboardShortcut("e", modifiers: [])
+        .keyboardShortcut(bindings.shortcut(for: .editor))
         .disabled(window == nil)
       Button(window?.bottomPane == .mixer ? "Hide Mixer" : "Show Mixer") { singleKey { window?.toggleMixer() } }
-        .keyboardShortcut("x", modifiers: [])
+        .keyboardShortcut(bindings.shortcut(for: .mixer))
         .disabled(window == nil)
+      Button(window?.bottomPane == .smartControls ? "Hide Smart Controls" : "Show Smart Controls") {
+        singleKey { window?.toggleSmartControls() }
+      }
+      .keyboardShortcut(bindings.shortcut(for: .smartControls))
+      .disabled(window == nil)
       Button("Zoom In") { window?.zoom(by: 1.5) }
         .keyboardShortcut("=", modifiers: .command)
         .disabled(window == nil)
       Button("Zoom Out") { window?.zoom(by: 1 / 1.5) }
         .keyboardShortcut("-", modifiers: .command)
+        .disabled(window == nil)
+      // Vertical zoom, as Logic's ⌘↓ and ⌘↑.
+      Button("Zoom Tracks Taller") { singleKey { window?.zoomTracksVertically(by: 1.25) } }
+        .keyboardShortcut(.downArrow, modifiers: .command)
+        .disabled(window == nil)
+      Button("Zoom Tracks Shorter") { singleKey { window?.zoomTracksVertically(by: 1 / 1.25) } }
+        .keyboardShortcut(.upArrow, modifiers: .command)
         .disabled(window == nil)
       Divider()
     }

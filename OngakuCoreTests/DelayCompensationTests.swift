@@ -65,4 +65,28 @@ struct DelayCompensationTests {
     #expect(plan.delay(from: synth.id, to: .stereoOut) == 352, "Tracks outside the stack wait for it")
     #expect(plan.delay(from: stack.id, to: .stereoOut) == 0)
   }
+
+  @Test func sideChainsArriveWithTheTrackTheyKey() {
+    // The kick feeds a compressor's side chain on the synth, whose instrument adds 128.
+    var synth = synth
+    let compressor = BuiltInEffect.compressor.makeReference()
+    var keyed = compressor
+    keyed.sidechainSourceID = guitar.id
+    synth.channel.inserts = [keyed]
+    let plan = DelayCompensation(project: Project(tracks: [guitar, synth]), latencies: [synth.id: .init(source: 128)])
+    #expect(plan.delay(from: guitar.id, to: .track(keyed.id)) == 128, "The side chain waits for the synth")
+
+    let late = DelayCompensation(project: Project(tracks: [guitar, synth]), latencies: [guitar.id: .init(inserts: 300)])
+    #expect(late.delay(from: guitar.id, to: .track(keyed.id)) == 0, "A later source can't be made earlier")
+  }
+
+  @Test func extraInstrumentOutputsArriveWithTheInstrument() {
+    // An aux playing the synth's second output: the synth's instrument adds 64, its inserts 32.
+    var aux = reverb
+    aux.channel.instrumentOutput = InstrumentOutput(trackID: synth.id, bus: 1)
+    let plan = DelayCompensation(project: Project(tracks: [synth, aux, guitar]), latencies: [synth.id: .init(source: 64, inserts: 32)])
+    #expect(plan.faderLatency[aux.id] == 64)
+    #expect(plan.delay(from: aux.id, to: .stereoOut) == 32, "It waits for the synth's own output")
+    #expect(plan.delay(from: guitar.id, to: .stereoOut) == 96)
+  }
 }

@@ -29,8 +29,8 @@ public struct CreateSummingStack: EditCommand {
     guard project.trackIndex(for: stack.id) == nil else { throw EditError.duplicateID(stack.id) }
     var members: [Track] = []
     for track in project.tracks where trackIDs.contains(track.id) {
-      guard !track.isSummingStack, track.stackID == nil else {
-        throw EditError.invalidValue("“\(track.name)” is already part of a summing stack.")
+      guard !track.isStack, track.stackID == nil else {
+        throw EditError.invalidValue("“\(track.name)” is already part of a stack.")
       }
       members.append(track)
     }
@@ -58,8 +58,51 @@ public struct CreateSummingStack: EditCommand {
   }
 }
 
-/// Takes a summing stack apart, as Logic's Flatten Stack: the subtracks become ordinary
-/// tracks that output where the stack did, and the stack's main track goes.
+/// Puts tracks in a folder stack, as Logic's Track › Create Track Stack › Folder Stack: a
+/// new main track goes where the first of them was and they follow it as its subtracks, in
+/// their order. Unlike a summing stack, they keep their own outputs: the folder only gathers
+/// them, and its fader, mute and solo act on them all.
+public struct CreateFolderStack: EditCommand {
+  public var trackIDs: Set<Track.ID>
+  /// The new main track. Its kind must be aux; it's marked as a folder here.
+  public var stack: Track
+
+  public init(_ trackIDs: Set<Track.ID>, stack: Track) {
+    self.trackIDs = trackIDs
+    self.stack = stack
+  }
+
+  public var actionName: String { "Create Folder Stack" }
+
+  public func apply(to project: inout Project) throws {
+    guard !trackIDs.isEmpty else { throw EditError.invalidValue("Select the tracks to put in the stack.") }
+    guard stack.kind == .aux, stack.regions.isEmpty else {
+      throw EditError.invalidValue("A folder stack's main track must be an aux track.")
+    }
+    guard project.trackIndex(for: stack.id) == nil else { throw EditError.duplicateID(stack.id) }
+    for id in trackIDs {
+      let track = try project.tracks[project.requireTrackIndex(id)]
+      guard !track.isStack, track.stackID == nil else {
+        throw EditError.invalidValue("“\(track.name)” is already part of a stack.")
+      }
+    }
+    var stack = stack
+    stack.isFolderStack = true
+    stack.stackID = nil
+    let insertionIndex = project.tracks.firstIndex { trackIDs.contains($0.id) } ?? project.tracks.count
+    let before = project.tracks[..<insertionIndex].filter { !trackIDs.contains($0.id) }
+    let after = project.tracks[insertionIndex...].filter { !trackIDs.contains($0.id) }
+    let subtracks = project.tracks.filter { trackIDs.contains($0.id) }.map { member in
+      var subtrack = member
+      subtrack.stackID = stack.id
+      return subtrack
+    }
+    project.tracks = before + [stack] + subtracks + after
+  }
+}
+
+/// Takes a stack apart, as Logic's Flatten Stack: the subtracks become ordinary tracks (a
+/// summing stack's output where the stack did), and the stack's main track goes.
 public struct FlattenStack: EditCommand {
   public var stackID: Track.ID
 
@@ -72,7 +115,10 @@ public struct FlattenStack: EditCommand {
   public func apply(to project: inout Project) throws {
     let index = try project.requireTrackIndex(stackID)
     let stack = project.tracks[index]
-    guard stack.isSummingStack else { throw EditError.invalidValue("“\(stack.name)” isn’t a summing stack.") }
+    guard stack.isStack else { throw EditError.invalidValue("“\(stack.name)” isn’t a stack.") }
+    for memberIndex in project.tracks.indices where project.tracks[memberIndex].stackID == stackID {
+      project.tracks[memberIndex].stackID = nil
+    }
     for memberIndex in project.tracks.indices where project.tracks[memberIndex].channel.output == .track(stackID) {
       project.tracks[memberIndex].channel.output = stack.channel.output
       if project.tracks[memberIndex].stackID == stackID {
@@ -103,7 +149,8 @@ public struct SetTrackOutput: EditCommand {
     let index = try project.requireTrackIndex(trackID)
     try validateOutput(output, of: trackID, in: project)
     project.tracks[index].channel.output = output
-    if let stackID = project.tracks[index].stackID, output != .track(stackID) {
+    // A summing stack's subtracks output to it; a folder's go anywhere.
+    if let stackID = project.tracks[index].stackID, project.track(withID: stackID)?.isSummingStack == true, output != .track(stackID) {
       project.tracks[index].stackID = nil
     }
   }
@@ -113,7 +160,10 @@ public struct SetTrackOutput: EditCommand {
 func validateOutput(_ output: ChannelOutput, of trackID: Track.ID, in project: Project) throws {
   guard let destinationID = output.trackID else { return }
   guard let destination = project.track(withID: destinationID) else { throw EditError.trackNotFound(destinationID) }
-  guard destination.kind == .aux else { throw EditError.invalidValue("A track can only output to Stereo Out or an aux track.") }
+  // A folder stack has no audio of its own to take an output.
+  guard destination.kind == .aux, !destination.isFolderStack else {
+    throw EditError.invalidValue("A track can only output to Stereo Out or an aux track.")
+  }
   guard project.track(withID: trackID)?.channel.sends.contains(where: { $0.destinationTrackID == destinationID }) != true else {
     throw EditError.invalidValue("This track already sends to “\(destination.name)”; remove the send first.")
   }

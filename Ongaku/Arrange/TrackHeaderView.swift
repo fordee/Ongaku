@@ -21,23 +21,45 @@ struct TrackHeadersColumn: View {
     let numbers = Dictionary(uniqueKeysWithValues: model.project.tracks.enumerated().map { ($1.id, $0 + 1) })
     let liveMIDITrackIDs = Set(model.liveMIDITrackIDs)
     ZStack(alignment: .topLeading) {
+      // The space below the tracks: right-click for a new track at the end, or an import.
       Color.clear
+        .contentShape(.rect)
+        .contextMenu {
+          Menu("New Track") {
+            NewTrackMenuItems(model: model) { model.selectedTrackID = nil }
+          }
+          Divider()
+          Button("Import Audio Files…") { model.activeImporter = .audio }
+          Button("Import MIDI File…") { model.activeImporter = .midi }
+        }
       ForEach(rows.map { (index: $0, track: tracks[$0]) }, id: \.track.id) { row in
         TrackHeaderView(
           model: model, track: row.track, number: numbers[row.track.id] ?? row.index + 1,
           isSelected: model.selectedTrackIDs.contains(row.track.id), stackRole: stackRole(of: row.track),
-          freezeProgress: model.freezeProgress[row.track.id], playsMIDIInput: liveMIDITrackIDs.contains(row.track.id)
+          freezeProgress: model.freezeProgress[row.track.id], playsMIDIInput: liveMIDITrackIDs.contains(row.track.id),
+          height: model.trackHeight
         )
         .equatable()
         .offset(y: CGFloat(row.index) * model.rowHeight)
         // The automation strip's header: which parameter it shows and the mode.
         if model.isAutomationVisible {
           AutomationStripHeader(model: model, track: row.track)
-            .offset(y: CGFloat(row.index) * model.rowHeight + ProjectWindowModel.Layout.trackHeight)
+            .offset(y: CGFloat(row.index) * model.rowHeight + model.trackHeight)
         }
       }
     }
     .frame(height: height, alignment: .top)
+    .coordinateSpace(.named(Self.coordinateSpace))
+    // Where a dragged track header would land.
+    .overlay(alignment: .topLeading) {
+      if let drag = model.trackDrag {
+        Rectangle()
+          .fill(Theme.accent)
+          .frame(height: 2)
+          .offset(y: CGFloat(drag.row) * model.rowHeight - 1)
+          .allowsHitTesting(false)
+      }
+    }
     .frame(width: model.headerWidth)
     .background(Theme.panel)
     .overlay(alignment: .trailing) {
@@ -50,9 +72,34 @@ struct TrackHeadersColumn: View {
 }
 
 extension TrackHeadersColumn {
+  static let coordinateSpace = "track-headers"
+
   private func stackRole(of track: Track) -> TrackHeaderView.StackRole {
-    if track.isSummingStack { return .stack(isCollapsed: model.isStackCollapsed(track.id)) }
+    if track.isStack { return .stack(isCollapsed: model.isStackCollapsed(track.id)) }
     return track.stackID == nil ? .none : .subtrack
+  }
+}
+
+/// The kinds of new track, for the New Track button and the tracks' context menus.
+/// `prepare` runs first, to choose where the track goes (new tracks follow the selected one).
+struct NewTrackMenuItems: View {
+  let model: ProjectWindowModel
+  var prepare: () -> Void = {}
+
+  var body: some View {
+    Button("Audio") { add { model.addTrack(.audio) } }
+    Button("Software Instrument") { add { model.addTrack(.softwareInstrument) } }
+    Button("Aux") { add { model.addTrack(.aux) } }
+    Divider()
+    Button("Drummer") { add { model.addDrummerTrack() } }
+    Button("Drummer (Drum Machine)") { add { model.addDrummerTrack(style: .electronic, kit: .drumMachine) } }
+    Button("Bass Player") { add { model.addPlayerTrack(.bass) } }
+    Button("Keyboard Player") { add { model.addPlayerTrack(.keys) } }
+  }
+
+  private func add(_ action: () -> Void) {
+    prepare()
+    action()
   }
 }
 
@@ -111,10 +158,12 @@ private struct TrackHeaderView: View, Equatable {
   let freezeProgress: Double?
   /// Whether MIDI keyboards play this track (see `ProjectWindowModel.liveMIDITrackIDs`).
   let playsMIDIInput: Bool
+  /// The lane's height (vertical zoom).
+  let height: CGFloat
 
   nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
     lhs.track == rhs.track && lhs.number == rhs.number && lhs.isSelected == rhs.isSelected && lhs.stackRole == rhs.stackRole
-      && lhs.freezeProgress == rhs.freezeProgress && lhs.playsMIDIInput == rhs.playsMIDIInput
+      && lhs.freezeProgress == rhs.freezeProgress && lhs.playsMIDIInput == rhs.playsMIDIInput && lhs.height == rhs.height
   }
 
   private static let disclosureWidth: CGFloat = 16
@@ -154,7 +203,7 @@ private struct TrackHeaderView: View, Equatable {
         EmptyView()
       }
 
-      TrackIcon(kind: track.kind, color: track.color.color, symbolName: track.isSummingStack ? "square.stack.3d.up" : nil)
+      TrackIcon(kind: track.kind, color: track.color.color, symbolName: track.isFolderStack ? "folder" : track.isSummingStack ? "square.stack.3d.up" : nil)
         .padding(.horizontal, 8)
 
       VStack(alignment: .leading, spacing: 3) {
@@ -206,6 +255,13 @@ private struct TrackHeaderView: View, Equatable {
               .disabled(track.isFrozen)
             }
         }
+        if track.isHidden {
+          // Only shown while hidden tracks are: click to show the track again.
+          ChannelButton(label: "H", accessibilityName: "Hidden", isOn: true, onColor: Theme.accent) {
+            model.perform(SetTracksHidden([track.id], isHidden: false))
+          }
+          .help("Hidden: click to show this track again")
+        }
         ChannelButton(label: "M", accessibilityName: "Mute", isOn: track.channel.isMuted, onColor: Theme.mute) {
           setChannel(\.isMuted, !track.channel.isMuted, actionName: "Mute")
         }
@@ -233,19 +289,41 @@ private struct TrackHeaderView: View, Equatable {
       }
       .padding(.trailing, 8)
     }
-    .frame(height: ProjectWindowModel.Layout.trackHeight)
+    .frame(height: height)
     // Narrow headers squeeze the name and instrument; nothing may draw into the lanes.
     .clipped()
     .accessibilityElement(children: .contain)
     .accessibilityLabel(accessibilityName)
     .accessibilityIdentifier("track-header")
     .background(isSelected ? Theme.headerSelected : Theme.header)
+    .opacity(track.isHidden ? 0.55 : 1)
     .overlay(alignment: .bottom) {
       Rectangle().fill(Theme.separator).frame(height: 1)
     }
     .contentShape(.rect)
     .simultaneousGesture(TapGesture().onEnded { model.selectTrack(track.id, modifiers: NSEvent.modifierFlags) })
+    // Dragging a header up or down moves the track, as in Logic.
+    .gesture(
+      DragGesture(minimumDistance: 6, coordinateSpace: .named(TrackHeadersColumn.coordinateSpace))
+        .onChanged { value in model.trackDrag = (track.id, model.trackDropRow(at: value.location.y)) }
+        .onEnded { value in
+          model.trackDrag = nil
+          model.moveTrack(track.id, toRow: model.trackDropRow(at: value.location.y))
+        })
     .contextMenu {
+      // New tracks go after the track clicked (joining its stack, if it's in one).
+      Menu("New Track") {
+        NewTrackMenuItems(model: model) { model.selectedTrackID = track.id }
+      }
+      Button("Duplicate Track") {
+        model.selectedTrackID = track.id
+        model.duplicateSelectedTrack()
+      }
+      .disabled(track.isStack)
+      Button(track.isHidden ? "Show Track" : "Hide Track") {
+        model.perform(SetTracksHidden([track.id], isHidden: !track.isHidden))
+      }
+      Divider()
       Button("Rename Track", action: beginRename)
       stackMenuItems
       if track.canFreeze {
@@ -278,23 +356,30 @@ private struct TrackHeaderView: View, Equatable {
 
   private var accessibilityName: String {
     let name = switch stackRole {
-    case .stack: "\(track.name), summing stack"
-    case .subtrack: "\(track.name), \(track.kind.displayName) track in a summing stack"
+    case .stack: "\(track.name), \(track.isFolderStack ? "folder" : "summing") stack"
+    case .subtrack: "\(track.name), \(track.kind.displayName) track in a stack"
     case .none: "\(track.name), \(track.kind.displayName) track"
     }
     return track.isFrozen ? "\(name), frozen" : name
   }
 
-  /// Create Summing Stack for the selection (including this track), or Flatten Stack.
+  /// Create Folder or Summing Stack for the selection (including this track), or Flatten Stack.
   @ViewBuilder private var stackMenuItems: some View {
-    if track.isSummingStack || track.stackID != nil {
-      Button("Flatten Stack") { model.flattenStack(track.isSummingStack ? track.id : track.stackID ?? track.id) }
+    if track.isStack || track.stackID != nil {
+      Button("Flatten Stack") { model.flattenStack(track.isStack ? track.id : track.stackID ?? track.id) }
     } else {
+      Button("Create Folder Stack") {
+        if !model.selectedTrackIDs.contains(track.id) {
+          model.selectedTrackID = track.id
+        }
+        model.createStack(folder: true)
+      }
+      .disabled(!model.canCreateSummingStack && model.selectedTrackIDs.contains(track.id))
       Button("Create Summing Stack") {
         if !model.selectedTrackIDs.contains(track.id) {
           model.selectedTrackID = track.id
         }
-        model.createSummingStack()
+        model.createStack(folder: false)
       }
       .disabled(!model.canCreateSummingStack && model.selectedTrackIDs.contains(track.id))
     }
@@ -430,14 +515,16 @@ struct InstrumentMenu<Label: View>: View {
         }
       }
       Menu("Audio Units") {
-        let instruments = model.audioUnitInstruments
-        if instruments.isEmpty {
-          Text("No Audio Unit instruments are installed")
+        AudioUnitMenuItems(entries: model.audioUnitInstruments, emptyMessage: "No Audio Unit instruments are installed") { entry in
+          model.setInstrument(.audioUnit(entry.makeReference()), for: track.id)
         }
-        ForEach(instruments) { entry in
-          Button("\(entry.manufacturer): \(entry.name)") {
-            model.setInstrument(.audioUnit(entry.makeReference()), for: track.id)
-          }
+      }
+      let outputs = model.engine.extraInstrumentOutputNames(forTrack: track.id)
+      if !outputs.isEmpty {
+        Divider()
+        // A multi-output instrument (a drum kit, say): each output on its own channel strip.
+        Button("Add Aux for Each Output (\(outputs.count))") {
+          model.perform(AddInstrumentOutputs(of: track.id, outputNames: outputs))
         }
       }
     } label: {

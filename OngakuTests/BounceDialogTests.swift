@@ -3,6 +3,7 @@
 //  OngakuTests
 //
 
+import AVFAudio
 import AudioToolbox
 import Foundation
 import OngakuCore
@@ -132,5 +133,76 @@ struct BounceDialogTests {
     undoManager.undo()
     window.projectDidChange()
     #expect(measured() == OngakuEffect.MasteringParameter.notMeasured, "Undo puts the settings back")
+  }
+}
+
+/// Bounce in Place and Export All Tracks, driven as their dialogs drive them.
+@MainActor
+@Suite(.serialized)
+struct TrackBounceTests {
+  private func makeWindow() -> ProjectWindowModel {
+    var keys = Track(name: "Keys", kind: .softwareInstrument)
+    keys.channel.instrument = .generalMIDI(program: 0)
+    let note = MIDINote(pitch: 60, start: .zero, length: .quarterNotes(1))
+    keys.regions = [Region(name: "Notes", start: .quarterNotes(4), length: .quarterNotes(4), content: .midi(MIDISequence(notes: [note])))]
+    var bass = Track(name: "Bass/Low", kind: .softwareInstrument)
+    bass.channel.instrument = .generalMIDI(program: 33)
+    bass.regions = [Region(name: "Line", start: .zero, length: .quarterNotes(8), content: .midi(MIDISequence(notes: [note])))]
+    return ProjectWindowModel(document: OngakuDocument(project: Project(tracks: [keys, bass, Track(name: "Verb", kind: .aux)])))
+  }
+
+  @Test func bounceInPlacePutsTheRenderOnANewTrackAndUndoes() async throws {
+    let window = makeWindow()
+    defer { window.engine.shutDown() }
+    let undoManager = UndoManager()
+    undoManager.groupsByEvent = false
+    window.undoManager = undoManager
+    let keys = window.project.tracks[0]
+    window.selectedRegionIDs = [keys.regions[0].id]
+    window.showBounceInPlace()
+    let dialog = try #require(window.bounceInPlace)
+    dialog.source = .mute
+    undoManager.beginUndoGrouping()
+    await window.startBounceInPlace()?.value
+    undoManager.endUndoGrouping()
+    #expect(window.errorMessage == nil)
+    #expect(window.bounceInPlace == nil, "The dialog closes")
+    #expect(window.project.tracks.map(\.name) == ["Keys", "Keys Bounce", "Bass/Low", "Verb"])
+    let bounced = try #require(window.project.tracks[1].regions.first)
+    #expect(bounced.start == .quarterNotes(4))
+    guard case .audio(let audio) = bounced.content, let file = window.project.audioFile(withID: audio.fileID) else {
+      Issue.record("The bounce is an audio region")
+      return
+    }
+    #expect(file.fileName == "Keys Bounce.caf" && file.duration > 2, "The bar, and the piano's tail")
+    #expect(window.project.tracks[0].regions[0].isMuted)
+    #expect(window.selectedTrackID == window.project.tracks[1].id)
+
+    undoManager.undo()
+    #expect(window.project.tracks.count == 3 && window.project.audioFiles.isEmpty)
+    #expect(!window.project.tracks[0].regions[0].isMuted)
+    dialog.source = .mute
+  }
+
+  @Test func exportAllTracksMakesAFileForEachTrack() async throws {
+    let window = makeWindow()
+    defer { window.engine.shutDown() }
+    window.showExportAllTracks()
+    let bounce = try #require(window.bounce)
+    #expect(bounce.target == .allTracks)
+    bounce.settings = BounceSettings(format: .wav, bitDepth: .sixteen, includeTail: false)
+    window.startBounce()
+    var files: [URL] = []
+    for _ in 0..<400 {
+      if case .finishedTracks(_, let made) = bounce.phase { files = made; break }
+      try await Task.sleep(for: .milliseconds(25))
+    }
+    #expect(files.map(\.lastPathComponent) == ["01 Keys.wav", "02 Bass-Low.wav"], "Aux tracks have nothing of their own to export")
+    for file in files {
+      let length = try AVAudioFile(forReading: file).length
+      #expect(abs(Double(length) / 48_000 - 4) < 0.05 || abs(Double(length) / 44_100 - 4) < 0.05, "Every file runs the whole song, so they line up")
+    }
+    window.closeBounce()
+    #expect(files.allSatisfy { !FileManager.default.fileExists(atPath: $0.path) })
   }
 }

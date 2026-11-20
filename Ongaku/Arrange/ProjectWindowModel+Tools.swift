@@ -113,7 +113,7 @@ extension ProjectWindowModel {
         errorMessage = "Select the regions to join, then click one of them with the Glue tool."
         return true
       }
-      let glue = GlueRegions(targets)
+      let glue = JoinRegions(targets)
       perform(glue, named: glue.actionName(in: project))
       selectedRegionIDs = Set(selectedRegionIDs.filter { project.region(withID: $0) != nil })
     case .mute:
@@ -216,7 +216,7 @@ extension ProjectWindowModel {
 
   /// Edit › Join Regions (⌘J): joins the selected regions on each track.
   func joinSelectedRegions() {
-    let glue = GlueRegions(selectedRegionIDs)
+    let glue = JoinRegions(selectedRegionIDs)
     perform(glue, named: glue.actionName(in: project))
     selectedRegionIDs = Set(selectedRegionIDs.filter { project.region(withID: $0) != nil })
   }

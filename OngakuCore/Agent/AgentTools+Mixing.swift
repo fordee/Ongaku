@@ -17,7 +17,8 @@ extension AgentToolbox {
     "type": ["string", "integer"],
     "description": "A track's id, name or number, or \"Stereo Out\" for the whole mix.",
   ]
-  private static let effectSchema = Schema.string("An effect on the channel strip: its id, its name, or its slot number (1 is the top).")
+  private static let effectSchema = Schema.string(
+    "A plug-in on the channel strip: an effect by its id, name or slot number (1 is the top), or the track's instrument or a MIDI effect plug-in by its name or id.")
 
   static let listEffects = AgentTool(
     name: "list_effects", title: "List Effects",
@@ -72,7 +73,7 @@ extension AgentToolbox {
 
   static let getEffect = AgentTool(
     name: "get_effect", title: "Get Effect",
-    description: "An effect's parameters (with their values, ranges and units, or their choices) and its factory presets.",
+    description: "A plug-in's parameters (with their values, ranges and units, or their choices) and its factory presets: an effect, or the track's instrument or MIDI effect plug-in.",
     properties: ["track": channelSchema, "effect": effectSchema],
     required: ["track", "effect"], isReadOnly: true
   ) { arguments, session in
@@ -85,8 +86,9 @@ extension AgentToolbox {
   static let setEffect = AgentTool(
     name: "set_effect", title: "Set Effect",
     description: """
-      Changes an effect: chooses a factory preset, sets parameters by name in their own units \
-      (dB, Hz, ms, % — or a choice's name), and bypasses or enables it. get_effect lists the \
+      Changes a plug-in (an effect, or the track's instrument or MIDI effect plug-in): \
+      chooses a factory preset, sets parameters by name in their own units (dB, Hz, ms, % — \
+      or a choice's name), and bypasses or enables an effect. get_effect lists the \
       parameters.
       """,
     properties: [
@@ -291,6 +293,20 @@ enum AgentMixing {
     var id: Track.ID
     var name: String
     var inserts: [PluginReference]
+    /// Every plug-in on the strip: MIDI effect plug-ins, the instrument and the inserts
+    /// (see `ChannelStrip.plugins`), which can all be read, set and automated.
+    var plugins: [PluginReference]
+
+    init(id: Track.ID, name: String, inserts: [PluginReference], plugins: [PluginReference]? = nil) {
+      self.id = id
+      self.name = name
+      self.inserts = inserts
+      self.plugins = plugins ?? inserts
+    }
+
+    init(_ track: Track) {
+      self.init(id: track.id, name: track.name, inserts: track.channel.inserts, plugins: track.channel.plugins)
+    }
   }
 
   static func channel(_ value: AgentValue, in project: Project) throws -> Channel {
@@ -298,12 +314,13 @@ enum AgentMixing {
       return Channel(id: Project.stereoOutID, name: "Stereo Out", inserts: project.stereoOutInserts)
     }
     let track = try AgentNames.track(value, in: project)
-    return Channel(id: track.id, name: track.name, inserts: track.channel.inserts)
+    return Channel(track)
   }
 
   static func refreshed(_ channel: Channel, in project: Project) -> Channel {
     var updated = channel
     updated.inserts = (try? project.inserts(of: channel.id)) ?? channel.inserts
+    updated.plugins = project.track(withID: channel.id)?.channel.plugins ?? updated.inserts
     return updated
   }
 
@@ -329,16 +346,17 @@ enum AgentMixing {
     throw AgentError.invalidArgument("effect", "there's no effect “\(text)”; list_effects lists them.")
   }
 
-  /// An effect already on a channel strip.
+  /// A plug-in already on a channel strip: an insert (also by its slot number), or the
+  /// instrument or a MIDI effect plug-in.
   static func insert(_ text: String, on channel: Channel) throws -> PluginReference {
-    let ids = AgentNames.match(text, among: channel.inserts.map(\.id))
-    if ids.count == 1, let plugin = channel.inserts.first(where: { $0.id == ids[0] }) { return plugin }
-    let named = channel.inserts.filter { names(of: $0).contains(AgentNames.simplified(text)) }
+    let ids = AgentNames.match(text, among: channel.plugins.map(\.id))
+    if ids.count == 1, let plugin = channel.plugins.first(where: { $0.id == ids[0] }) { return plugin }
+    let named = channel.plugins.filter { names(of: $0).contains(AgentNames.simplified(text)) }
     if named.count == 1 { return named[0] }
     if let slot = Int(text), channel.inserts.indices.contains(slot - 1) { return channel.inserts[slot - 1] }
     if named.count > 1 { throw AgentError.notFound("“\(channel.name)” has more than one \(text); use its id or slot.") }
-    let list = channel.inserts.isEmpty ? "none" : channel.inserts.map(\.name).joined(separator: ", ")
-    throw AgentError.notFound("“\(channel.name)” has no effect “\(text)” (it has \(list)).")
+    let list = channel.plugins.isEmpty ? "none" : channel.plugins.map(\.name).joined(separator: ", ")
+    throw AgentError.notFound("“\(channel.name)” has no plug-in “\(text)” (it has \(list)).")
   }
 
   /// What an effect on a strip answers to: its name, and the names it can be added by
@@ -454,8 +472,7 @@ enum AgentMixing {
       }
       return ranged(.sendLevel(send.id), "Send to \(aux.name)")
     }
-    let channel = Channel(id: track.id, name: track.name, inserts: track.channel.inserts)
-    let plugin = try insert(owner, on: channel)
+    let plugin = try insert(owner, on: Channel(track))
     guard await session.waitForPlugin(plugin.id, on: track.id), let parameters = session.parameters(ofPlugin: plugin.id, on: track.id) else {
       throw AgentError.notPossible("\(plugin.name) hasn't loaded yet; try again in a moment.")
     }
@@ -488,6 +505,7 @@ enum AgentMIDIEffects {
     case .transposer(let value): fields = encode(value)
     case .velocityProcessor(let value): fields = encode(value)
     case .randomizer(let value): fields = encode(value)
+    case .audioUnit(let plugin): fields = .object(["plugin": .string(plugin.name)])
     }
     if case .object(var object) = fields {
       switch settings {
@@ -535,6 +553,7 @@ enum AgentMIDIEffects {
     case .transposer(let value): return .transposer(try merged(value))
     case .velocityProcessor(let value): return .velocityProcessor(try merged(value))
     case .randomizer(let value): return .randomizer(try merged(value))
+    case .audioUnit: return defaults
     }
   }
 

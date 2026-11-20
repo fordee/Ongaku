@@ -41,6 +41,11 @@ final class WaveformCache {
     }
   }
 
+  /// Keeps a waveform made elsewhere (for previews, which can't wait for a load).
+  func adopt(_ waveform: Waveform, for fileID: AudioFileReference.ID) {
+    waveforms[fileID] = waveform
+  }
+
   @concurrent
   private nonisolated static func computeWaveform(at url: URL) async throws -> Waveform {
     let file = try AVAudioFile(forReading: url)

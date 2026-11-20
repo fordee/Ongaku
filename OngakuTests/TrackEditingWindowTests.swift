@@ -5,7 +5,7 @@
 
 import Foundation
 import OngakuCore
-import OngakuEngine
+@testable import OngakuEngine
 @testable import Ongaku
 import Testing
 
@@ -193,6 +193,42 @@ struct TrackEditingWindowTests {
     #expect(undoManager.undoActionName == "Delete Tracks")
     undoManager.undo()
     #expect(window.project.tracks.map(\.name) == ["Keys", "Bass"], "One undo brings both back")
+  }
+
+  @Test func recordingsArePunchedAndReplaceWhatWasThere() throws {
+    // Keys has a region over bars 1–4; a MIDI take is recorded over bars 1–4 again.
+    let bar = Tick.quarterNotes(4)
+    let old = Region(name: "Old", start: .zero, length: bar * 4, content: .midi(MIDISequence()))
+    window.perform(AddRegion(old, to: keys.id))
+    window.perform(SetReplaceRecording(true))
+    window.perform(SetPunch(CycleRange(isEnabled: true, start: bar, end: bar * 3)))
+    let notes = [0.0, 6.0, 13.0].map { MIDINote(pitch: 60, start: .quarterNotes($0), length: .quarterNotes(1)) }
+    var result = RecordingResult()
+    result.midi = [RecordingResult.MIDITake(
+      trackID: keys.id, region: Region(name: "Take", start: .zero, length: bar * 4, content: .midi(MIDISequence(notes: notes))))]
+    window.engine.onRecordingFinished?(result)
+
+    let regions = try #require(window.project.track(withID: keys.id)?.regions).filter { $0.name != "Chords" }
+    #expect(regions.map(\.name) == ["Old", "Take", "Old"], "The take replaced bars 2–3 of the old region")
+    let take = try #require(regions.first { $0.name == "Take" })
+    #expect(take.start == bar && take.end == bar * 3, "Punched to bars 2–3")
+    #expect(take.playedNotes.count == 1, "Only the note played inside the punch")
+    #expect(undoManager.undoActionName == "Record", "One undo step")
+  }
+
+  @Test func hiddenTracksLeaveTheTracksAreaUntilShown() throws {
+    window.selectedTrackID = bass.id
+    window.toggleSelectedTracksHidden()
+    #expect(undoManager.undoActionName == "Hide Track")
+    #expect(window.displayedTracks.map(\.name) == ["Keys"])
+    #expect(window.project.tracks.count == 2, "Hidden, not deleted: it still plays")
+    let saved = try ProjectArchive.decode(ProjectArchive.encode(window.project))
+    #expect(saved.track(withID: bass.id)?.isHidden == true, "Hidden tracks are saved")
+
+    window.showsHiddenTracks = true
+    #expect(window.displayedTracks.map(\.name) == ["Keys", "Bass"])
+    window.toggleSelectedTracksHidden()
+    #expect(window.project.tracks.allSatisfy { !$0.isHidden })
   }
 }
 

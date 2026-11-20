@@ -68,6 +68,19 @@ struct EditCommandTests {
     #expect(throws: EditError.trackNotFound(first.id)) { try DeleteTracks([first.id]).apply(to: &project) }
   }
 
+  @Test func renameRegion() throws {
+    let region = Region(name: "Drummer", start: .zero, length: .quarterNotes(4), content: .midi(MIDISequence()))
+    var track = Track(name: "Bass Player", kind: .softwareInstrument)
+    track.regions = [region]
+    var project = Project()
+    project.tracks = [track]
+
+    try RenameRegion(region.id, to: "  Verse ").apply(to: &project)
+    #expect(project.tracks[0].regions[0].name == "Verse")
+    #expect(throws: EditError.self) { try RenameRegion(region.id, to: "  ").apply(to: &project) }
+    #expect(throws: EditError.self) { try RenameRegion(UUID(), to: "Chorus").apply(to: &project) }
+  }
+
   @Test func newTracksGetDefaultsForTheirKind() {
     let instrument = Track(name: "Inst 1", kind: .softwareInstrument)
     let audio = Track(name: "Audio 1", kind: .audio)
@@ -187,8 +200,8 @@ struct EditCommandTests {
   @Test func trimmingTheStartKeepsContentOnTheTimeline() throws {
     var fixture = makeFixture()
     // Trim one bar off the front of both regions.
-    try TrimRegion(fixture.midiRegionID, start: Tick(7680), length: Tick(3840)).apply(to: &fixture.project)
-    try TrimRegion(fixture.audioRegionID, start: Tick(7680), length: Tick(3840)).apply(to: &fixture.project)
+    try ResizeRegion(fixture.midiRegionID, start: Tick(7680), length: Tick(3840)).apply(to: &fixture.project)
+    try ResizeRegion(fixture.audioRegionID, start: Tick(7680), length: Tick(3840)).apply(to: &fixture.project)
 
     let midi = try #require(fixture.project.region(withID: fixture.midiRegionID))
     guard case .midi(let sequence) = midi.content else {
@@ -207,7 +220,7 @@ struct EditCommandTests {
 
     // Extending the audio region before the start of its file isn't possible.
     #expect(throws: EditError.self) {
-      try TrimRegion(fixture.audioRegionID, start: .zero, length: Tick(7680)).apply(to: &fixture.project)
+      try ResizeRegion(fixture.audioRegionID, start: .zero, length: Tick(7680)).apply(to: &fixture.project)
     }
   }
 
@@ -508,7 +521,7 @@ extension EditCommandTests {
   @Test func patternRegionsFollowResizingAndConvertToNotes() throws {
     var (project, regionID) = patternProject(.drums())
     #expect(notes(project, regionID).filter { $0.pitch == 36 }.count == 2)
-    try TrimRegion(regionID, start: .zero, length: Tick(7680)).apply(to: &project)
+    try ResizeRegion(regionID, start: .zero, length: Tick(7680)).apply(to: &project)
     #expect(notes(project, regionID).filter { $0.pitch == 36 }.count == 4, "Twice as long: the pattern plays twice")
 
     var pattern = try #require(project.region(withID: regionID)?.pattern)
@@ -600,7 +613,7 @@ extension EditCommandTests {
     try SetDrummerPerformance(for: [regionID]) { $0.style = .electronic }.apply(to: &project)
     #expect(project.region(withID: regionID)?.drummer?.style == .electronic)
     #expect(notes(project, regionID).filter { $0.pitch == 36 && $0.velocity > 40 }.count >= 8, "Four on the floor")
-    try TrimRegion(regionID, start: .zero, length: Tick(3840 * 4)).apply(to: &project)
+    try ResizeRegion(regionID, start: .zero, length: Tick(3840 * 4)).apply(to: &project)
     #expect(notes(project, regionID).contains { $0.start >= Tick(3840 * 3) }, "Resizing plays into the new bars")
     try SetTimeSignature(TimeSignature(beatsPerBar: 3, beatUnit: 4), atBarIndex: 0).apply(to: &project)
     #expect(!notes(project, regionID).contains { $0.pitch == 38 && abs(($0.start - Tick(960 * 3)).rawValue) <= 5 && $0.velocity > 50 },
@@ -640,7 +653,7 @@ extension EditCommandTests {
     #expect(notes(project, split.newRegionID).contains { $0.start >= Tick(3840) && [45, 47, 50].contains($0.pitch) },
       "The right half fills into what follows")
 
-    let glue = GlueRegions([regionID, split.newRegionID])
+    let glue = JoinRegions([regionID, split.newRegionID])
     #expect(glue.actionName(in: project) == "Join Regions")
     try glue.apply(to: &project)
     #expect(project.region(withID: regionID)?.drummer == part, "Joined, it's the drummer it was")
@@ -650,7 +663,7 @@ extension EditCommandTests {
     let again = SplitRegion(regionID, at: Tick(3840 * 2))
     try again.apply(to: &project)
     try SetDrummerPerformance(for: [again.newRegionID]) { $0.loudness = 1 }.apply(to: &project)
-    let mismatched = GlueRegions([regionID, again.newRegionID])
+    let mismatched = JoinRegions([regionID, again.newRegionID])
     #expect(mismatched.actionName(in: project) == "Join and Convert to MIDI")
     try mismatched.apply(to: &project)
     #expect(project.region(withID: regionID)?.drummer == nil && !notes(project, regionID).isEmpty)
@@ -667,7 +680,7 @@ extension EditCommandTests {
     let firstNote = try #require(notes(project, split.newRegionID).min { $0.start < $1.start })
     #expect(firstNote.pitch % 12 == 5, "The right half starts on the F it's over")
 
-    try GlueRegions([regionID, split.newRegionID]).apply(to: &project)
+    try JoinRegions([regionID, split.newRegionID]).apply(to: &project)
     #expect(project.region(withID: regionID)?.player == part)
     let joined = try #require(project.region(withID: regionID))
     let expected = part.notes(from: joined.start, length: joined.length, tempoMap: project.tempoMap, chords: project.chordTimeline)

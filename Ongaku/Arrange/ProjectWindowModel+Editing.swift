@@ -90,7 +90,7 @@ extension ProjectWindowModel {
   }
 
   var canDuplicateSelectedTrack: Bool {
-    selectedTrack.map { !$0.isSummingStack } ?? false
+    selectedTrack.map { !$0.isStack } ?? false
   }
 
   func duplicateSelectedTrack() {

@@ -28,8 +28,10 @@ public final class ProjectEditor {
   public func perform(_ command: some EditCommand, undoManager: UndoManager?) throws {
     var updated = project
     try command.apply(to: &updated)
+    updated.renderGeneratedRegions(changedSince: project)
     try updated.checkFrozenTracksUnchanged(from: project)
     updated.removeOrphanedAutomation()
+    updated.removeOrphanedControls()
     updated.extendEndPastContent()
     replaceProject(with: updated, actionName: command.actionName, undoManager: undoManager)
   }

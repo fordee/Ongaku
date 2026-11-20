@@ -58,7 +58,7 @@ The control bar replaces the normal window title bar. You can drag any empty par
 3. **The project's name**, with whether it's saved underneath: **Not saved** for a new project that hasn't been saved yet (its name is **Untitled**), **Edited** while there are changes you haven't saved, and **Saved** otherwise. Hold the pointer over it to see the folder the project is saved in.
 4. **The LCD**, the display in the middle (see [The LCD display](#the-lcd-display) below).
 5. **Cycle**, **Metronome**, **Count-in** and **Automation** buttons. These light up in their own colours while they are on.
-6. **Mixer** and **Editor** buttons, which show the mixer or editor pane below the tracks.
+6. **Smart Controls**, **Mixer** and **Editor** buttons, which show that pane below the tracks, and **Loops**, which shows the Loop Browser ([Chapter 9](09-library-bounce-files-settings.md#the-loop-browser)).
 7. **Zoom Out**, **Zoom In** and **Import Audio**.
 
 Hold the pointer over any button to see its name and keyboard shortcut. The shortcuts are also shown next to the matching commands in the **Transport** and **View** menus.
@@ -97,7 +97,7 @@ Each track has a header on the left of its lane. From left to right:
 - **I** (Input Monitoring), on audio tracks only, lets you hear what's coming into the track's input live, through its plug-ins. It turns orange while it's on. See [Chapter 3](03-recording-and-takes.md#hearing-yourself-input-monitoring).
 - **R** (Record Enable) arms the track for recording. Aux tracks don't have one. See [Chapter 3](03-recording-and-takes.md).
 
-Right-click (or Control-click) a header for more: **Rename Track**, **Create Summing Stack** or **Flatten Stack**, **Freeze Track**, **Instrument**, **Color** and **Delete Track**. If the track you right-click is one of several selected tracks, the last item is called **Delete Tracks** and deletes all of them.
+Right-click (or Control-click) a header for more: **Rename Track**, **Create Folder Stack**, **Create Summing Stack** or **Flatten Stack**, **Freeze Track**, **Instrument**, **Color** and **Delete Track**. If the track you right-click is one of several selected tracks, the last item is called **Delete Tracks** and deletes all of them.
 
 You can make the headers wider or narrower by dragging their right-hand edge. Double-click that edge to go back to the standard width. Ongaku remembers the width for next time.
 
@@ -159,10 +159,11 @@ The Library (press **Y**) lists sounds for the selected software instrument trac
 
 ### The editor and mixer panes
 
-Below the tracks area there is room for one of two panes:
+Below the tracks area there is room for one of three panes:
 
-- **The editor** (press **E**, click **Editor** in the control bar, or choose **View › Show Editor**) shows whichever editor suits the region you're working on: the Piano Roll for a MIDI region, or the Step Editor, Step Sequencer, Drummer, Player, Takes or Flex Pitch editor. See [Chapter 4](04-midi-editing.md). Double-clicking a MIDI region opens it here.
+- **The editor** (press **E**, click **Editor** in the control bar, or choose **View › Show Editor**) shows whichever editor suits the region you're working on: the Piano Roll for a MIDI region, the Audio File Editor for an audio region, or the Step Editor, Event List, Step Sequencer, Drummer, Player, Takes or Flex Pitch editor. See [Chapter 4](04-midi-editing.md), and [Chapter 2](02-arranging-and-editing.md#the-audio-file-editor) for the Audio File Editor. Double-clicking a region opens it here.
 - **The Mixer** (press **X**, or click **Mixer**) shows a channel strip for every track. See [Chapter 7](07-mixing-and-automation.md).
+- **Smart Controls** (press **B**, or click **Smart Controls**) shows a few big knobs for the selected track's most useful settings, which a MIDI controller can turn. See [Chapter 7](07-mixing-and-automation.md#smart-controls).
 
 To change the height of the pane, drag the line between it and the tracks. While you drag, a highlighted line shows where it will end up, with the new height written on it; the pane resizes when you let go. Double-click the line to go back to the standard height. Ongaku remembers the height of each pane separately.
 
@@ -194,6 +195,16 @@ After the first save, macOS saves your changes automatically as you work, as it 
 
 **Save early.** Until a project has been saved once, audio you import or record is kept in a temporary folder. It is copied into the project when you first save.
 
+### Backups
+
+Each save keeps the version it replaces as a **backup** inside the project, as Logic does: at most one every five minutes (autosaves included), and the ten newest. To go back to one, choose **File › Revert to Backup** and pick its date and time. The whole song goes back to how it was then, as one step you can undo (⌘Z) if you change your mind. Audio is never lost by reverting, because the project keeps every recording it has had. A plug-in whose settings have changed a lot since may start from its defaults, and a frozen track whose freeze file has gone plays unfrozen.
+
+### Templates
+
+A **template** is a starting point for new songs: your usual band, a vocal chain, a mixing setup. **File › Save as Template…** saves the current song's setup under a name: its tracks with their instruments, plug-ins and settings, sends, outputs, stacks, groups, VCAs, Smart Controls and MIDI controllers, and its tempo, key and time signature. Regions, recordings, automation, markers and chords aren't kept.
+
+To start a song from one, choose it under **File › New from Template**. To start every new song from it, choose it in **Settings › General › New projects start with**; **Delete This Template** there removes it.
+
 ### What's inside a project
 
 An Ongaku project is saved as a single item ending in **.ongaku**. In the Finder it looks like one file, but it is really a folder (a "package") so that it can keep your audio with it. To look inside, right-click it in the Finder and choose **Show Package Contents**. You will find:
@@ -203,6 +214,7 @@ An Ongaku project is saved as a single item ending in **.ongaku**. In the Finder
 | The project file | Your tracks, regions, notes, mix and settings |
 | **Audio Files** folder | A copy of every audio file you've imported or recorded |
 | **Freeze Files** folder | Audio rendered for frozen tracks (only while tracks are frozen) |
+| **Backups** folder | Earlier versions of the project file (see Backups above) |
 | **Plug-in Settings** folder | Settings of plug-ins that are too big to keep in the project file (only if needed) |
 
 Things worth knowing:
@@ -245,6 +257,14 @@ Tips:
 - If the selected track is a summing stack, or is inside one, the new track joins that stack.
 - Importing an audio file can create audio tracks for you ([Chapter 2](02-arranging-and-editing.md#importing-audio-files)).
 - To make a copy of a track with everything on it, use **Track › Duplicate Track** (⌘D), described in Chapter 2.
+
+### Moving a track
+
+Drag a track header up or down. A line shows where it will land; let go there. A summing stack moves with its subtracks; a subtrack moves only within its stack, and a track dropped among a stack's subtracks goes after them.
+
+### Hiding a track
+
+To clear a track out of the way without losing it, select it and choose **Track › Hide Track** (⌃H), or right-click its header and choose **Hide Track**. A hidden track still plays; it just isn't shown. To see hidden tracks, turn on **Track › Show Hidden Tracks**: they appear dimmed with a lit **H** button, which shows the track again when you click it.
 
 ### Deleting a track
 
@@ -332,6 +352,8 @@ Zooming also changes how finely things snap when you drag them (with the standar
 
 **Scrolling** works as in any Mac app: swipe with two fingers on a trackpad, or use a mouse's scroll wheel (hold Shift to scroll sideways on most mice). The ruler stays at the top and the track headers stay at the left while you scroll.
 
+**Vertical zoom**: **⌘↓** makes every track taller and **⌘↑** shorter (also **View › Zoom Tracks Taller / Shorter**), as in Logic. Taller tracks show notes and waveforms bigger.
+
 ## Undo and redo
 
 Almost every change you make to the song can be undone, one step at a time, right back to when you opened the project.
@@ -350,7 +372,6 @@ If an edit can't be done (for example, dragging an audio region onto an instrume
 ## Limitations
 
 - The song's length can't be set by hand. It grows by itself (see [How long the song is](#how-long-the-song-is)), but never shrinks.
-- Track heights can't be changed, and there is no vertical zoom.
 
 ## Quick reference
 

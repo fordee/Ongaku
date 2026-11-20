@@ -230,6 +230,14 @@ final class ArrangeWindowUITests: XCTestCase {
     pasteboard.clearContents()
     pasteboard.setString(url.path, forType: .string)
     app.typeKey("v", modifierFlags: .command)
+    // The paste doesn't always land (the field keeps the last folder it went to); then type
+    // the path instead, and give its autocompletion a moment to settle.
+    let field = app.textFields.matching(NSPredicate(format: "hasKeyboardFocus == true")).firstMatch
+    if field.exists, (field.value as? String) != url.path {
+      field.typeKey("a", modifierFlags: .command)
+      field.typeText(url.path)
+      Thread.sleep(forTimeInterval: 1)
+    }
     app.typeKey(.return, modifierFlags: [])
     Thread.sleep(forTimeInterval: 1)
     app.typeKey(.return, modifierFlags: [])
@@ -248,8 +256,9 @@ final class ArrangeWindowUITests: XCTestCase {
   @MainActor
   private func launchWithNewProject() -> XCUIApplication {
     let app = XCUIApplication()
-    // The track header width is remembered between launches; start every test from the default.
-    app.launchArguments += ["-ApplePersistenceIgnoreState", "YES", "-TrackHeaderWidth", "230"]
+    // Settings are remembered between launches; start every test from the defaults (a new
+    // project with one instrument track, whatever Settings says).
+    app.launchArguments += ["-ApplePersistenceIgnoreState", "YES", "-TrackHeaderWidth", "230", "-NewProjectTemplate", "instrumentTrack"]
     app.launch()
     // A document app may open with an Open panel; dismiss it and create a new project.
     app.typeKey(.escape, modifierFlags: [])

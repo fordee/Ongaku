@@ -60,7 +60,7 @@ struct FadeTests {
     #expect(audio(project, id)?.fadeOut == 0)
     #expect(audio(project, split.newRegionID)?.fadeIn == 0)
     #expect(audio(project, split.newRegionID)?.fadeOut == 0.5)
-    try GlueRegions([id, split.newRegionID]).apply(to: &project)
+    try JoinRegions([id, split.newRegionID]).apply(to: &project)
     #expect(audio(project, id)?.fadeIn == 0.5)
     #expect(audio(project, id)?.fadeOut == 0.5, "Joining back keeps the outer fades")
   }
@@ -97,5 +97,36 @@ struct FadeTests {
     try SetRegionParameter(.fadeOut(0.3), for: [id]).apply(to: &project)
     let reopened = try ProjectArchive.decode(ProjectArchive.encode(project))
     #expect(audio(reopened, id)?.fadeOut == 0.3)
+  }
+
+  @Test func curvesShapeTheFades() {
+    #expect(AudioEnvelope.fadeShape(0.5, curve: 0) == 0.5, "Straight")
+    #expect(AudioEnvelope.fadeShape(0.5, curve: 1) > 0.8, "Fast, then levelling off")
+    #expect(AudioEnvelope.fadeShape(0.5, curve: -1) < 0.1, "Slow, then fast")
+    #expect(AudioEnvelope.fadeShape(0, curve: 1) == 0 && AudioEnvelope.fadeShape(1, curve: -1) == 1, "Ends stay at silence and full")
+    let envelope = AudioEnvelope(regionDuration: 2, fadeIn: 1, fadeInCurve: 1)
+    #expect(envelope.level(atSecondsIntoSegment: 0.5) == AudioEnvelope.fadeShape(0.5, curve: 1))
+  }
+
+  @Test func crossfadesKeepThePowerSteady() throws {
+    var (project, id) = project()
+    let split = SplitRegion(id, at: .quarterNotes(2))
+    try split.apply(to: &project)
+    try CrossfadeRegions(id, split.newRegionID, duration: 0.2).apply(to: &project)
+    let out = try #require(audio(project, id)), into = try #require(audio(project, split.newRegionID))
+    #expect(out.fadeOutCurve == 0.5 && into.fadeInCurve == 0.5)
+    // Halfway through the overlap, each side plays at √½: their powers add up to one.
+    let half = AudioEnvelope.fadeShape(0.5, curve: 0.5)
+    #expect(abs(half * half * 2 - 1) < 1e-9)
+  }
+
+  @Test func fadeCurvesAreSetClampedAndSaved() throws {
+    var (project, id) = project()
+    try SetRegionParameter(.fadeIn(0.5), for: [id]).apply(to: &project)
+    try SetRegionParameter(.fadeInCurve(3), for: [id]).apply(to: &project)
+    try SetRegionParameter(.fadeOutCurve(-0.4), for: [id]).apply(to: &project)
+    #expect(audio(project, id)?.fadeInCurve == 1, "Kept within −1…1")
+    let reopened = try ProjectArchive.decode(ProjectArchive.encode(project))
+    #expect(audio(reopened, id)?.fadeOutCurve == -0.4)
   }
 }

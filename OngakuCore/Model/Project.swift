@@ -27,8 +27,11 @@ public struct Project: Codable, Sendable, Equatable {
   /// regions; version 22 added plug-ins on Stereo Out (an older build would drop them) and
   /// input monitoring; version 23 saves whether the metronome is on; version 24 added key
   /// changes; version 25 added sampler instruments from sound libraries and transposed audio
-  /// regions (an older build would play those regions untransposed).
-  public static let currentFormatVersion = 25
+  /// regions (an older build would play those regions untransposed); version 26 added hidden
+  /// tracks; version 27 added fade curves; version 28 Autopunch and Replace recording;
+  /// version 29 instrument tracks' MIDI input channels; version 30 tempo ramps; version 31
+  /// folder stacks and VCAs; version 32 Smart Controls and controller assignments.
+  public static let currentFormatVersion = 32
 
   public var formatVersion: Int
   public var sampleRate: Double
@@ -41,6 +44,12 @@ public struct Project: Codable, Sendable, Equatable {
   public var cycle: CycleRange
   /// Whether the metronome clicks, saved with the song as in Logic.
   public var isMetronomeEnabled: Bool
+  /// Logic's Autopunch: while it's on, recordings keep only what was played between its
+  /// start and end.
+  public var punch: CycleRange
+  /// Logic's Replace: a recording replaces what was on its track where it was recorded,
+  /// instead of layering over it.
+  public var isReplaceRecording: Bool
   /// Where the project ends (the end marker in Logic's ruler).
   public var endPosition: Tick
   public var tracks: [Track]
@@ -58,6 +67,10 @@ public struct Project: Codable, Sendable, Equatable {
   public var groups: [MixerGroup]
   /// The Chord track, sorted by position: the chords the session players follow.
   public var chords: [ChordChange]
+  /// The mixer's VCA faders, in their order.
+  public var vcas: [VCA]
+  /// MIDI controllers learned to tracks' controls (MIDI Learn).
+  public var controllerAssignments: [ControllerAssignment]
 
   public init(
     sampleRate: Double = 48_000,
@@ -75,6 +88,8 @@ public struct Project: Codable, Sendable, Equatable {
     self.keyChanges = []
     self.cycle = cycle ?? CycleRange(start: .zero, end: tempoMap.tickPosition(ofBarIndex: 4))
     self.isMetronomeEnabled = false
+    self.punch = CycleRange(start: tempoMap.tickPosition(ofBarIndex: 1), end: tempoMap.tickPosition(ofBarIndex: 3))
+    self.isReplaceRecording = false
     self.endPosition = endPosition ?? tempoMap.tickPosition(ofBarIndex: 128)
     self.tracks = tracks
     self.audioFiles = audioFiles
@@ -84,11 +99,14 @@ public struct Project: Codable, Sendable, Equatable {
     self.arrangement = []
     self.groups = []
     self.chords = []
+    self.vcas = []
+    self.controllerAssignments = []
   }
 
   private enum CodingKeys: String, CodingKey {
     case formatVersion, sampleRate, tempoMap, keySignature, cycle, endPosition, tracks, audioFiles, masterVolume, markers,
-      arrangement, groups, chords, stereoOutInserts, isMetronomeEnabled, keyChanges
+      arrangement, groups, chords, stereoOutInserts, isMetronomeEnabled, keyChanges, punch, isReplaceRecording, vcas,
+      controllerAssignments
   }
 
   /// Reads every format version up to the current one; fields added later get defaults.
@@ -114,6 +132,14 @@ public struct Project: Codable, Sendable, Equatable {
     isMetronomeEnabled = try container.decodeIfPresent(Bool.self, forKey: .isMetronomeEnabled) ?? false
     // Key changes were added in format version 24.
     keyChanges = try container.decodeIfPresent([KeyChange].self, forKey: .keyChanges) ?? []
+    // Autopunch and Replace were added in format version 28.
+    punch = try container.decodeIfPresent(CycleRange.self, forKey: .punch)
+      ?? CycleRange(start: tempoMap.tickPosition(ofBarIndex: 1), end: tempoMap.tickPosition(ofBarIndex: 3))
+    isReplaceRecording = try container.decodeIfPresent(Bool.self, forKey: .isReplaceRecording) ?? false
+    // VCAs were added in format version 31.
+    vcas = try container.decodeIfPresent([VCA].self, forKey: .vcas) ?? []
+    // Controller assignments were added in format version 32.
+    controllerAssignments = try container.decodeIfPresent([ControllerAssignment].self, forKey: .controllerAssignments) ?? []
   }
 
   /// The channel ID that stands for Stereo Out in commands that edit a channel strip's
@@ -151,12 +177,28 @@ public struct Project: Codable, Sendable, Equatable {
     var queue = [destination]
     while let next = queue.popLast() {
       guard visited.insert(next).inserted, let track = track(withID: next) else { continue }
-      for destination in track.routedDestinations {
+      for destination in track.routedDestinations + sidechainHosts(of: next) {
         if destination == source { return true }
         queue.append(destination)
       }
     }
     return false
+  }
+
+  /// Whether feeding `source`'s sound to a side chain on `host` would feed `host`'s sound
+  /// back into it.
+  public func sidechainWouldCreateFeedback(from source: Track.ID, to host: Track.ID) -> Bool {
+    sendWouldCreateFeedback(from: source, to: host)
+  }
+
+  /// The plug-ins whose side chain `trackID` feeds, on tracks and on Stereo Out.
+  public func sidechains(from trackID: Track.ID) -> [PluginReference.ID] {
+    (tracks.flatMap(\.channel.inserts) + stereoOutInserts).filter { $0.sidechainSourceID == trackID }.map(\.id)
+  }
+
+  /// The tracks with a plug-in whose side chain `trackID` feeds.
+  private func sidechainHosts(of trackID: Track.ID) -> [Track.ID] {
+    tracks.filter { track in track.channel.inserts.contains { $0.sidechainSourceID == trackID } }.map(\.id)
   }
 
   /// Whether routing `source`'s output to `destination` would feed sound back into it.
@@ -211,6 +253,19 @@ public struct Project: Codable, Sendable, Equatable {
       number += 1
     }
     return "\(prefix) \(number)"
+  }
+
+  /// `base` if no track has that name yet, otherwise "base 2", "base 3"…, as Logic names
+  /// a second Drummer or Bass Player track.
+  public func uniqueTrackName(_ base: String) -> String {
+    let existing = Set(tracks.map(\.name))
+    var name = base
+    var number = 2
+    while existing.contains(name) {
+      name = "\(base) \(number)"
+      number += 1
+    }
+    return name
   }
 }
 

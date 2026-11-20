@@ -29,7 +29,7 @@
 					<key>type</key>
 					<string>aufx</string>
 					<key>version</key>
-					<integer>67072</integer>
+					<integer>67073</integer>
 				</dict>
 				<dict>
 					<key>description</key>
@@ -52,7 +52,7 @@
 					<key>type</key>
 					<string>aufx</string>
 					<key>version</key>
-					<integer>67072</integer>
+					<integer>67073</integer>
 				</dict>
 				<dict>
 					<key>description</key>
@@ -75,7 +75,7 @@
 					<key>type</key>
 					<string>aufx</string>
 					<key>version</key>
-					<integer>67072</integer>
+					<integer>67073</integer>
 				</dict>
 				<dict>
 					<key>description</key>
@@ -98,7 +98,7 @@
 					<key>type</key>
 					<string>aufx</string>
 					<key>version</key>
-					<integer>67072</integer>
+					<integer>67073</integer>
 				</dict>
 				<dict>
 					<key>description</key>
@@ -121,7 +121,7 @@
 					<key>type</key>
 					<string>aufx</string>
 					<key>version</key>
-					<integer>67072</integer>
+					<integer>67073</integer>
 				</dict>
 				<dict>
 					<key>description</key>
@@ -144,7 +144,7 @@
 					<key>type</key>
 					<string>aufx</string>
 					<key>version</key>
-					<integer>67072</integer>
+					<integer>67073</integer>
 				</dict>
 				<dict>
 					<key>description</key>
@@ -167,7 +167,7 @@
 					<key>type</key>
 					<string>aufx</string>
 					<key>version</key>
-					<integer>67072</integer>
+					<integer>67073</integer>
 				</dict>
 				<dict>
 					<key>description</key>
@@ -190,7 +190,7 @@
 					<key>type</key>
 					<string>aufx</string>
 					<key>version</key>
-					<integer>67072</integer>
+					<integer>67073</integer>
 				</dict>
 				<dict>
 					<key>description</key>
@@ -213,7 +213,7 @@
 					<key>type</key>
 					<string>aufx</string>
 					<key>version</key>
-					<integer>67072</integer>
+					<integer>67073</integer>
 				</dict>
 				<dict>
 					<key>description</key>
@@ -236,7 +236,168 @@
 					<key>type</key>
 					<string>aufx</string>
 					<key>version</key>
-					<integer>67072</integer>
+					<integer>67073</integer>
+				</dict>
+				<dict>
+					<key>description</key>
+					<string>Chorus</string>
+					<key>factoryFunction</key>
+					<string>$(PRODUCT_MODULE_NAME).AudioUnitViewController</string>
+					<key>manufacturer</key>
+					<string>Ongk</string>
+					<key>name</key>
+					<string>Ongaku: Chorus</string>
+					<key>sandboxSafe</key>
+					<true/>
+					<key>subtype</key>
+					<string>ocho</string>
+					<key>tags</key>
+					<array>
+						<string>Effect</string>
+						<string>Modulation</string>
+					</array>
+					<key>type</key>
+					<string>aufx</string>
+					<key>version</key>
+					<integer>67073</integer>
+				</dict>
+				<dict>
+					<key>description</key>
+					<string>Flanger</string>
+					<key>factoryFunction</key>
+					<string>$(PRODUCT_MODULE_NAME).AudioUnitViewController</string>
+					<key>manufacturer</key>
+					<string>Ongk</string>
+					<key>name</key>
+					<string>Ongaku: Flanger</string>
+					<key>sandboxSafe</key>
+					<true/>
+					<key>subtype</key>
+					<string>oflg</string>
+					<key>tags</key>
+					<array>
+						<string>Effect</string>
+						<string>Modulation</string>
+					</array>
+					<key>type</key>
+					<string>aufx</string>
+					<key>version</key>
+					<integer>67073</integer>
+				</dict>
+				<dict>
+					<key>description</key>
+					<string>Phaser</string>
+					<key>factoryFunction</key>
+					<string>$(PRODUCT_MODULE_NAME).AudioUnitViewController</string>
+					<key>manufacturer</key>
+					<string>Ongk</string>
+					<key>name</key>
+					<string>Ongaku: Phaser</string>
+					<key>sandboxSafe</key>
+					<true/>
+					<key>subtype</key>
+					<string>ophs</string>
+					<key>tags</key>
+					<array>
+						<string>Effect</string>
+						<string>Modulation</string>
+					</array>
+					<key>type</key>
+					<string>aufx</string>
+					<key>version</key>
+					<integer>67073</integer>
+				</dict>
+				<dict>
+					<key>description</key>
+					<string>Tremolo</string>
+					<key>factoryFunction</key>
+					<string>$(PRODUCT_MODULE_NAME).AudioUnitViewController</string>
+					<key>manufacturer</key>
+					<string>Ongk</string>
+					<key>name</key>
+					<string>Ongaku: Tremolo</string>
+					<key>sandboxSafe</key>
+					<true/>
+					<key>subtype</key>
+					<string>otrm</string>
+					<key>tags</key>
+					<array>
+						<string>Effect</string>
+						<string>Modulation</string>
+					</array>
+					<key>type</key>
+					<string>aufx</string>
+					<key>version</key>
+					<integer>67073</integer>
+				</dict>
+				<dict>
+					<key>description</key>
+					<string>Gain</string>
+					<key>factoryFunction</key>
+					<string>$(PRODUCT_MODULE_NAME).AudioUnitViewController</string>
+					<key>manufacturer</key>
+					<string>Ongk</string>
+					<key>name</key>
+					<string>Ongaku: Gain</string>
+					<key>sandboxSafe</key>
+					<true/>
+					<key>subtype</key>
+					<string>ogin</string>
+					<key>tags</key>
+					<array>
+						<string>Effect</string>
+						<string>Utility</string>
+					</array>
+					<key>type</key>
+					<string>aufx</string>
+					<key>version</key>
+					<integer>67073</integer>
+				</dict>
+				<dict>
+					<key>description</key>
+					<string>Tuner</string>
+					<key>factoryFunction</key>
+					<string>$(PRODUCT_MODULE_NAME).AudioUnitViewController</string>
+					<key>manufacturer</key>
+					<string>Ongk</string>
+					<key>name</key>
+					<string>Ongaku: Tuner</string>
+					<key>sandboxSafe</key>
+					<true/>
+					<key>subtype</key>
+					<string>otun</string>
+					<key>tags</key>
+					<array>
+						<string>Effect</string>
+						<string>Utility</string>
+					</array>
+					<key>type</key>
+					<string>aufx</string>
+					<key>version</key>
+					<integer>67073</integer>
+				</dict>
+				<dict>
+					<key>description</key>
+					<string>Multiband Compressor</string>
+					<key>factoryFunction</key>
+					<string>$(PRODUCT_MODULE_NAME).AudioUnitViewController</string>
+					<key>manufacturer</key>
+					<string>Ongk</string>
+					<key>name</key>
+					<string>Ongaku: Multiband Compressor</string>
+					<key>sandboxSafe</key>
+					<true/>
+					<key>subtype</key>
+					<string>ombc</string>
+					<key>tags</key>
+					<array>
+						<string>Effect</string>
+						<string>Dynamics</string>
+					</array>
+					<key>type</key>
+					<string>aufx</string>
+					<key>version</key>
+					<integer>67073</integer>
 				</dict>
 				<dict>
 					<key>description</key>
@@ -259,7 +420,7 @@
 					<key>type</key>
 					<string>aufx</string>
 					<key>version</key>
-					<integer>67072</integer>
+					<integer>67073</integer>
 				</dict>
 				<dict>
 					<key>description</key>
@@ -282,7 +443,7 @@
 					<key>type</key>
 					<string>aufx</string>
 					<key>version</key>
-					<integer>67072</integer>
+					<integer>67073</integer>
 				</dict>
 				<dict>
 					<key>description</key>
@@ -305,7 +466,7 @@
 					<key>type</key>
 					<string>aufx</string>
 					<key>version</key>
-					<integer>67072</integer>
+					<integer>67073</integer>
 				</dict>
 				<dict>
 					<key>description</key>
@@ -327,7 +488,51 @@
 					<key>type</key>
 					<string>aumu</string>
 					<key>version</key>
-					<integer>67072</integer>
+					<integer>67073</integer>
+				</dict>
+				<dict>
+					<key>description</key>
+					<string>Electric Piano</string>
+					<key>factoryFunction</key>
+					<string>$(PRODUCT_MODULE_NAME).AudioUnitViewController</string>
+					<key>manufacturer</key>
+					<string>Ongk</string>
+					<key>name</key>
+					<string>Ongaku: Electric Piano</string>
+					<key>sandboxSafe</key>
+					<true/>
+					<key>subtype</key>
+					<string>oepn</string>
+					<key>tags</key>
+					<array>
+						<string>Synthesizer</string>
+					</array>
+					<key>type</key>
+					<string>aumu</string>
+					<key>version</key>
+					<integer>67073</integer>
+				</dict>
+				<dict>
+					<key>description</key>
+					<string>Organ</string>
+					<key>factoryFunction</key>
+					<string>$(PRODUCT_MODULE_NAME).AudioUnitViewController</string>
+					<key>manufacturer</key>
+					<string>Ongk</string>
+					<key>name</key>
+					<string>Ongaku: Organ</string>
+					<key>sandboxSafe</key>
+					<true/>
+					<key>subtype</key>
+					<string>oorg</string>
+					<key>tags</key>
+					<array>
+						<string>Synthesizer</string>
+					</array>
+					<key>type</key>
+					<string>aumu</string>
+					<key>version</key>
+					<integer>67073</integer>
 				</dict>
 				<dict>
 					<key>description</key>
@@ -349,7 +554,7 @@
 					<key>type</key>
 					<string>aumu</string>
 					<key>version</key>
-					<integer>67072</integer>
+					<integer>67073</integer>
 				</dict>
 				<dict>
 					<key>description</key>
@@ -371,7 +576,7 @@
 					<key>type</key>
 					<string>aumu</string>
 					<key>version</key>
-					<integer>67072</integer>
+					<integer>67073</integer>
 				</dict>
 				<dict>
 					<key>description</key>
@@ -393,7 +598,7 @@
 					<key>type</key>
 					<string>aumu</string>
 					<key>version</key>
-					<integer>67072</integer>
+					<integer>67073</integer>
 				</dict>
 			</array>
 		</dict>

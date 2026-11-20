@@ -36,10 +36,10 @@ The categories always appear in this order:
 
 | Category | What it holds |
 | --- | --- |
-| **Ongaku Instruments** | Ongaku's own instruments: **Retro Synth**, **Drum Machine**, **Sampler** and **Session Drummer** (see [Chapter 8](08-instruments-effects-midi-fx.md)). |
+| **Ongaku Instruments** | Ongaku's own instruments: **Retro Synth**, **Drum Machine**, **Sampler**, **Electric Piano**, **Organ** and **Session Drummer** (see [Chapter 8](08-instruments-effects-midi-fx.md)). |
 | General MIDI families | The 128 standard General MIDI sounds from the Mac's built-in sound set, in 16 families: **Piano**, **Chromatic Percussion**, **Organ**, **Guitar**, **Bass**, **Strings**, **Ensemble**, **Brass**, **Reed**, **Pipe**, **Synth Lead**, **Synth Pad**, **Synth Effects**, **Ethnic**, **Percussive** and **Sound Effects**. |
 | **Drum Kits** | Seven General MIDI drum kits: **Standard Kit**, **Power Kit**, **Electronic Kit**, **TR-808 Kit**, **Brush Kit**, **Orchestra Kit** and **Sound Effects Kit**. |
-| One category per maker | Any other Audio Unit instruments installed on your Mac, grouped under their manufacturer's name. An instrument you install while Ongaku Studio is open appears here (and in the instrument menus) by itself, without opening a new window. |
+| One category per maker | Any other Audio Unit instruments installed on your Mac, grouped under their manufacturer's name. An instrument you install while Ongaku Studio is open appears here (and in the instrument menus) by itself, without opening a new window. Instruments turned off in **Settings › Plug-ins**, or that failed their check there, aren't listed. |
 
 ### Searching
 
@@ -47,12 +47,38 @@ Type in the **Search** field at the top of the Library to filter the list. Every
 
 ### Another way: the track's instrument menu
 
-Each software instrument track header shows its current sound's name under the track name. Click it (or right-click the header and choose **Instrument**) to get the same sounds as menus: **Ongaku**, **General MIDI**, **Drum Kits** and **Audio Units**. For a plug-in instrument there's also **Show Instrument Window…**. The menu is handy when the Library is closed. The Library is better for auditioning, because you can click through many sounds in a row.
+Each software instrument track header shows its current sound's name under the track name. Click it (or right-click the header and choose **Instrument**) to get the same sounds as menus: **Ongaku**, **General MIDI**, **Drum Kits** and **Audio Units** (a submenu for each maker). For a plug-in instrument there's also **Show Instrument Window…**, and for one with several outputs, **Add Aux for Each Output** ([Chapter 7](07-mixing-and-automation.md#instruments-with-several-outputs)). The menu is handy when the Library is closed. The Library is better for auditioning, because you can click through many sounds in a row.
 
 ### Tips and limitations
 
 - A new choice replaces the track's instrument completely. If you had adjusted a plug-in instrument's settings, choosing a different sound starts fresh. Press **⌘Z** if you didn't mean to.
 - If a sound you expect isn't there, check that you selected a *software instrument* track and not an audio track. If you've just installed it, close and open the Library (**Y** twice): it looks for new instruments each time it opens.
+
+## Sound libraries and the Loop Browser
+
+### What they are
+
+Ongaku Studio's built-in sounds are instruments. Loops, one-shot samples and sampler instruments come from **sound libraries** you add: any folder of sounds, such as Logic Pro's or GarageBand's sound library, a sample pack, or a SoundFont collection. Ongaku Studio indexes what's in each library and keeps the index up to date as files change. The files stay where they are; the ones you use are copied into your song.
+
+### Adding a library
+
+1. Open **Settings › Libraries** (or click **Add Library…** in the Loop Browser).
+2. Click **Add Library…** and choose the folder.
+
+Each library is listed with what was found in it. **Rescan** reads it again from scratch; **Remove** takes it out of Ongaku Studio (the files aren't touched).
+
+### Sampler instruments from libraries
+
+Sampler instruments in a library (EXS, SoundFont, DLS, SFZ and Audio Unit presets) appear in the **Library** (**Y**) with the built-in sounds, under the library's name and folder. Choose one for an instrument track as you would any other sound.
+
+### The Loop Browser
+
+Press **O** (or **View › Show Loop Browser**) to open the Loop Browser down the right of the window.
+
+- **Show** chooses **Loops**, **One-Shots** or **All**.
+- Filter by **library**, **instrument family**, **key**, **tempo** (including **Near the Song's Tempo**) and **genre**, or type in **Search Loops**. **Reset** clears the filters.
+- **Click** a sound to hear it, in your song's tempo and key.
+- **Drag** it into the tracks area to add it, or right-click and choose **Add at Playhead**. Loops tagged with a tempo and key follow your song's: they're stretched and transposed to fit. MIDI loops become notes on an instrument track.
 
 ## Bounce: turning your song into an audio file
 
@@ -112,10 +138,19 @@ After rendering, the dialog may warn you:
 
 Until you click **Save…**, the bounce lives in a temporary folder that Ongaku Studio cleans up itself. **The file only ends up somewhere you can find it once you save it** in the save panel. If you click **Discard** or close the dialog, the render is deleted.
 
+### Exporting every track as its own file
+
+**File › Export All Tracks as Audio Files…** (⇧⌘E) makes a file of each track on its own, the way you'd send stems to a mixing engineer or another studio. It's the Bounce dialog with two different options:
+
+- **Include effect plug-ins**: each track through its inserts. Off, only its instrument (and MIDI FX) or its recording.
+- **Include volume and pan**: each track at its fader's level and pan, with their automation. Off, at 0 dB in the centre.
+
+Every track with regions gets a file, numbered in track order ("01 Drums.wav", "02 Bass.wav"). They all run the whole bounce range, so dropped into another app at the same start they line up. Sends, Stereo Out's plug-ins and its fader are left out, and Normalize isn't offered: it would change the balance between the files. Click **Save…** and choose a folder; files already there with the same names are replaced.
+
 ### Limitations
 
 - You can't type a custom start and end. Use the cycle range to choose a section.
-- Bounce always renders the whole mix. To render a single track, solo it first. (To save processor power on a heavy track, use **Track › Freeze Tracks** instead. That renders the track for playback inside the project, not as a file you can share.)
+- Bounce renders the whole mix; for one track, use **Export All Tracks** or **Track › Bounce in Place** ([Chapter 7](07-mixing-and-automation.md#bounce-in-place)). (To save processor power on a heavy track, use **Track › Freeze Tracks** instead. That renders the track for playback inside the project, not as a file you can share.)
 
 ## MIDI files
 
@@ -174,7 +209,7 @@ What gets written:
 
 - A first "conductor" track with your song's **tempo changes and time signatures**.
 - One track for **each software instrument track**, named after it, with its notes and MIDI controllers. Tracks using a General MIDI sound or drum kit also get a program change, so the other app picks a similar sound.
-- What you hear is what you get: **muted regions and muted notes are left out**, and notes are cut off at the end of their region.
+- What you hear is what you get: **muted regions and muted notes are left out**, notes are cut off at the end of their region, and each region's **Transpose, Velocity and Quantize** settings from the Region Inspector are written into its notes. (MIDI FX aren't: the file holds the notes before them.)
 - **Looped regions** are written with their repeats, as far as they play: to the next region on the track, the loop end you dragged, or the end of the song.
 - **Take folders** are written as their comp plays: each part from the take chosen for it.
 
@@ -207,7 +242,7 @@ The Settings window holds the choices that apply to the whole app rather than to
 
 | Setting | What it does |
 | --- | --- |
-| **New projects start with** | What **File › New** gives you: **One software instrument track** (the default), **One audio track**, or **No tracks**. Pick the one that matches how you usually start. |
+| **New projects start with** | What **File › New** gives you: **One software instrument track** (the default), **One audio track**, **No tracks**, or one of your templates (see [Chapter 1](01-getting-started.md#templates)). Pick the one that matches how you usually start. |
 | **Snap regions to** | What dragging regions, resizing them and clicking in the tracks area lines up to. **Automatic (follows the zoom)** (the default) snaps to bars when you're zoomed out and finer divisions as you zoom in. You can also fix it to **Bars**, **Beats**, **1/8 Triplets** or **1/16 Triplets**, or turn it **Off** for free placement. It's the same setting as the **Snap** button above the track headers, so changing one changes the other. Automation points snap to it too. The Piano Roll has its own **Grid** menu and **Snap** button for notes. |
 | **Scroll to follow the playhead during playback** | When on (the default), the tracks area scrolls along as the song plays so the playhead stays in view. Turn it off if you want to look at another part of the song while it plays. When you jump the playhead while stopped, the view always follows. |
 
@@ -269,6 +304,32 @@ Automation is explained in [Chapter 7](07-mixing-and-automation.md).
 | **Mode for new tracks** | The automation mode new tracks start in: **Off**, **Read** (the default), **Touch** or **Latch**. Read plays a track's automation. Touch and Latch also record it while you move a fader or pan control during playback. |
 | **Thin recorded automation** | Moving a control records lots of points. Thinning removes the ones that don't change the shape of the curve, so it's easier to edit later. **Off (keep every point)**, **Light**, **Normal** (the default) or **Heavy**. |
 
+### Libraries
+
+The sound libraries you've added, and what's built in. See [Sound libraries and the Loop Browser](#sound-libraries-and-the-loop-browser) above.
+
+### Key Commands
+
+The single-key shortcuts, each with its key. To change one, click its key, then press the new key: a letter, digit or punctuation key without ⌘, ⌥, ⌃ or ⇧ (Q is the Piano Roll's Quantize, so it can't be used). Escape cancels. If another command had that key, the two swap, and a note says so. The menus show the new keys straight away. **Restore Logic's Keys** puts them all back. Space, Return, Delete, the arrow keys and the Tool menu's keys can't be changed.
+
+![The Settings window, Key Commands tab](images/settings-key-commands.png)
+
+### Plug-ins
+
+The Plug-in Manager: the Audio Units on your Mac made by others than Ongaku (Ongaku's own and Apple's are always available). Each row shows the plug-in's name, maker, kind and version, and how its last check went.
+
+![The Settings window, Plug-ins tab](images/settings-plugins.png)
+
+| Control | What it does |
+| --- | --- |
+| **Checkbox** | Whether the menus offer the plug-in: the instrument menu, the Library, **Add Insert** and **MIDI FX**. Untick plug-ins you never use to keep the menus short. Songs that already use a plug-in still load it. |
+| **Check** | Tries the plug-in the way a song would: loads it in its own process, gives it the song's format and gets it ready to play. The row then says **Works**, or why it failed (for example "It didn't start within 15 seconds"). |
+| **Check All** | Checks every plug-in in turn. Slow plug-ins can take a while; the footer shows which one is being checked. |
+
+A plug-in that fails its check is left out of the menus, like one you've turned off. If you want it anyway, tick its checkbox: the row then says it's turned on anyway. A new version of a plug-in counts as not checked until you check it again.
+
+> Tip: A plug-in that hangs while it starts (it never appears, or its window never opens) is worth checking here. If it fails, untick it so it isn't chosen by accident.
+
 ### Agents
 
 AI agents are explained in [Chapter 11](11-ai-agents.md).
@@ -301,5 +362,7 @@ Choose **Ongaku Studio › About Ongaku Studio** to see which version you have. 
 | Import audio | **File › Import Audio Files…** (**⇧⌘I**), or drag files in |
 | Open Settings | **Ongaku Studio › Settings…** (**⌘,**) |
 | Fix crackles | **Settings › Audio › I/O buffer size**: choose a larger buffer |
+| Hide a plug-in from the menus | **Settings › Plug-ins**: untick it |
+| Find out whether a plug-in works | **Settings › Plug-ins** › **Check** |
 | Change what regions snap to | The **Snap** button above the track headers, or **Settings › General › Snap regions to** |
 | Switch a MIDI keyboard off | **Settings › MIDI › Inputs** |

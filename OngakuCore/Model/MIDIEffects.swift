@@ -31,10 +31,14 @@ public struct MIDIEffect: Identifiable, Codable, Sendable, Equatable {
     case transposer(Transposer)
     case velocityProcessor(VelocityProcessor)
     case randomizer(Randomizer)
+    /// A MIDI effect plug-in (an Audio Unit MIDI processor). It changes notes as they play,
+    /// so it comes after the built-in effects, which change them before (see `ordered`).
+    case audioUnit(PluginReference)
 
     /// What it's called in the MIDI FX menu.
     public var name: String {
       switch self {
+      case .audioUnit(let plugin): plugin.name
       case .arpeggiator: "Arpeggiator"
       case .chordTrigger: "Chord Trigger"
       case .scaleQuantize: "Scale Quantize"
@@ -54,6 +58,24 @@ public struct MIDIEffect: Identifiable, Codable, Sendable, Equatable {
   }
 
   public var name: String { settings.name }
+
+  /// The plug-in, for a MIDI effect plug-in.
+  public var plugin: PluginReference? {
+    get {
+      if case .audioUnit(let plugin) = settings { return plugin }
+      return nil
+    }
+    set {
+      if let newValue { settings = .audioUnit(newValue) }
+    }
+  }
+
+  /// Effects in the order they can play: built-in ones first, then plug-ins, each in their
+  /// slot order. Built-in effects change the notes before they're sent to the instrument,
+  /// and plug-ins as they're played, so a built-in effect can't follow a plug-in.
+  public static func ordered(_ effects: [MIDIEffect]) -> [MIDIEffect] {
+    effects.filter { $0.plugin == nil } + effects.filter { $0.plugin != nil }
+  }
 }
 
 /// A note as MIDI effects see it: when it plays and stops (on the song's timeline), and
@@ -371,7 +393,15 @@ extension MIDIEffect.Settings {
         return processed
       }
     case .randomizer(let settings): settings.process(notes)
+    // Plug-ins play live, in the engine.
+    case .audioUnit: notes
     }
+  }
+
+  /// Whether it's one of Ongaku's own effects, which change the notes before they play.
+  public var isBuiltIn: Bool {
+    if case .audioUnit = self { return false }
+    return true
   }
 }
 
@@ -379,7 +409,7 @@ extension [MIDIEffect] {
   /// The notes after every effect that isn't bypassed, in slot order, sorted by start.
   public func process(_ notes: [EffectNote]) -> [EffectNote] {
     var current = notes.sorted { $0.start < $1.start }
-    for effect in self where !effect.isBypassed {
+    for effect in self where !effect.isBypassed && effect.settings.isBuiltIn {
       current = effect.settings.process(current).sorted { $0.start < $1.start }
     }
     return current

@@ -58,6 +58,7 @@ struct DrummerEditorView: View {
       .background(Theme.lanes)
       .accessibilityElement(children: .contain)
       .accessibilityLabel("Drummer Editor")
+      .accessibilityIdentifier("drummer-editor")
     }
   }
 }

@@ -34,6 +34,9 @@ struct LibraryView: View {
     }
     .frame(width: Self.width)
     .background(Theme.panel)
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("Library")
+    .accessibilityIdentifier("library")
   }
 
   private func content(for track: Track) -> some View {

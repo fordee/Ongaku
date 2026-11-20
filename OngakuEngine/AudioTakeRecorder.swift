@@ -119,6 +119,11 @@ final class MIDICapture: Sendable {
     events.withLock { $0.append((hostTime, bytes)) }
   }
 
+  /// What's been captured so far, leaving it captured.
+  func capturedSoFar() -> [(hostTime: UInt64, bytes: [UInt8])] {
+    events.withLock { $0.sorted { $0.hostTime < $1.hostTime } }
+  }
+
   func takeEvents() -> [(hostTime: UInt64, bytes: [UInt8])] {
     events.withLock { events in
       defer { events = [] }

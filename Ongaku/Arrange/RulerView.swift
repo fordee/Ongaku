@@ -42,6 +42,16 @@ struct RulerView: View {
         .frame(width: cycleWidth, height: Self.cycleStripHeight)
         .offset(x: model.x(for: cycleStart), y: 2)
 
+      // The Autopunch range, as Logic's red strip under the cycle, while it's on.
+      if project.punch.isEnabled {
+        Rectangle()
+          .fill(Theme.record.opacity(0.85))
+          .frame(width: max(model.x(for: project.punch.end) - model.x(for: project.punch.start), 2), height: 3)
+          .offset(x: model.x(for: project.punch.start), y: Self.cycleStripHeight + 3)
+          .allowsHitTesting(false)
+          .accessibilityLabel("Autopunch range")
+      }
+
       RulerMarkings(model: model)
     }
     .frame(width: model.contentWidth, height: ProjectWindowModel.Layout.rulerHeight, alignment: .topLeading)

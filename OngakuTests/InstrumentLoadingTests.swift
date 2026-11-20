@@ -117,7 +117,7 @@ struct InstrumentLoadingTests {
     }
     let maker = AVAudioUnitSampler()
     try maker.loadAudioFiles(at: [tone])
-    let state = try #require(maker.auAudioUnit.fullState)
+    let state = try #require(maker.au.fullState)
     let preset = folder.appending(path: "Tone.aupreset")
     try PropertyListSerialization.data(fromPropertyList: state, format: .xml, options: 0).write(to: preset)
 

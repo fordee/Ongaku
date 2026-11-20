@@ -459,6 +459,97 @@ extension OngakuEffectsTests {
     #expect(level(samples[Int(0.7 * rate)...]) < -90, "Silent once released")
   }
 
+  // MARK: Electric Piano and Organ
+
+  private func setAddresses(_ unit: AVAudioUnit, _ values: [AUParameterAddress: AUValue]) throws {
+    let tree = try #require(unit.au.parameterTree)
+    for (address, value) in values {
+      try #require(tree.parameter(withAddress: address)).value = value
+    }
+  }
+
+  @Test(arguments: [45, 60, 72])
+  func theElectricPianoPlaysInTune(note: Int) async throws {
+    let unit = try await loadInstrument(.electricPiano)
+    let samples = try playMIDI(unit, seconds: 0.8, events: [noteOn(UInt8(note))])
+    let pitch = try #require(PitchDetector.notes(samples, sampleRate: rate).first?.pitch)
+    #expect(abs(pitch - Double(note)) < 0.15, "Played \(note), heard \(pitch)")
+  }
+
+  @Test func electricPianoNotesFadeWhileHeldAndStopWhenLetGo() async throws {
+    let unit = try await loadInstrument(.electricPiano)
+    let held = try playMIDI(unit, seconds: 3, events: [noteOn(60)])
+    let early = level(held[Int(0.1 * rate)..<Int(0.3 * rate)]), late = level(held[Int(2.6 * rate)...])
+    #expect(early > -30 && early - late > 6, "Rings and fades like a struck tine (\(early) then \(late) dB)")
+
+    let released = try playMIDI(unit, seconds: 1.5, events: [noteOn(60), noteOff(60, at: Int(0.3 * rate))])
+    #expect(level(released[Int(1.2 * rate)...]) < -80, "The damper stops it")
+
+    let pedalled = try playMIDI(unit, seconds: 1.5, events: [(0, [0xB0, 64, 127]), noteOn(60), noteOff(60, at: Int(0.3 * rate))])
+    #expect(level(pedalled[Int(1.2 * rate)...]) > -50, "The sustain pedal keeps it ringing")
+  }
+
+  @Test func playingHarderIsLouderAndBrighter() async throws {
+    let unit = try await loadInstrument(.electricPiano)
+    let soft = try playMIDI(unit, seconds: 0.5, events: [noteOn(60, velocity: 40)])
+    let hard = try playMIDI(unit, seconds: 0.5, events: [noteOn(60, velocity: 120)])
+    let window = Int(0.05 * rate)..<Int(0.4 * rate)
+    #expect(level(hard[window]) - level(soft[window]) > 6)
+    // More of the upper harmonics relative to the fundamental.
+    let softBrightness = toneLevel(soft[window], frequency: 261.63 * 3) - toneLevel(soft[window], frequency: 261.63)
+    let hardBrightness = toneLevel(hard[window], frequency: 261.63 * 3) - toneLevel(hard[window], frequency: 261.63)
+    #expect(hardBrightness > softBrightness + 3, "Brighter too (\(softBrightness) vs \(hardBrightness) dB)")
+  }
+
+  /// The Organ with only one drawbar out, and no percussion, vibrato, rotary or click.
+  private func organ(drawbar: Int) async throws -> AVAudioUnit {
+    let unit = try await loadInstrument(.organ)
+    var values: [AUParameterAddress: AUValue] = [2510: 0, 2513: 0, 2514: 0, 2515: 0, 2516: 0]
+    for bar in 0..<9 { values[AUParameterAddress(2500 + bar)] = bar == drawbar ? 8 : 0 }
+    try setAddresses(unit, values)
+    return unit
+  }
+
+  @Test func theOrgansDrawbarsAreItsFootages() async throws {
+    // 8′ plays the note; 16′ an octave below; 4′ an octave above.
+    for (drawbar, offset) in [(2, 0.0), (0, -12.0), (3, 12.0)] {
+      let samples = try playMIDI(try await organ(drawbar: drawbar), seconds: 0.6, events: [noteOn(57)])
+      let pitch = try #require(PitchDetector.notes(samples, sampleRate: rate).first?.pitch)
+      #expect(abs(pitch - (57 + offset)) < 0.15, "Drawbar \(drawbar): heard \(pitch)")
+    }
+  }
+
+  @Test func organNotesHoldSteadyAndStopAtOnce() async throws {
+    let unit = try await organ(drawbar: 2)
+    let samples = try playMIDI(unit, seconds: 1.6, events: [noteOn(60), noteOff(60, at: Int(1.2 * rate))])
+    let early = level(samples[Int(0.1 * rate)..<Int(0.3 * rate)]), late = level(samples[Int(0.9 * rate)..<Int(1.15 * rate)])
+    #expect(early > -30 && abs(early - late) < 0.5, "No decay while held (\(early), \(late) dB)")
+    #expect(level(samples[Int(1.25 * rate)...]) < -90, "Silent straight after release")
+  }
+
+  @Test func percussionOnlyStrikesTheFirstKey() async throws {
+    let unit = try await organ(drawbar: 2)
+    try setAddresses(unit, [2510: 1, 2511: 1, 2512: 0])
+    // A held key, then a second added: only the first gets the third-harmonic ping.
+    let samples = try playMIDI(unit, seconds: 1.4, events: [noteOn(48), noteOn(67, at: Int(0.7 * rate))])
+    let thirdOfFirst = 130.81 * 3
+    #expect(toneLevel(samples[0..<Int(0.08 * rate)], frequency: thirdOfFirst) - toneLevel(samples[Int(0.5 * rate)..<Int(0.68 * rate)], frequency: thirdOfFirst) > 10,
+      "The first key's percussion dies away")
+    let thirdOfSecond = 392.0 * 3
+    #expect(toneLevel(samples[Int(0.7 * rate)..<Int(0.78 * rate)], frequency: thirdOfSecond) < -60, "The second key, played legato, has none")
+  }
+
+  @Test func theRotarySpeakerMovesTheSoundBetweenTheSides() async throws {
+    let still = try await organ(drawbar: 5)
+    let steady = try playStereo(still, seconds: 1, events: [noteOn(72)])
+    #expect(level(zip(steady.left, steady.right).map { $0 - $1 }[Int(0.3 * rate)...]) < -100, "Off, both sides the same")
+
+    let spinning = try await organ(drawbar: 5)
+    try setAddresses(spinning, [2515: 2])
+    let rotating = try playStereo(spinning, seconds: 2, events: [noteOn(72)])
+    #expect(level(zip(rotating.left, rotating.right).map { $0 - $1 }[Int(1 * rate)...]) > -40, "Fast, the horn swings it side to side")
+  }
+
   @Test func theSustainPedalHoldsNotes() async throws {
     let unit = try await loadInstrument(.retroSynth)
     try setSynth(unit, [.synAmpRelease: 50])
@@ -524,7 +615,7 @@ extension OngakuEffectsTests {
   }
 
   @Test func everyPadSoundsOnItsNote() async throws {
-    #expect(InstrumentLibrary.ongakuInstruments().map(\.name) == ["Retro Synth", "Drum Machine", "Sampler", "Session Drummer"])
+    #expect(InstrumentLibrary.ongakuInstruments().map(\.name) == ["Retro Synth", "Drum Machine", "Sampler", "Session Drummer", "Electric Piano", "Organ"])
     let unit = try await loadInstrument(.drumMachine)
     for note in drumNotes {
       let samples = try playMIDI(unit, seconds: 0.2, events: [noteOn(note)])
@@ -838,6 +929,98 @@ extension OngakuEffectsTests {
     #expect(tree.parameter(withAddress: OngakuSamplerParameter.playMode.rawValue)?.value == 1)
     #expect(tree.parameter(withAddress: OngakuSamplerParameter.ampAttack.rawValue)?.value == 1, "Its own settings are set")
   }
+
+  // MARK: Zones
+
+  /// A Sampler with zones (each mono audio at 48 kHz and where it plays), set the way a
+  /// saved song sets them, playing every velocity at full level.
+  private func sampler(zones: [(audio: [Float], settings: SamplerZoneSettings)]) async throws -> AVAudioUnit {
+    let unit = try await loadInstrument(.sampler)
+    var state = try #require(unit.au.fullState)
+    state["ongakuZones"] = try zones.enumerated().map { index, zone in
+      [
+        "sample": ["name": "Zone \(index + 1)", "sampleRate": rate, "channels": 1, "audio": zone.audio.withUnsafeBufferPointer { Data(buffer: $0) }],
+        "settings": try JSONEncoder().encode(zone.settings),
+      ] as [String: Any]
+    }
+    unit.au.fullState = state
+    try setSampler(unit, [.velocity: 0])
+    return unit
+  }
+
+  /// A sine at a frequency and level.
+  private func sine(_ frequency: Double, seconds: Double, amplitude: Float) -> [Float] {
+    (0..<Int(seconds * rate)).map { amplitude * Float(sin(2 * .pi * frequency * Double($0) / rate)) }
+  }
+
+  @Test func eachKeyPlaysItsZoneAtItsZonesRoot() async throws {
+    // The same A, rooted at A3 below E3 and at A2 above it (so it sounds an octave up there).
+    let unit = try await sampler(zones: [
+      (sine(440, seconds: 2), SamplerZoneSettings(lowKey: 0, highKey: 64, root: 69)),
+      (sine(440, seconds: 2), SamplerZoneSettings(lowKey: 65, highKey: 127, root: 57)),
+    ])
+    for (note, expected) in [(60, 60.0), (69, 81.0), (64, 64.0), (65, 77.0)] {
+      let samples = try playMIDI(unit, seconds: 0.5, events: [noteOn(UInt8(note))])
+      let heard = try #require(pitch(samples))
+      #expect(abs(heard - expected) < 0.1, "Played \(note), heard \(heard)")
+    }
+  }
+
+  @Test func velocityLayersPlayByHowHardTheKeyIsStruck() async throws {
+    let unit = try await sampler(zones: [
+      (sine(440, seconds: 2, amplitude: 0.1), SamplerZoneSettings(lowVelocity: 1, highVelocity: 63, root: 69)),
+      (sine(440, seconds: 2, amplitude: 0.5), SamplerZoneSettings(lowVelocity: 64, highVelocity: 127, root: 69)),
+    ])
+    let soft = try playMIDI(unit, seconds: 0.4, events: [noteOn(69, velocity: 40)])
+    let hard = try playMIDI(unit, seconds: 0.4, events: [noteOn(69, velocity: 100)])
+    let softLevel = level(soft[9_600...]), hardLevel = level(hard[9_600...])
+    #expect(abs(softLevel - level(ArraySlice(sine(440, seconds: 0.2, amplitude: 0.1)))) < 1, "Only the soft layer: \(softLevel) dB")
+    #expect(abs(hardLevel - level(ArraySlice(sine(440, seconds: 0.2, amplitude: 0.5)))) < 1, "Only the hard layer: \(hardLevel) dB")
+  }
+
+  @Test func overlappingZonesLayerAndKeysOutsideEveryZoneAreSilent() async throws {
+    // Two zones on the same keys, one panned hard left and the other hard right.
+    let unit = try await sampler(zones: [
+      (sine(440, seconds: 2, amplitude: 0.5), SamplerZoneSettings(lowKey: 60, highKey: 72, root: 69, pan: -100)),
+      (sine(660, seconds: 2, amplitude: 0.5), SamplerZoneSettings(lowKey: 60, highKey: 72, root: 69, pan: 100)),
+    ])
+    let both = try playStereo(unit, seconds: 0.4, events: [noteOn(69)])
+    #expect(abs(try #require(pitch(both.left)) - 69) < 0.1, "The left zone on the left")
+    #expect(abs(try #require(pitch(both.right)) - 76) < 0.1, "The right zone (a fifth up) on the right")
+    let outside = try playMIDI(unit, seconds: 0.3, events: [noteOn(40)])
+    #expect(outside.allSatisfy { $0 == 0 })
+  }
+
+  @Test func aZonesTuneAndLevelChangeOnlyThatZone() async throws {
+    let unit = try await sampler(zones: [
+      (sine(440, seconds: 2, amplitude: 0.5), SamplerZoneSettings(lowKey: 0, highKey: 64, root: 69, tune: 50, gain: -12)),
+      (sine(440, seconds: 2, amplitude: 0.5), SamplerZoneSettings(lowKey: 65, highKey: 127, root: 69)),
+    ])
+    let tuned = try playMIDI(unit, seconds: 0.5, events: [noteOn(60)])
+    let plain = try playMIDI(unit, seconds: 0.5, events: [noteOn(69)])
+    #expect(abs(try #require(pitch(tuned)) - 60.5) < 0.1, "Half a semitone sharp")
+    #expect(abs(level(plain[9_600...]) - level(tuned[9_600...]) - 12) < 1, "12 dB down")
+  }
+
+  @Test func zonesAreSavedInTheState() async throws {
+    let first = try await sampler(zones: [
+      (sine(440, seconds: 1), SamplerZoneSettings(lowKey: 0, highKey: 64, root: 69)),
+      (sine(440, seconds: 1), SamplerZoneSettings(lowKey: 65, highKey: 127, root: 57, gain: -3)),
+    ])
+    let state = try #require(first.au.fullState)
+    let saved = try #require(state["ongakuZones"] as? [[String: Any]])
+    #expect(saved.count == 2)
+    #expect(state["ongakuSample"] == nil, "Zones aren't also saved as a single sample")
+    let settings = try JSONDecoder().decode(SamplerZoneSettings.self, from: try #require(saved[1]["settings"] as? Data))
+    #expect(settings == SamplerZoneSettings(lowKey: 65, highKey: 127, root: 57, gain: -3))
+    // Through a property list, as the song stores it.
+    let data = try PropertyListSerialization.data(fromPropertyList: state, format: .binary, options: 0)
+    let restored = try #require(PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
+    let second = try await loadInstrument(.sampler)
+    second.au.fullState = restored
+    let samples = try playMIDI(second, seconds: 0.5, events: [noteOn(69)])
+    #expect(abs(try #require(pitch(samples)) - 81) < 0.1, "Plays the upper zone, rooted an octave down")
+  }
 }
 
 // MARK: - Dynamics, colour and the vocal strip
@@ -936,6 +1119,132 @@ extension OngakuEffectsTests {
       let colour = try await thirdHarmonic(drive: 20, type: type)
       #expect(colour.harmonic > -50, "Type \(type) adds harmonics too")
     }
+  }
+
+  @Test func theModulationEffectsAreInstalled() throws {
+    for instrument in [OngakuInstrument.electricPiano, .organ] {
+      let reference = instrument.makeReference()
+      let components = AVAudioUnitComponentManager.shared().components(matching: AudioComponentDescription(
+        componentType: reference.componentType, componentSubType: reference.componentSubType,
+        componentManufacturer: reference.componentManufacturer, componentFlags: 0, componentFlagsMask: 0))
+      #expect(components.first?.name == instrument.name, "\(instrument.name) is installed")
+    }
+    for effect in [OngakuEffect.chorus, .flanger, .phaser, .tremolo, .gain, .tuner, .multibandCompressor] {
+      let components = AVAudioUnitComponentManager.shared().components(matching: description(effect))
+      #expect(components.first?.name == effect.name, "\(effect.name) is installed")
+    }
+    #expect(OngakuEffect.multibandCompressor.category == .dynamics && OngakuEffect.tuner.category == .utility)
+  }
+
+  /// The level of each 2,400-sample window (50 ms) of a render, in dB.
+  private func windows(_ samples: [Float], from start: Int) -> [Double] {
+    stride(from: start, to: samples.count - 2_400, by: 2_400).map { rms(samples[$0..<($0 + 2_400)]) }
+  }
+
+  @Test func theChorusSpreadsTheSidesAtTheSameLevel() async throws {
+    let unit = try await load(.chorus)
+    let out = try render(unit, frequency: 440, amplitude: 0.3, blocks: 12)
+    let left = out.left[(4 * 4_096)...], right = out.right[(4 * 4_096)...]
+    #expect(rms(zip(left, right).map { $0 - $1 }[...]) > -40, "Width makes the sides differ")
+    #expect(abs(rms(left) - rms(ArraySlice((0..<8_192).map { Float(0.3 * sin(2 * .pi * 440 * Double($0) / rate)) }))) < 4,
+      "It thickens without getting much louder or quieter (\(rms(left)) dB)")
+  }
+
+  @Test func theFlangerAndPhaserSweepNotchesThroughTheSound() async throws {
+    for effect in [OngakuEffect.flanger, .phaser] {
+      let unit = try await load(effect)
+      // A fast sweep: a steady tone rises and falls in level as the notches pass it.
+      try set(unit, effect == .flanger ? [1800: 2] : [1900: 2, 1904: 60])
+      let levels = windows(try render(unit, frequency: 1_000, amplitude: 0.3, blocks: 24).left, from: 4 * 4_096)
+      let range = (levels.max() ?? 0) - (levels.min() ?? 0)
+      #expect(range > 6, "\(effect.name)'s notches sweep (\(range) dB of movement)")
+    }
+  }
+
+  @Test func theTremoloPulsesAndPansInTime() async throws {
+    let unit = try await load(.tremolo)
+    // 4 Hz, all the way down, the sides opposite: an auto-pan.
+    try set(unit, [2000: 0, 2001: 4, 2003: 100, 2004: 0, 2005: 180])
+    let out = try render(unit, frequency: 440, amplitude: 0.3, blocks: 12)
+    let left = windows(out.left, from: 4_096), right = windows(out.right, from: 4_096)
+    #expect((left.max() ?? 0) - (left.min() ?? 0) > 20, "The level falls a long way and comes back")
+    // When one side is loud the other is quiet.
+    let loudestLeft = try #require(left.indices.max { left[$0] < left[$1] })
+    #expect(right[loudestLeft] < left[loudestLeft] - 10)
+
+    // Synced, a quarter note at 120 BPM is two cycles a second.
+    let synced = try await load(.tremolo)
+    try set(synced, [2000: 1, 2002: 8, 2003: 100])
+    let pulses = windows(try render(synced, frequency: 440, amplitude: 0.3, blocks: 24).left, from: 4_096)
+    let dips = zip(pulses, pulses.dropFirst()).enumerated().filter { index, pair in
+      index > 0 && pulses[index - 1] > pair.0 && pair.1 > pair.0
+    }.count
+    #expect((3...5).contains(dips), "About two cycles a second over two seconds (\(dips) dips)")
+  }
+
+  @Test func gainSetsTheLevelPolaritySidesAndBalance() async throws {
+    let sine = rms(ArraySlice((0..<8_192).map { Float(0.25 * sin(2 * .pi * 440 * Double($0) / rate)) }))
+    let louder = try await load(.gain)
+    try set(louder, [2100: 6])
+    #expect(abs(rms(try render(louder, frequency: 440, amplitude: 0.25, blocks: 6).left[(3 * 4_096)...]) - sine - 6) < 0.1)
+
+    // The same sound both sides, the left flipped, then summed: they cancel.
+    let cancelled = try await load(.gain)
+    try set(cancelled, [2101: 1, 2104: 1])
+    #expect(rms(try render(cancelled, frequency: 440, amplitude: 0.25, blocks: 6).left[(3 * 4_096)...]) < -100)
+
+    // Balanced right: the left goes, the right stays.
+    let right = try await load(.gain)
+    try set(right, [2106: 100])
+    let out = try render(right, frequency: 440, amplitude: 0.25, blocks: 6)
+    #expect(rms(out.left[(3 * 4_096)...]) < -100 && abs(rms(out.right[(3 * 4_096)...]) - sine) < 0.1)
+  }
+
+  @Test(arguments: [82.41, 220.0, 440.0, 987.77])
+  func theTunerHearsTheNote(frequency: Double) async throws {
+    let unit = try await load(.tuner)
+    let out = try render(unit, frequency: frequency, amplitude: 0.3, blocks: 8)
+    // The plug-in reports what it heard ten times a second.
+    try await Task.sleep(for: .milliseconds(400))
+    let heard = try #require(unit.au.parameterTree?.parameter(withAddress: 2201)).value
+    #expect(abs(1_200 * log2(Double(heard) / frequency)) < 2, "Within 2 cents of \(frequency) Hz (heard \(heard))")
+    #expect(rms(out.left[(4 * 4_096)...]) > -20, "It passes the sound through")
+
+    let muted = try await load(.tuner)
+    try set(muted, [2202: 1])
+    #expect(rms(try render(muted, frequency: frequency, amplitude: 0.3, blocks: 4).left[...]) < -100)
+  }
+
+  @Test func theTunerHearsNothingInSilence() async throws {
+    let unit = try await load(.tuner)
+    _ = try render(unit, blocks: 6) { _ in 0 }
+    #expect(unit.au.parameterTree?.parameter(withAddress: 2201)?.value == 0)
+  }
+
+  /// The level a sine comes out at, compared with going in (dB).
+  private func change(_ unit: AVAudioUnit, at frequency: Double, amplitude: Double) throws -> Double {
+    let out = try render(unit, frequency: frequency, amplitude: amplitude, blocks: 10).left[(6 * 4_096)...]
+    return rms(out) - 20 * log10(amplitude / 2.0.squareRoot())
+  }
+
+  @Test func theMultibandCompressorsBandsAddBackUpToTheOriginal() async throws {
+    let unit = try await load(.multibandCompressor)
+    // No compression anywhere: thresholds at the top, ratios 1 : 1.
+    try set(unit, [2310: 0, 2311: 1, 2320: 0, 2321: 1, 2330: 0, 2331: 1])
+    for frequency in [60.0, 200, 1_000, 3_000, 9_000] {
+      let difference = try change(unit, at: frequency, amplitude: 0.25)
+      #expect(abs(difference) < 0.3, "Flat at \(frequency) Hz, crossovers included (\(difference) dB)")
+    }
+  }
+
+  @Test func eachBandIsCompressedOnItsOwn() async throws {
+    let unit = try await load(.multibandCompressor)
+    // Only the lows held down hard.
+    try set(unit, [2310: -40, 2311: 20, 2320: 0, 2321: 1, 2330: 0, 2331: 1])
+    let lows = try change(unit, at: 80, amplitude: 0.5)
+    let highs = try change(unit, at: 6_000, amplitude: 0.5)
+    #expect(lows < -20, "The loud low note is turned well down (\(lows) dB)")
+    #expect(abs(highs) < 0.5, "The highs aren't touched (\(highs) dB)")
   }
 
   @Test func theDoublerSpreadsOnePartIntoTwo() async throws {

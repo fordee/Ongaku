@@ -49,7 +49,7 @@ struct LanesView: View {
         ForEach(rows, id: \.self) { index in
           AutomationLaneView(model: model, track: tracks[index])
             .frame(width: model.contentWidth, height: Layout.automationHeight, alignment: .topLeading)
-            .offset(y: CGFloat(index) * rowHeight + Layout.trackHeight)
+            .offset(y: CGFloat(index) * rowHeight + model.trackHeight)
         }
       }
 
@@ -92,12 +92,12 @@ private struct LaneBackgrounds: View {
       // Frozen tracks' lanes are tinted icy, as their regions can't be edited.
       ForEach(frozenRows, id: \.self) { row in
         Theme.freeze.opacity(0.07)
-          .frame(width: model.contentWidth, height: Layout.trackHeight)
+          .frame(width: model.contentWidth, height: model.trackHeight)
           .offset(y: CGFloat(row) * model.rowHeight)
       }
       ForEach(selectedRows, id: \.self) { row in
         Theme.laneSelected
-          .frame(width: model.contentWidth, height: Layout.trackHeight)
+          .frame(width: model.contentWidth, height: model.trackHeight)
           .offset(y: CGFloat(row) * model.rowHeight)
       }
     }
@@ -131,7 +131,7 @@ private struct FlexProcessingLabels: View {
             .foregroundStyle(Theme.text)
             .background(Capsule().fill(Theme.window.opacity(0.8)))
             .fixedSize()
-            .offset(x: model.x(for: region.start) + 4, y: CGFloat(row) * rowHeight + Layout.trackHeight - 20)
+            .offset(x: model.x(for: region.start) + 4, y: CGFloat(row) * rowHeight + model.trackHeight - 20)
           }
         }
       }

@@ -5,19 +5,30 @@
 
 import AppKit
 import AudioToolbox
+import OngakuCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The Sampler's panel, laid out like Logic's Quick Sampler: the sample's waveform with its
-/// markers and loop, how it plays, then pitch, filter and LFO, the envelopes, and a
-/// keyboard (with the root note marked) to play it.
+/// The Sampler's panel, laid out like Logic's Sampler: the selected zone's waveform with
+/// its markers and loop (or the zones mapped across keys and velocities), how it plays,
+/// then pitch, filter and LFO, the envelopes, and a keyboard (with the root note marked) to
+/// play it.
 struct SamplerView: View {
   let audioUnit: OngakuEffectsAudioUnit
   let tree: ObservableAUParameterGroup
+  let session: PluginSession
 
   @State private var hint: String?
   @State private var octave = 3
   @State private var isTargeted = false
+
+  enum Page { case waveform, zones }
+
+  /// Whether the sample section shows the waveform or the zones.
+  private var page: Page {
+    get { display.showsZones ? .zones : .waveform }
+    nonmutating set { display.showsZones = newValue == .zones }
+  }
 
   static let accent = Color(red: 0.3, green: 0.85, blue: 0.78)
 
@@ -56,7 +67,35 @@ struct SamplerView: View {
     .padding(.vertical, 12)
     .background(SynthBackground())
     .environment(\.colorScheme, .dark)
+    .onAppear {
+      // Zone changes are undone (and compared by A/B) along with the knobs.
+      session.customState = PluginSession.CustomState(
+        get: { [audioUnit] in audioUnit.zoneMapping },
+        set: { [audioUnit] data in if let data { audioUnit.restoreZoneMapping(data) } })
+    }
   }
+
+  /// Changes the zones as one undoable step.
+  private func editZones(_ change: () -> Void) {
+    session.noteCustomChange(before: audioUnit.zoneMapping)
+    change()
+  }
+
+  /// Loads files (see `OngakuEffectsAudioUnit.loadSamples`) as one undoable step, once
+  /// they're read.
+  private func load(_ urls: [URL], adding: Bool) {
+    let before = audioUnit.zoneMapping
+    audioUnit.loadSamples(from: urls, adding: adding) { [session] in
+      session.noteCustomChange(before: before)
+    }
+    if adding || urls.count > 1 { page = .zones }
+  }
+
+  private var selectedZone: SamplerZoneInfo? {
+    display.zones.first { $0.id == display.selectedZoneID }
+  }
+
+  private var rootKnob: Int { Int(value("root").rounded()) }
 
   // MARK: - Header
 
@@ -94,7 +133,7 @@ struct SamplerView: View {
 
   private var loadButton: some View {
     Button {
-      chooseFile()
+      chooseFiles(adding: false)
     } label: {
       Label("Load Sample…", systemImage: "waveform.badge.plus")
         .font(.system(size: 12, weight: .semibold))
@@ -105,54 +144,120 @@ struct SamplerView: View {
         .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Self.accent.opacity(0.6), lineWidth: 1))
     }
     .buttonStyle(.plain)
-    .help("Choose an audio file to play, or drag one onto the waveform.")
+    .help("Choose an audio file to play, or several (the notes of an instrument) to lay out across the keys. Or drag files onto the waveform.")
   }
 
-  private func chooseFile() {
+  private func chooseFiles(adding: Bool) {
     let panel = NSOpenPanel()
     panel.allowedContentTypes = [.audio]
-    panel.allowsMultipleSelection = false
-    panel.message = "Choose a sound for the Sampler to play."
+    panel.allowsMultipleSelection = true
+    panel.message = adding
+      ? "Choose sounds to add as zones." : "Choose a sound for the Sampler to play, or several to lay out across the keys."
     panel.begin { response in
-      guard response == .OK, let url = panel.url else { return }
-      MainActor.assumeIsolated { load(url) }
+      guard response == .OK else { return }
+      MainActor.assumeIsolated { load(panel.urls, adding: adding) }
     }
   }
 
-  private func load(_ url: URL) {
-    audioUnit.loadSample(from: url)
+  private func replaceSample(of id: UUID) {
+    let panel = NSOpenPanel()
+    panel.allowedContentTypes = [.audio]
+    panel.message = "Choose a sound for this zone to play."
+    panel.begin { response in
+      guard response == .OK, let url = panel.url else { return }
+      MainActor.assumeIsolated {
+        let before = audioUnit.zoneMapping
+        audioUnit.replaceSample(of: id, from: url)
+        // Recorded once the file is read.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { session.noteCustomChange(before: before) }
+      }
+    }
   }
 
   // MARK: - Sample
 
   private var sampleTitle: String {
+    if page == .zones {
+      return display.zones.count == 1 ? "Zones · 1 zone" : "Zones · \(display.zones.count) zones"
+    }
     guard let name = display.name else { return "Sample" }
     let channels = display.channelCount > 1 ? "Stereo" : "Mono"
-    return "Sample · \(name) · \(String(format: "%.2f", display.duration)) s · \(channels)"
+    let zone = display.zones.count > 1
+      ? " · Zone \((display.zones.firstIndex { $0.id == display.selectedZoneID } ?? 0) + 1) of \(display.zones.count)" : ""
+    return "Sample · \(name) · \(String(format: "%.2f", display.duration)) s · \(channels)\(zone)"
   }
 
   private var sample: some View {
     SynthSection(title: sampleTitle, accent: Self.accent) {
-      HStack(alignment: .top, spacing: 12) {
-        waveform
-        VStack(alignment: .leading, spacing: 8) {
-          labelled("Mode", buttons("playMode", width: 56, [
-            ("Classic: plays while the key is held", .text("CLASSIC")), ("One Shot: plays to the end, whatever the key does", .text("1 SHOT")),
-          ], help: "Classic plays while you hold the key, and can loop. One Shot plays the whole sample from one tap, for drums and hits."))
-          HStack(alignment: .top, spacing: 6) {
-            VStack(alignment: .leading, spacing: 8) {
-              labelled("Loop", buttons("loop", width: 38, [
-                ("Off", .text("OFF")), ("Forward: from the loop's end back to its start", .text("FWD")),
-                ("Alternate: back and forth", .text("ALT")),
-              ], help: "Loops the part between the loop markers while the key is held, so short sounds can sustain."))
-              labelled("Direction", buttons("reverse", width: 38, [("Forward", .text("FWD")), ("Reverse: plays the sample backwards", .text("REV"))],
-                help: "Plays the sample forwards or backwards."))
-            }
-            knob("crossfade", "X-Fade", "Blends the loop's end into its start so the jump is smooth.", Self.accent, size: 32)
-          }
-        }
-        .frame(width: 196, alignment: .leading)
+      switch page {
+      case .waveform: waveformPage
+      case .zones: zonesPage
       }
+    }
+    .overlay(alignment: .topTrailing) {
+      PageSwitch(page: Binding(get: { page }, set: { page = $0 }), zoneCount: display.zones.count, accent: Self.accent)
+        .padding(.top, 6)
+        .padding(.trailing, 10)
+    }
+  }
+
+  private var zonesPage: some View {
+    HStack(alignment: .top, spacing: 12) {
+      VStack(alignment: .leading, spacing: 6) {
+        HStack(spacing: 8) {
+          Button("Add Samples…") { chooseFiles(adding: true) }
+            .help("Adds sounds as new zones, each on the keys around its note that no zone plays yet.")
+            .onHover { hover($0, "Adds sounds as new zones, each on the keys around its note that no zone plays yet.") }
+          Button("Auto Map") { editZones { audioUnit.autoMapZones() } }
+            .disabled(display.zones.isEmpty)
+            .help("Spreads every zone from its root note to halfway to the next; zones on the same note become velocity layers, the quietest softest.")
+            .onHover { hover($0, "Spreads every zone from its root note to halfway to the next; zones on the same note become velocity layers.") }
+          Spacer(minLength: 0)
+          Text("Drag a zone to move it, or its edges to change its keys and velocities.")
+            .font(.system(size: 10))
+            .foregroundStyle(Synth.label)
+            .lineLimit(1)
+        }
+        .controlSize(.small)
+        ZoneMap(
+          zones: display.zones, selectedID: display.selectedZoneID, rootKnob: rootKnob, accent: Self.accent,
+          select: { audioUnit.selectZone($0) },
+          change: { id, settings in editZones { audioUnit.updateZone(id) { $0 = settings } } },
+          drop: { urls in load(urls, adding: true) })
+      }
+      ZoneInspector(
+        zone: selectedZone, rootKnob: rootKnob,
+        change: { change in
+          guard let id = display.selectedZoneID else { return }
+          editZones { audioUnit.updateZone(id, change) }
+        },
+        replace: { if let id = display.selectedZoneID { replaceSample(of: id) } },
+        remove: { if let id = display.selectedZoneID { editZones { audioUnit.removeZone(id) } } },
+        hover: hover)
+        .frame(width: 236)
+    }
+  }
+
+  private var waveformPage: some View {
+    HStack(alignment: .top, spacing: 12) {
+      waveform
+      VStack(alignment: .leading, spacing: 8) {
+        labelled("Mode", buttons("playMode", width: 56, [
+          ("Classic: plays while the key is held", .text("CLASSIC")), ("One Shot: plays to the end, whatever the key does", .text("1 SHOT")),
+        ], help: "Classic plays while you hold the key, and can loop. One Shot plays the whole sample from one tap, for drums and hits."))
+        HStack(alignment: .top, spacing: 6) {
+          VStack(alignment: .leading, spacing: 8) {
+            labelled("Loop", buttons("loop", width: 38, [
+              ("Off", .text("OFF")), ("Forward: from the loop's end back to its start", .text("FWD")),
+              ("Alternate: back and forth", .text("ALT")),
+            ], help: "Loops the part between the loop markers while the key is held, so short sounds can sustain."))
+            labelled("Direction", buttons("reverse", width: 38, [("Forward", .text("FWD")), ("Reverse: plays the sample backwards", .text("REV"))],
+              help: "Plays the sample forwards or backwards."))
+          }
+          knob("crossfade", "X-Fade", "Blends the loop's end into its start so the jump is smooth.", Self.accent, size: 32)
+        }
+      }
+      .frame(width: 196, alignment: .leading)
     }
   }
 
@@ -169,7 +274,7 @@ struct SamplerView: View {
       SampleWaveform(
         audioUnit: audioUnit, overview: display.overview, start: start, end: end, loopStart: loopStart, loopEnd: loopEnd,
         isLooping: value("loop") >= 0.5 && value("playMode") < 0.5, accent: Self.accent, isTargeted: isTargeted,
-        error: display.error, load: chooseFile)
+        error: display.error, load: { chooseFiles(adding: false) })
         // What was left out of a long or many-channel file: it still loads, cut to fit.
         .overlay(alignment: .bottom) {
           if let notice = display.notice, !display.overview.isEmpty {
@@ -184,8 +289,8 @@ struct SamplerView: View {
           }
         }
         .dropDestination(for: URL.self) { urls, _ in
-          guard let url = urls.first else { return false }
-          load(url)
+          guard !urls.isEmpty else { return false }
+          load(urls, adding: false)
           return true
         } isTargeted: { isTargeted = $0 }
         .onHover { hover($0, "Drag the markers: S and E set where the sample starts and ends; the loop markers set what repeats while a key is held.") }
@@ -197,7 +302,9 @@ struct SamplerView: View {
   private var pitch: some View {
     SynthSection(title: "Pitch", accent: Synth.oscillator) {
       HStack(alignment: .top, spacing: 2) {
-        knob("root", "Root Note", "The key that plays the sample at its own pitch (found for you when it has a clear pitch).", Synth.oscillator, size: 44)
+        knob("root", "Root Note",
+          "The key that plays the sample at its own pitch (found for you when it has a clear pitch), for zones that don't set their own.",
+          Synth.oscillator, size: 44)
         knob("transpose", "Transpose", "Shifts the whole sample up or down in semitones.", Synth.oscillator, size: 34)
         knob("tune", "Fine", "Tunes the sample in cents.", Synth.oscillator, size: 34)
         labelled("Follow Keys", buttons("followKeys", width: 42, [
@@ -274,7 +381,7 @@ struct SamplerView: View {
     HStack(spacing: 6) {
       Image(systemName: hint == nil ? "lightbulb" : "info.circle").foregroundStyle(Self.accent)
       Text(hint ?? display.error ?? (display.name == nil
-        ? "Drag an audio file onto the waveform, or click Load Sample…, then play it from the keys. The sample is saved with the song."
+        ? "Drag an audio file onto the waveform (or several, to lay them out across the keys), then play it from the keys."
         : "Play from the keys: the dot marks the root note, where the sample plays at its own pitch. Double-click or Option-click a knob to reset it."))
         .foregroundStyle(hint == nil ? Synth.label : Synth.value)
         .lineLimit(1)
@@ -296,7 +403,9 @@ struct SamplerView: View {
         .controlSize(.small)
       }
       .frame(width: 92)
-      PlayableKeyboard(lowestNote: (octave + 1) * 12, octaves: 4, accent: Self.accent, markedNote: Int(value("root").rounded())) {
+      PlayableKeyboard(
+        lowestNote: (octave + 1) * 12, octaves: 4, accent: Self.accent, markedNote: selectedZone?.settings.root ?? rootKnob
+      ) {
         note, isDown in
         audioUnit.playNote(note, velocity: isDown ? 100 : 0)
       }

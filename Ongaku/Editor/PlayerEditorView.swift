@@ -40,6 +40,7 @@ struct PlayerEditorView: View {
       .background(Theme.lanes)
       .accessibilityElement(children: .contain)
       .accessibilityLabel("Player Editor")
+      .accessibilityIdentifier("player-editor")
     }
   }
 }

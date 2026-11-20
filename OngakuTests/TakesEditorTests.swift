@@ -31,7 +31,7 @@ struct TakesEditorTests {
     let (window, region) = window(audio: true)
     window.openEditor(for: region.id)
     #expect(window.editorRegionID == region.id)
-    #expect(window.pianoRoll.availableEditors == [.takes])
+    #expect(window.pianoRoll.availableEditors == [.takes, .audioFile])
     #expect(window.pianoRoll.shownEditor == .takes)
   }
 
@@ -39,7 +39,7 @@ struct TakesEditorTests {
     let (window, region) = window(audio: false)
     window.pianoRoll.editorKind = .pianoRoll
     window.openEditor(for: region.id)
-    #expect(window.pianoRoll.availableEditors == [.takes, .pianoRoll, .stepEditor])
+    #expect(window.pianoRoll.availableEditors == [.takes, .pianoRoll, .stepEditor, .eventList])
     #expect(window.pianoRoll.shownEditor == .takes)
     window.pianoRoll.editorKind = .pianoRoll
     #expect(window.pianoRoll.shownEditor == .pianoRoll)
@@ -73,13 +73,14 @@ struct TakesEditorTests {
     #expect(window.project.region(withID: region.id)?.takeFolder?.takes.count == 2)
   }
 
-  @Test func plainAudioRegionsDontOpenTheEditor() {
+  @Test func plainAudioRegionsOpenInTheAudioFileEditor() {
     let file = AudioFileReference(fileName: "One.caf", sampleRate: 48_000, channelCount: 2, frameCount: 48_000)
     let region = Region(name: "One", start: .zero, length: bar, content: .audio(AudioRegionContent(fileID: file.id)))
     let window = ProjectWindowModel(document: OngakuDocument(project: Project(
       tracks: [Track(name: "Audio", kind: .audio, regions: [region])], audioFiles: [file])))
     window.openEditor(for: region.id)
-    #expect(window.editorRegionID == nil)
+    #expect(window.editorRegionID == region.id)
+    #expect(window.pianoRoll.availableEditors == [.audioFile])
   }
 
   @Test func swipingCompsAndFlattening() throws {

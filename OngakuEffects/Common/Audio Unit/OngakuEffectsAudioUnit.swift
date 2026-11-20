@@ -4,6 +4,7 @@
 //
 
 import AVFoundation
+import OngakuCore
 
 /// One of Ongaku's effects or instruments (which one depends on the subtype it was created
 /// with), rendering through the C++ kernel. Instruments have no input; they play MIDI.
@@ -134,58 +135,229 @@ public class OngakuEffectsAudioUnit: AUAudioUnit, @unchecked Sendable {
     defaults
   }
 
-  // MARK: - The Sampler's sample
+  // MARK: - The Sampler's zones
 
-  /// What the Sampler's window shows about its sample.
+  /// What the Sampler's window shows about its zones and the selected one's sample.
   @MainActor lazy var samplerDisplay = SamplerDisplay()
 
   private let sampleLock = NSLock()
-  private var sample: SamplerSampleBuffer?
+  private var zones: [SamplerZone] = []
+  private var keymap: SamplerKeymapBuffer?
+  /// Every sample a zone has had while the plug-in is open, so undo can bring back a zone
+  /// that was removed or replaced.
+  private var zoneLibrary: [UUID: SamplerSampleBuffer] = [:]
 
+  /// A single sample (saved this way, as before zones, when it's the only zone and plays
+  /// everywhere), and several zones.
   private static let sampleKey = "ongakuSample"
+  private static let zonesKey = "ongakuZones"
 
-  /// Gives the Sampler a sample (or none). Callable from any thread.
-  func setSample(_ newSample: SamplerSampleBuffer?) {
+  /// The Sampler's zones now.
+  var samplerZones: [SamplerZone] {
     sampleLock.lock()
-    let old = sample
-    sample = newSample
-    kernel.pointee.setSample(newSample?.kernelSample)
+    defer { sampleLock.unlock() }
+    return zones
+  }
+
+  /// Gives the Sampler a single sample over the whole keyboard (or none). Callable from any
+  /// thread.
+  func setSample(_ newSample: SamplerSampleBuffer?) {
+    setZones(newSample.map { [SamplerZone(buffer: $0)] } ?? [])
+  }
+
+  /// Gives the Sampler its zones. Callable from any thread; notes playing a sample that's
+  /// still in a zone play on.
+  func setZones(_ newZones: [SamplerZone]) {
+    let newKeymap = newZones.isEmpty ? nil : SamplerKeymapBuffer(zones: newZones)
+    sampleLock.lock()
+    let old = keymap
+    zones = newZones
+    keymap = newKeymap
+    for zone in newZones { zoneLibrary[zone.id] = zone.buffer }
+    kernel.pointee.setKeymap(newKeymap?.keymap)
     sampleLock.unlock()
-    let overview = newSample?.overview(count: 900) ?? []
-    let (name, duration, channelCount) = (newSample?.name, newSample?.duration ?? 0, newSample?.channels.count ?? 0)
-    let notice = newSample?.notice
-    DispatchQueue.main.async {
-      MainActor.assumeIsolated {
-        self.samplerDisplay.name = name
-        self.samplerDisplay.duration = duration
-        self.samplerDisplay.channelCount = channelCount
-        self.samplerDisplay.overview = overview
-        self.samplerDisplay.notice = notice
-      }
+    let infos = newZones.map { zone in
+      SamplerZoneInfo(
+        id: zone.id, name: zone.name, settings: zone.settings, duration: zone.buffer.duration,
+        channelCount: zone.buffer.channels.count, overview: zone.buffer.preview, notice: zone.buffer.notice)
     }
-    // The render thread may still be reading the old sample for the rest of its buffer.
+    if Thread.isMainThread {
+      MainActor.assumeIsolated { showZones(infos) }
+    } else {
+      DispatchQueue.main.async { MainActor.assumeIsolated { self.showZones(infos) } }
+    }
+    // The render thread may still be reading the old zones for the rest of its buffer.
     if let old {
       DispatchQueue.main.asyncAfter(deadline: .now() + 2) { withExtendedLifetime(old) {} }
     }
   }
 
-  /// Loads an audio file into the Sampler, with its markers back at its ends and its root
-  /// note set to the pitch it plays (when it has a clear one).
+  @MainActor
+  private func showZones(_ infos: [SamplerZoneInfo]) {
+    samplerDisplay.zones = infos
+    if !infos.contains(where: { $0.id == samplerDisplay.selectedZoneID }) {
+      samplerDisplay.selectedZoneID = infos.first?.id
+    }
+    showSelectedZone()
+  }
+
+  /// Shows a zone's sample on the waveform (and its playheads).
+  @MainActor
+  func selectZone(_ id: UUID?) {
+    samplerDisplay.selectedZoneID = id
+    showSelectedZone()
+  }
+
+  @MainActor
+  private func showSelectedZone() {
+    let selected = samplerDisplay.zones.first { $0.id == samplerDisplay.selectedZoneID }
+    samplerDisplay.name = selected?.name
+    samplerDisplay.duration = selected?.duration ?? 0
+    samplerDisplay.channelCount = selected?.channelCount ?? 0
+    samplerDisplay.overview = selected?.overview ?? []
+    samplerDisplay.notice = selected?.notice
+    sampleLock.lock()
+    let shown = zones.first { $0.id == selected?.id }?.buffer.channels.first
+    sampleLock.unlock()
+    kernel.pointee.setShownSample(shown.map { UnsafePointer($0) })
+  }
+
+  /// Changes one zone's settings.
+  func updateZone(_ id: UUID, _ change: (inout SamplerZoneSettings) -> Void) {
+    var changed = samplerZones
+    guard let index = changed.firstIndex(where: { $0.id == id }) else { return }
+    var settings = changed[index].settings
+    change(&settings)
+    settings = settings.clamped()
+    guard settings != changed[index].settings else { return }
+    changed[index].settings = settings
+    setZones(changed)
+  }
+
+  func removeZone(_ id: UUID) {
+    setZones(samplerZones.filter { $0.id != id })
+  }
+
+  /// Spreads every zone across the keyboard from its root (see `SamplerZoneLayout.map`).
+  func autoMapZones() {
+    let current = samplerZones
+    let knob = rootKnob
+    let layout = SamplerZoneLayout.map(current.map { .init(root: $0.root(knob: knob), level: $0.buffer.peak) })
+    setZones(zip(current, layout).map { zone, settings in
+      var zone = zone
+      var settings = settings
+      (settings.tune, settings.gain, settings.pan) = (zone.settings.tune, zone.settings.gain, zone.settings.pan)
+      zone.settings = settings
+      return zone
+    })
+  }
+
+  private var rootKnob: Int {
+    Int((parameterTree?.parameter(withAddress: OngakuEffectsParameterAddress.splRoot.rawValue)?.value ?? 60).rounded())
+  }
+
+  // MARK: Loading samples
+
+  /// Loads an audio file into the Sampler as its only sample, with its markers back at its
+  /// ends and its root note set to the pitch it plays (when it has a clear one).
   @MainActor
   func loadSample(from url: URL) {
-    let isScoped = url.startAccessingSecurityScopedResource()
-    defer { if isScoped { url.stopAccessingSecurityScopedResource() } }
-    do {
-      let loaded = try SamplerSampleBuffer(contentsOf: url)
+    loadSamples(from: [url], adding: false)
+  }
+
+  /// Loads audio files into the Sampler, reading them in the background.
+  /// - One file, replacing: it plays over the whole keyboard, as a single sample always has.
+  /// - Several, replacing: they're laid out across the keyboard by their pitch (see
+  ///   `SamplerZoneLayout.map`), the markers back at their ends.
+  /// - Adding: they're laid out among themselves, then fitted around the zones there.
+  @MainActor
+  func loadSamples(from urls: [URL], adding: Bool, completion: @escaping @MainActor () -> Void = {}) {
+    guard !urls.isEmpty else { return }
+    Task { @MainActor in
+      let loaded = await Task.detached { Self.read(urls) }.value
+      let buffers = loaded.compactMap(\.buffer)
+      let failed = loaded.filter { $0.buffer == nil }.map(\.name)
+      samplerDisplay.error = failed.isEmpty ? nil : failed.count == 1
+        ? "“\(failed[0])” couldn’t be loaded." : "\(failed.count) files couldn’t be loaded: \(failed.joined(separator: ", "))."
+      guard !buffers.isEmpty else { return }
       let tree = parameterTree
-      tree?.parameter(withAddress: OngakuEffectsParameterAddress.splStart.rawValue)?.value = 0
-      tree?.parameter(withAddress: OngakuEffectsParameterAddress.splEnd.rawValue)?.value = 100
-      tree?.parameter(withAddress: OngakuEffectsParameterAddress.splRoot.rawValue)?.value = AUValue(loaded.detectedRootNote() ?? 60)
-      setSample(loaded)
-      samplerDisplay.error = nil
-    } catch {
-      samplerDisplay.error = "“\(url.lastPathComponent)” couldn’t be loaded: \(error.localizedDescription)"
+      if !adding {
+        tree?.parameter(withAddress: OngakuEffectsParameterAddress.splStart.rawValue)?.value = 0
+        tree?.parameter(withAddress: OngakuEffectsParameterAddress.splEnd.rawValue)?.value = 100
+      }
+      let roots = loaded.compactMap { $0.buffer == nil ? nil : $0.root }
+      if !adding && buffers.count == 1 {
+        tree?.parameter(withAddress: OngakuEffectsParameterAddress.splRoot.rawValue)?.value = AUValue(roots[0] ?? 60)
+        setZones([SamplerZone(buffer: buffers[0])])
+      } else {
+        let existing = adding ? samplerZones : []
+        var layout = SamplerZoneLayout.map(zip(buffers, roots).map { .init(root: $1, level: $0.peak) })
+        if !existing.isEmpty { layout = SamplerZoneLayout.fit(layout, around: existing.map(\.settings)) }
+        let added = zip(buffers, layout).map { SamplerZone(buffer: $0, settings: $1) }
+        setZones(existing + added)
+        if let first = added.first { selectZone(first.id) }
+      }
+      completion()
     }
+  }
+
+  private struct LoadedFile: @unchecked Sendable {
+    let name: String
+    let buffer: SamplerSampleBuffer?
+    let root: Int?
+  }
+
+  /// Reads the files and finds the note each plays: by its pitch, else by its name.
+  nonisolated private static func read(_ urls: [URL]) -> [LoadedFile] {
+    urls.map { url in
+      let isScoped = url.startAccessingSecurityScopedResource()
+      defer { if isScoped { url.stopAccessingSecurityScopedResource() } }
+      guard let buffer = try? SamplerSampleBuffer(contentsOf: url) else {
+        return LoadedFile(name: url.lastPathComponent, buffer: nil, root: nil)
+      }
+      return LoadedFile(
+        name: url.lastPathComponent, buffer: buffer, root: buffer.detectedRootNote() ?? SamplerZoneLayout.root(fromName: buffer.name))
+    }
+  }
+
+  /// Plays a zone's sample from another file, keeping where it plays.
+  @MainActor
+  func replaceSample(of id: UUID, from url: URL) {
+    Task { @MainActor in
+      let loaded = await Task.detached { Self.read([url]) }.value
+      guard let buffer = loaded.first?.buffer else {
+        samplerDisplay.error = "“\(url.lastPathComponent)” couldn’t be loaded."
+        return
+      }
+      samplerDisplay.error = nil
+      var changed = samplerZones
+      guard let index = changed.firstIndex(where: { $0.id == id }) else { return }
+      let replacement = SamplerZone(buffer: buffer, settings: changed[index].settings)
+      changed[index] = replacement
+      setZones(changed)
+      selectZone(replacement.id)
+    }
+  }
+
+  // MARK: Undo
+
+  private struct ZoneRecord: Codable {
+    var id: UUID
+    var settings: SamplerZoneSettings
+  }
+
+  /// The zones (which samples, where) for the window's undo and A/B: the samples stay in
+  /// `zoneLibrary`, so going back brings them back.
+  var zoneMapping: Data {
+    (try? JSONEncoder().encode(samplerZones.map { ZoneRecord(id: $0.id, settings: $0.settings) })) ?? Data()
+  }
+
+  func restoreZoneMapping(_ data: Data) {
+    guard let records = try? JSONDecoder().decode([ZoneRecord].self, from: data) else { return }
+    sampleLock.lock()
+    let library = zoneLibrary
+    sampleLock.unlock()
+    setZones(records.compactMap { record in library[record.id].map { SamplerZone(id: record.id, buffer: $0, settings: record.settings) } })
   }
 
   /// The sample's audio (and a loaded impulse response) is saved with the rest of the
@@ -194,9 +366,14 @@ public class OngakuEffectsAudioUnit: AUAudioUnit, @unchecked Sendable {
     get {
       var state = super.fullState ?? [:]
       if effect == .sampler {
-        sampleLock.lock()
-        state[Self.sampleKey] = sample?.state
-        sampleLock.unlock()
+        let zones = samplerZones
+        // A single sample over the whole keyboard is saved as it was before zones, so
+        // earlier versions still play it.
+        if zones.count == 1, zones[0].settings.isWholeKeyboard {
+          state[Self.sampleKey] = zones[0].buffer.state
+        } else if !zones.isEmpty {
+          state[Self.zonesKey] = zones.map(\.state)
+        }
       }
       if effect == .convolutionReverb {
         sampleLock.lock()
@@ -214,7 +391,11 @@ public class OngakuEffectsAudioUnit: AUAudioUnit, @unchecked Sendable {
     set {
       super.fullState = newValue
       if effect == .sampler {
-        setSample((newValue?[Self.sampleKey] as? [String: Any]).flatMap(SamplerSampleBuffer.init(state:)))
+        if let saved = newValue?[Self.zonesKey] as? [[String: Any]] {
+          setZones(saved.compactMap(SamplerZone.init(state:)))
+        } else {
+          setSample((newValue?[Self.sampleKey] as? [String: Any]).flatMap(SamplerSampleBuffer.init(state:)))
+        }
       }
       if effect == .convolutionReverb {
         setLoadedImpulse((newValue?[Self.impulseKey] as? [String: Any]).flatMap(SamplerSampleBuffer.init(state:)))
@@ -449,14 +630,38 @@ public class OngakuEffectsAudioUnit: AUAudioUnit, @unchecked Sendable {
     // the drummer's Apple kit is ready at this rate.
     rebuildImpulse(after: 0, waiting: true)
     loadDrummerKit(waiting: true)
+    if effect == .tuner { startReportingPitch() }
     try super.allocateRenderResources()
   }
 
   public override func deallocateRenderResources() {
+    pitchReporter?.cancel()
+    pitchReporter = nil
     kernel.pointee.deInitialize()
     inputBus.pointee.deallocateRenderResources()
     outputBuffer.pointee.deallocateRenderResources()
     super.deallocateRenderResources()
+  }
+
+  // MARK: - Tuner
+
+  private var pitchReporter: DispatchSourceTimer?
+
+  /// The Tuner's pitch is found while it renders; a host (in another process) only learns a
+  /// parameter has changed when the plug-in says so, so ten times a second it sets its
+  /// read-only Frequency parameter to what the kernel heard.
+  private func startReportingPitch() {
+    pitchReporter?.cancel()
+    let timer = DispatchSource.makeTimerSource(queue: .main)
+    timer.schedule(deadline: .now(), repeating: 0.1)
+    timer.setEventHandler { [weak self] in
+      guard let self, let parameter = parameterTree?.parameter(withAddress: OngakuEffectsParameterAddress.tunFrequency.rawValue)
+      else { return }
+      let heard = kernel.pointee.getParameter(parameter.address)
+      if abs(heard - parameter.value) > 0.01 { parameter.setValue(heard, originator: nil) }
+    }
+    timer.resume()
+    pitchReporter = timer
   }
 
   // MARK: - Parameters

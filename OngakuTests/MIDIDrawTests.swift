@@ -294,4 +294,43 @@ extension MIDIDrawTests {
     #expect(fixture.window.pickTool(forKey: "e"))
     #expect(fixture.window.tool == .eraser && fixture.pianoRoll.tool == .brush)
   }
+
+  // MARK: - Event List
+
+  @Test func theEventListListsNotesAndControllersInTimeOrder() {
+    pianoRoll.editorKind = .eventList
+    #expect(pianoRoll.availableEditors.contains(.eventList))
+    let events = pianoRoll.listedEvents
+    #expect(events.map(\.status) == ["Note", "Control", "Note", "Note"])
+    #expect(events.map(\.number) == ["C3", "7 Volume", "E3", "G3"])
+    #expect(events.first?.channel == 3)
+  }
+
+  @Test func eventListValuesAreTypedOverAndBadOnesRefused() throws {
+    let events = pianoRoll.listedEvents
+    #expect(pianoRoll.setEvent(events[0], .number, to: "D♯3"))
+    #expect(pianoRoll.notes[0].pitch == 63)
+    #expect(pianoRoll.setEvent(events[2], .value, to: "33"))
+    #expect(pianoRoll.notes[1].velocity == 33)
+    #expect(pianoRoll.setEvent(events[1], .value, to: "120"))
+    #expect(pianoRoll.controls[0].value == 120)
+    #expect(pianoRoll.setEvent(events[1], .channel, to: "16"))
+    #expect(pianoRoll.controls[0].channel == 15)
+
+    #expect(!pianoRoll.setEvent(events[0], .value, to: "200"), "Velocities run to 127")
+    #expect(!pianoRoll.setEvent(events[0], .number, to: "H2"))
+    #expect(!pianoRoll.setEvent(events[1], .number, to: "10"), "A controller stays the controller it is")
+  }
+
+  @Test func eventListSelectionIsThePianoRollsAndItsKeysWork() {
+    pianoRoll.editorKind = .eventList
+    window.activeEditingArea = .pianoRoll
+    let events = pianoRoll.listedEvents
+    pianoRoll.selectEvent(events[0], extending: false)
+    pianoRoll.selectEvent(events[1], extending: true)
+    #expect(pianoRoll.selectedNoteIDs == [pianoRoll.notes[0].id] && pianoRoll.selectedControlIDs.count == 1)
+    #expect(window.isPianoRollEditing, "Delete, Q and the ⌥-arrows act on the list's selection")
+    pianoRoll.selectEvent(events[0], extending: true)
+    #expect(pianoRoll.selectedNoteIDs.isEmpty, "⌘-clicking a selected line takes it out")
+  }
 }

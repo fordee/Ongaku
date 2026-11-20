@@ -9,8 +9,8 @@ import OngakuCore
 import OngakuEngine
 import UniformTypeIdentifiers
 
-/// The Bounce dialog: render the mix to a temporary file, then save it where the person
-/// chooses.
+/// The Bounce dialog: render the mix (or every track, for Export All Tracks) to temporary
+/// files, then save them where the person chooses.
 @MainActor
 @Observable
 final class BounceModel {
@@ -18,9 +18,17 @@ final class BounceModel {
     case options
     case rendering(progress: Double)
     case finished(BounceResult)
+    /// Export All Tracks: one file per track, in `folder`.
+    case finishedTracks(folder: URL, files: [URL])
+  }
+
+  /// The mix, or each track on its own (Logic's Export All Tracks as Audio Files).
+  enum Target {
+    case mix, allTracks
   }
 
   private static let settingsKey = "BounceSettings"
+  private static let trackOptionsKey = "ExportTracksOptions"
 
   var phase = Phase.options
   /// The last settings used, remembered between bounces and launches.
@@ -30,12 +38,20 @@ final class BounceModel {
   /// While the bounce waits for flexed regions to finish processing, before rendering.
   var isWaitingForFlex = false
   let range: Range<Tick>
-  @ObservationIgnored private var task: Task<Void, Never>?
+  let target: Target
+  /// What each track's file keeps of its channel strip, for Export All Tracks.
+  var trackOptions: TrackRenderOptions {
+    didSet { UserDefaults.standard.set(try? JSONEncoder().encode(trackOptions), forKey: Self.trackOptionsKey) }
+  }
+  @ObservationIgnored private(set) var task: Task<Void, Never>?
 
-  init(range: Range<Tick>) {
+  init(range: Range<Tick>, target: Target = .mix) {
     self.range = range
+    self.target = target
     settings = UserDefaults.standard.data(forKey: Self.settingsKey)
       .flatMap { try? JSONDecoder().decode(BounceSettings.self, from: $0) } ?? BounceSettings()
+    trackOptions = UserDefaults.standard.data(forKey: Self.trackOptionsKey)
+      .flatMap { try? JSONDecoder().decode(TrackRenderOptions.self, from: $0) } ?? TrackRenderOptions(includesVolumeAndPan: true)
   }
 
   var isRendering: Bool {
@@ -60,13 +76,18 @@ final class BounceModel {
         isWaitingForFlex = false
         try Task.checkCancellation()
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        if target == .allTracks {
+          let files = try await bounceTracks(of: project, to: folder, settings: settings, locateAudioFile: locateAudioFile)
+          phase = .finishedTracks(folder: folder, files: files)
+          return
+        }
         let bouncer = ProjectBouncer(project: project, locateAudioFile: locateAudioFile)
         let result = try await bouncer.bounce(range, settings: settings, to: url) { [weak self] progress in
           self?.phase = .rendering(progress: progress)
         }
         phase = .finished(result)
       } catch is CancellationError {
-        try? FileManager.default.removeItem(at: url)
+        try? FileManager.default.removeItem(at: folder)
         phase = .options
       } catch {
         phase = .options
@@ -75,16 +96,42 @@ final class BounceModel {
     }
   }
 
+  /// Export All Tracks: each track with regions on its own, over the whole range so the files
+  /// line up, named in track order ("01 Drums.wav"). Normalizing would change the balance
+  /// between them, so it's left off.
+  private func bounceTracks(
+    of project: Project, to folder: URL, settings: BounceSettings, locateAudioFile: @escaping AudioFileLocator
+  ) async throws -> [URL] {
+    var settings = settings
+    settings.normalize = false
+    let tracks = project.tracks.compactMap { track in project.isolating(track.id, options: trackOptions).map { (track, $0) } }
+    guard !tracks.isEmpty else { throw BounceError.nothingToBounce }
+    var files: [URL] = []
+    for (index, (track, alone)) in tracks.enumerated() {
+      let number = String(format: "%02d", index + 1)
+      let name = track.name.replacing(/[\/:]/, with: "-")
+      let url = folder.appending(path: "\(number) \(name).\(settings.format.fileExtension)")
+      let bouncer = ProjectBouncer(project: alone, locateAudioFile: locateAudioFile)
+      _ = try await bouncer.bounce(range, settings: settings, to: url) { [weak self] progress in
+        self?.phase = .rendering(progress: (Double(index) + progress) / Double(tracks.count))
+      }
+      files.append(url)
+    }
+    return files
+  }
+
   func cancel() {
     task?.cancel()
     task = nil
   }
 
-  /// Removes the rendered file once it has been saved, or when the dialog closes.
+  /// Removes the rendered files once they have been saved, or when the dialog closes.
   func discardFile() {
     cancel()
-    if case .finished(let result) = phase {
-      try? FileManager.default.removeItem(at: result.url.deletingLastPathComponent())
+    switch phase {
+    case .finished(let result): try? FileManager.default.removeItem(at: result.url.deletingLastPathComponent())
+    case .finishedTracks(let folder, _): try? FileManager.default.removeItem(at: folder)
+    default: break
     }
   }
 }
@@ -98,6 +145,17 @@ extension ProjectWindowModel {
     }
     engine.stop()
     bounce = BounceModel(range: range)
+  }
+
+  /// File › Export All Tracks as Audio Files (⇧⌘E): the Bounce dialog, making a file of each
+  /// track on its own.
+  func showExportAllTracks() {
+    guard let range = project.bounceRange else {
+      errorMessage = BounceError.nothingToBounce.localizedDescription
+      return
+    }
+    engine.stop()
+    bounce = BounceModel(range: range, target: .allTracks)
   }
 
   func startBounce() {
@@ -121,6 +179,10 @@ extension ProjectWindowModel {
   /// panel, not SwiftUI's fileExporter: exporting the file as a Transferable crashed (macOS
   /// 27.2), SwiftUI giving it an empty file name.
   func saveBounce() {
+    if case .finishedTracks(_, let files) = bounce?.phase {
+      saveTrackFiles(files)
+      return
+    }
     guard let bounce, case .finished(let result) = bounce.phase else { return }
     let panel = NSSavePanel()
     panel.allowedContentTypes = [bounce.settings.format.contentType]
@@ -140,11 +202,39 @@ extension ProjectWindowModel {
     }
   }
 
+  /// Export All Tracks' Save…: asks for a folder, then moves the track files into it,
+  /// replacing files of the same names.
+  private func saveTrackFiles(_ files: [URL]) {
+    let panel = NSOpenPanel()
+    panel.canChooseDirectories = true
+    panel.canChooseFiles = false
+    panel.canCreateDirectories = true
+    panel.prompt = "Save Here"
+    panel.message = "Choose a folder for the \(files.count) track files."
+    guard panel.runModal() == .OK, let folder = panel.url else { return }
+    do {
+      for file in files {
+        let destination = folder.appending(path: file.lastPathComponent)
+        if FileManager.default.fileExists(atPath: destination.path) {
+          _ = try FileManager.default.replaceItemAt(destination, withItemAt: file)
+        } else {
+          try FileManager.default.moveItem(at: file, to: destination)
+        }
+      }
+      closeBounce()
+    } catch {
+      errorMessage = "The track files couldn’t be saved: \(error.localizedDescription)"
+    }
+  }
+
   /// The project as it plays, with every plug-in's current settings, including changes made
   /// in plug-in windows that are still open (those are only stored in the project when they
-  /// close). Flexed regions play their renders, as they do live.
+  /// close). Flexed regions play their renders, as they do live, and plug-ins live playback
+  /// left out (their process kept quitting) are left out too. Bounces, freezes and the mix
+  /// analyses all render this, so they hear what plays.
   func projectWithCurrentPluginStates() -> Project {
     var project = playedProject
+    project.removePlugins(engine.stoppedPluginIDs)
     for index in project.tracks.indices {
       let trackID = project.tracks[index].id
       if case .audioUnit(var instrument) = project.tracks[index].channel.instrument,
@@ -159,6 +249,13 @@ extension ProjectWindowModel {
           project.tracks[index].channel.inserts[insertIndex].state = state
         }
       }
+      for effectIndex in project.tracks[index].channel.midiEffects.indices {
+        guard case .audioUnit(var plugin) = project.tracks[index].channel.midiEffects[effectIndex].settings,
+          let state = engine.midiEffectState(plugin.id, onTrack: trackID)
+        else { continue }
+        plugin.state = state
+        project.tracks[index].channel.midiEffects[effectIndex].settings = .audioUnit(plugin)
+      }
     }
     for insertIndex in project.stereoOutInserts.indices {
       if let state = engine.insertState(project.stereoOutInserts[insertIndex].id, onTrack: Project.stereoOutID) {
@@ -168,13 +265,16 @@ extension ProjectWindowModel {
     return project
   }
 
-  /// "Bars 1–9" or, for a cycle, "Cycle: bars 5–9".
+  /// "bar 1 to bar 9" or, for a cycle, "Cycle range, bar 5 to bar 9".
   func describeBounceRange(_ range: Range<Tick>) -> String {
-    let tempoMap = project.tempoMap
-    let start = tempoMap.musicalPosition(at: range.lowerBound)
-    let end = tempoMap.musicalPosition(at: range.upperBound)
-    let positions = "\(Self.barBeat(start)) to \(Self.barBeat(end))"
+    let positions = describeRange(range)
     return project.cycle.isEnabled ? "Cycle range, \(positions)" : positions
+  }
+
+  /// "bar 1 to bar 9 beat 3".
+  func describeRange(_ range: Range<Tick>) -> String {
+    let tempoMap = project.tempoMap
+    return "\(Self.barBeat(tempoMap.musicalPosition(at: range.lowerBound))) to \(Self.barBeat(tempoMap.musicalPosition(at: range.upperBound)))"
   }
 
   private static func barBeat(_ position: MusicalPosition) -> String {
@@ -190,5 +290,21 @@ extension BounceSettings.FileFormat {
     case .aiff: .aiff
     case .m4a: .mpeg4Audio
     }
+  }
+}
+
+extension Project {
+  /// Takes plug-ins out of every channel strip: an instrument plug-in leaves its track
+  /// silent, as it is live.
+  fileprivate mutating func removePlugins(_ pluginIDs: Set<PluginReference.ID>) {
+    guard !pluginIDs.isEmpty else { return }
+    for index in tracks.indices {
+      tracks[index].channel.inserts.removeAll { pluginIDs.contains($0.id) }
+      tracks[index].channel.midiEffects.removeAll { $0.plugin.map { pluginIDs.contains($0.id) } ?? false }
+      if case .audioUnit(let instrument) = tracks[index].channel.instrument, pluginIDs.contains(instrument.id) {
+        tracks[index].channel.instrument = nil
+      }
+    }
+    stereoOutInserts.removeAll { pluginIDs.contains($0.id) }
   }
 }

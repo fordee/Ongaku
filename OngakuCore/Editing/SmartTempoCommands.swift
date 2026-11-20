@@ -75,10 +75,8 @@ public struct MatchProjectTempo: EditCommand {
   public func apply(to project: inout Project) throws {
     let location = try project.requireRegionLocation(regionID)
     var region = project.tracks[location.track].regions[location.region]
-    guard region.takeFolder == nil, case .audio(var audio) = region.content else {
-      throw EditError.invalidValue("Smart Tempo works on audio regions (flatten take folders first).")
-    }
-    guard audio.flexMarkers.isEmpty else { throw EditError.invalidValue("Remove the region’s flex markers first.") }
+    try region.requireEditable(for: .stretch)
+    guard case .audio(var audio) = region.content else { return }
     guard tempo.bpm > 0 else { throw EditError.invalidValue("The recording’s tempo couldn’t be found.") }
     // How much of the recording it plays now, and how fast it should go.
     let sourceSeconds = project.duration(of: region) * audio.stretch
@@ -101,7 +99,7 @@ public struct ResetRegionStretch: EditCommand {
     self.regionID = regionID
   }
 
-  public var actionName: String { "Remove Smart Tempo Stretch" }
+  public var actionName: String { "Remove Stretch" }
 
   public func apply(to project: inout Project) throws {
     let location = try project.requireRegionLocation(regionID)

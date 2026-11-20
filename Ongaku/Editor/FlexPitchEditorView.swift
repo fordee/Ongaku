@@ -126,6 +126,7 @@ private struct PitchGrid: View {
             .accessibilityValue(isMoved ? String(format: "%+.2f semitones", pitch - note.pitch) : "As sung")
             .accessibilityIdentifier("flex-pitch-note")
           }
+          EditorPlayhead(model: model, region: region)
         }
         .frame(width: width, height: CGFloat(rows) * rowHeight, alignment: .topLeading)
       }

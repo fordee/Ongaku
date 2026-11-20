@@ -43,13 +43,40 @@ public final class MIDIInputRouter: @unchecked Sendable {
   /// Where input goes: straight to instruments, and to something that plays the tracks
   /// with MIDI effects (through each one's effects). Several tracks play it layered.
   struct Targets {
-    var instruments: [AUScheduleMIDIEventBlock] = []
+    /// Each with the channel it listens to (`nil` for every channel).
+    var instruments: [(schedule: AUScheduleMIDIEventBlock, channel: Int?)] = []
     var handler: (@Sendable ([UInt8], UInt64) -> Void)?
 
     var isEmpty: Bool { instruments.isEmpty && handler == nil }
   }
 
+  /// A control change on a channel: what a controller assignment listens to.
+  public struct Controller: Hashable, Sendable {
+    /// 0–15.
+    public var channel: Int
+    /// 0–127.
+    public var number: Int
+
+    public init(channel: Int, number: Int) {
+      self.channel = channel
+      self.number = number
+    }
+  }
+
+  /// Controllers that move a control instead of playing (see `setControllerTap`).
+  struct ControllerTap {
+    var assigned: Set<Controller> = []
+    /// While MIDI Learn waits for a controller, every one is taken.
+    var isLearning = false
+    var handler: (@Sendable (Controller, Int) -> Void)?
+
+    func takes(_ controller: Controller) -> Bool {
+      handler != nil && (isLearning || assigned.contains(controller))
+    }
+  }
+
   private let targets = Mutex(Targets())
+  private let controllerTap = Mutex(ControllerTap())
   /// While recording, incoming MIDI is also captured here with its timestamp.
   private let capture = Mutex<MIDICapture?>(nil)
   /// Sources the person switched off in Settings; everything else is listened to.
@@ -80,8 +107,18 @@ public final class MIDIInputRouter: @unchecked Sendable {
 
   /// Chooses the instruments that receive input, and a handler that's also sent it (each
   /// message with its host time); none of either stops routing.
-  func setTargets(instruments: [AUScheduleMIDIEventBlock], handler: (@Sendable ([UInt8], UInt64) -> Void)?) {
+  func setTargets(
+    instruments: [(schedule: AUScheduleMIDIEventBlock, channel: Int?)], handler: (@Sendable ([UInt8], UInt64) -> Void)?
+  ) {
     targets.withLock { $0 = Targets(instruments: instruments, handler: handler) }
+  }
+
+  /// Takes the assigned controllers (and, while learning, every controller) away from the
+  /// instruments: `handler` gets each one's value (0–127) instead, on CoreMIDI's thread.
+  public func setControllerTap(
+    assigned: Set<Controller>, isLearning: Bool, handler: (@Sendable (Controller, Int) -> Void)?
+  ) {
+    controllerTap.withLock { $0 = ControllerTap(assigned: assigned, isLearning: isLearning, handler: handler) }
   }
 
   /// Starts or stops capturing input for recording.
@@ -121,7 +158,8 @@ public final class MIDIInputRouter: @unchecked Sendable {
   private func receive(_ eventList: UnsafePointer<MIDIEventList>) {
     let destination = targets.withLock { $0 }
     let capture = capture.withLock { $0 }
-    guard !destination.isEmpty || capture != nil else { return }
+    let tap = controllerTap.withLock { $0 }
+    guard !destination.isEmpty || capture != nil || tap.handler != nil else { return }
     for packet in eventList.unsafeSequence() {
       // A timestamp of 0 means "now".
       let hostTime = packet.pointee.timeStamp == 0 ? mach_absolute_time() : packet.pointee.timeStamp
@@ -130,7 +168,15 @@ public final class MIDIInputRouter: @unchecked Sendable {
         var bytes: (UInt8, UInt8, UInt8) = (status, UInt8((word >> 8) & 0x7F), UInt8(word & 0x7F))
         // Program change and channel pressure have one data byte; the rest have two.
         let length = (status & 0xF0 == 0xC0 || status & 0xF0 == 0xD0) ? 2 : 3
-        for schedule in destination.instruments {
+        // A learned controller moves its control, and isn't played or recorded.
+        if status & 0xF0 == 0xB0 {
+          let controller = Controller(channel: Int(status & 0x0F), number: Int(bytes.1))
+          if tap.takes(controller) {
+            tap.handler?(controller, Int(bytes.2))
+            continue
+          }
+        }
+        for (schedule, channel) in destination.instruments where channel == nil || Int(status & 0x0F) == channel {
           withUnsafePointer(to: &bytes) { tuple in
             tuple.withMemoryRebound(to: UInt8.self, capacity: 3) { pointer in
               schedule(AUEventSampleTimeImmediate, 0, length, pointer)

@@ -8,22 +8,39 @@ import Foundation
 /// Every tool an agent can use in Ongaku, and the guide agents get when they connect.
 public enum AgentToolbox {
   public static let tools: [AgentTool] =
-    readingTools + songTools + trackTools + noteTools + sessionPlayerTools + mixingTools + listeningTools + libraryTools
+    readingTools + songTools + trackTools + editingTools + noteTools + sessionPlayerTools + mixingTools + listeningTools + libraryTools
 
   public static func tool(named name: String) -> AgentTool? {
     tools.first { $0.name == name }
   }
 
-  /// Runs a tool by name.
+  /// Runs a tool by name, reading and writing pitch names as `pitchNaming` says.
   @MainActor
-  public static func call(_ name: String, arguments: [String: AgentValue], in session: any AgentSession) async throws -> AgentValue {
+  public static func call(
+    _ name: String, arguments: [String: AgentValue], in session: any AgentSession, pitchNaming: PitchNaming = .logic
+  ) async throws -> AgentValue {
     guard let tool = tool(named: name) else { throw AgentError.unknownTool(name) }
-    return try await tool.call(arguments, in: session)
+    return try await AgentNotation.$pitchNaming.withValue(pitchNaming) {
+      try await tool.call(arguments, in: session)
+    }
   }
 
   /// What an agent is told when it connects: how Ongaku's tools describe music, and a way
   /// to work.
-  public static let instructions = """
+  public static func instructions(pitchNaming: PitchNaming = .logic) -> String {
+    guide.replacingOccurrences(of: "{pitchNames}", with: pitchNames(pitchNaming))
+  }
+
+  private static func pitchNames(_ naming: PitchNaming) -> String {
+    switch naming {
+    case .logic:
+      "names with middle C (60) as C3, as in Ongaku's Piano Roll and Logic, such as \"F#2\" or \"Bb1\""
+    case .scientific:
+      "names with middle C (60) as C4 (scientific pitch names), such as \"F#3\" or \"Bb2\". Ongaku's Piano Roll, like Logic, labels middle C \"C3\", so a note the person reads off the Piano Roll as C3 is C4 here"
+    }
+  }
+
+  private static let guide = """
     Ongaku Studio is a Mac DAW like Logic Pro. These tools work on the song open in its \
     frontmost window; the person sees every change as you make it, and each tool call is \
     one step they can undo.
@@ -33,10 +50,8 @@ public enum AgentToolbox {
     bar 5, "5:2.5" is halfway through beat 2. A bare bar number ("5") is the start of the bar.
     - Note timing inside a region is in beats (quarter notes) from the region's start: \
     start 0 is the region's first beat, length 0.5 is an eighth note.
-    - Pitches are MIDI numbers or names with C4 = 60 (middle C), such as "F#3" or "Bb2". \
-    On drum tracks, General MIDI drum names work: "kick", "snare", "closed hat", "crash". \
-    Ongaku's Piano Roll, like Logic, labels middle C "C3", so a note the person reads off \
-    the Piano Roll as C3 is C4 here.
+    - Pitches are MIDI numbers or {pitchNames}. On drum tracks, General MIDI drum names \
+    work: "kick", "snare", "closed hat", "crash".
     - Ids are short strings from get_song and get_track; tracks can also be named or numbered.
 
     A good way to make a song:

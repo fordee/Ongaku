@@ -230,8 +230,14 @@ enum AppSettings {
   static let agentServerEnabledKey = "AgentServerEnabled"
   static let agentServerPortKey = "AgentServerPort"
   static let agentServerTokenKey = "AgentServerToken"
+  static let agentPitchNamingKey = "AgentPitchNaming"
   static let defaultAgentServerPort = 7317
   static let agentServerPortRange = 1024...65535
+
+  /// How agents name pitches: middle C as C3, like the Piano Roll (the default), or C4.
+  nonisolated static var agentPitchNaming: PitchNaming {
+    UserDefaults.standard.string(forKey: agentPitchNamingKey).flatMap(PitchNaming.init) ?? .logic
+  }
 
   /// Whether AI agents can connect to Ongaku's MCP server (off until switched on).
   static var isAgentServerEnabled: Bool {
@@ -285,21 +291,33 @@ struct SettingsView: View {
       Tab("Automation", systemImage: "point.topleft.down.to.point.bottomright.curvepath") {
         AutomationSettingsView()
       }
-      Tab("Libraries", systemImage: "music.note.list") {
-        LibrariesSettingsView()
-      }
-      Tab("Agents", systemImage: "sparkles") {
-        AgentSettingsView()
+      // A tab builder takes ten at most.
+      Group {
+        Tab("Libraries", systemImage: "music.note.list") {
+          LibrariesSettingsView()
+        }
+        Tab("Key Commands", systemImage: "keyboard") {
+          KeyCommandsSettingsView()
+        }
+        Tab("Plug-ins", systemImage: "puzzlepiece.extension") {
+          PluginSettingsView()
+        }
+        Tab("Agents", systemImage: "sparkles") {
+          AgentSettingsView()
+        }
       }
     }
-    .frame(width: 560)
+    // Wide enough for every tab in the toolbar (narrower, the last ones hide in its overflow).
+    .frame(width: 820)
   }
 }
 
 // MARK: - General
 
 private struct GeneralSettingsView: View {
-  @AppStorage(AppSettings.newProjectTemplateKey) private var template = AppSettings.NewProjectTemplate.instrumentTrack
+  /// A built-in start's name, or "template:" and one of your templates' names.
+  @AppStorage(AppSettings.newProjectTemplateKey) private var template = AppSettings.NewProjectTemplate.instrumentTrack.rawValue
+  @State private var templates = TemplateList.shared
   @AppStorage(AppSettings.followsPlayheadKey) private var followsPlayhead = true
   @AppStorage(AppSettings.snapModeKey) private var snapMode = AppSettings.SnapMode.automatic
 
@@ -307,7 +325,18 @@ private struct GeneralSettingsView: View {
     Form {
       Section("Projects") {
         Picker("New projects start with", selection: $template) {
-          ForEach(AppSettings.NewProjectTemplate.allCases, id: \.self) { Text($0.title).tag($0) }
+          ForEach(AppSettings.NewProjectTemplate.allCases, id: \.self) { Text($0.title).tag($0.rawValue) }
+          if !templates.names.isEmpty {
+            Section("Your Templates") {
+              ForEach(templates.names, id: \.self) { Text($0).tag(AppSettings.userTemplatePrefix + $0) }
+            }
+          }
+        }
+        if template.hasPrefix(AppSettings.userTemplatePrefix) {
+          Button("Delete This Template", role: .destructive) {
+            try? templates.delete(String(template.dropFirst(AppSettings.userTemplatePrefix.count)))
+            template = AppSettings.NewProjectTemplate.instrumentTrack.rawValue
+          }
         }
       }
       Section("Editing") {
@@ -759,6 +788,7 @@ private struct AgentSettingsView: View {
   @AppStorage(AppSettings.agentServerEnabledKey) private var isEnabled = false
   @AppStorage(AppSettings.agentServerPortKey) private var port = AppSettings.defaultAgentServerPort
   @AppStorage(AppSettings.agentServerTokenKey) private var token = ""
+  @AppStorage(AppSettings.agentPitchNamingKey) private var pitchNaming = PitchNaming.logic
   private let server = AgentServer.shared
 
   var body: some View {
@@ -790,6 +820,16 @@ private struct AgentSettingsView: View {
         }
       } footer: {
         Text("Only apps on this Mac can connect, and only with the token.")
+          .foregroundStyle(.secondary)
+      }
+      Section {
+        Picker("Middle C is", selection: $pitchNaming) {
+          Text("C3, as in the Piano Roll").tag(PitchNaming.logic)
+          Text("C4 (scientific pitch names)").tag(PitchNaming.scientific)
+        }
+        .accessibilityIdentifier("agent-pitch-naming")
+      } footer: {
+        Text("How agents read and write note names. Agents that connected before a change keep the old names until they connect again.")
           .foregroundStyle(.secondary)
       }
       Section {

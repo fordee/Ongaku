@@ -63,7 +63,7 @@ struct RegionLoopTests {
     try MoveRegion(riff, to: bar).apply(to: &project)
     #expect(project.tracks[0].regions[0].loopEnd == bar * 5)
     // Shortening from the start keeps the loop end where it was.
-    try TrimRegion(riff, start: bar + .quarterNotes(2), length: .quarterNotes(2)).apply(to: &project)
+    try ResizeRegion(riff, start: bar + .quarterNotes(2), length: .quarterNotes(2)).apply(to: &project)
     #expect(project.tracks[0].regions.first { $0.id == riff }?.loopEnd == bar * 5)
   }
 

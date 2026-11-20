@@ -97,7 +97,8 @@ extension ProjectArchive {
 }
 
 extension Project {
-  /// Changes every plug-in reference: each track's instrument and inserts, and Stereo Out's.
+  /// Changes every plug-in reference: each track's instrument, MIDI effects and inserts, and
+  /// Stereo Out's inserts.
   mutating func updatePlugins(_ change: (inout PluginReference) -> Void) {
     for insert in stereoOutInserts.indices {
       change(&stereoOutInserts[insert])
@@ -109,6 +110,12 @@ extension Project {
       }
       for insert in tracks[index].channel.inserts.indices {
         change(&tracks[index].channel.inserts[insert])
+      }
+      for effect in tracks[index].channel.midiEffects.indices {
+        if var plugin = tracks[index].channel.midiEffects[effect].plugin {
+          change(&plugin)
+          tracks[index].channel.midiEffects[effect].plugin = plugin
+        }
       }
     }
   }

@@ -26,7 +26,7 @@ struct OngakuApp: App {
     DocumentGroup { document in
       ContentView(document: document)
     } makeDocument: { configuration, context in
-      OngakuDocument(project: AppSettings.newProjectTemplate.makeProject(), configuration: configuration)
+      await OngakuDocument(project: AppSettings.makeNewProject(), configuration: configuration)
     }
     // Room for the tracks and an editor or mixer below them; macOS fits it to smaller screens.
     .defaultSize(width: 1440, height: 900)

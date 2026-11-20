@@ -133,6 +133,33 @@ struct AutomationRenderTests {
     #expect(abs(end - start + 10) < 1, "The insert's gain followed the automation (\(start) → \(end) dB)")
   }
 
+  @Test func instrumentPluginAutomationDrivesTheInstrument() async throws {
+    // A held note on the Retro Synth, its Volume (-24…+12 dB, address 428) automated from
+    // 0 dB down to -12 dB over two seconds; compared with the same note unautomated.
+    func synthProject(automated: Bool) -> Project {
+      var track = Track(name: "Synth", kind: .softwareInstrument)
+      let synth = OngakuInstrument.retroSynth.makeReference()
+      track.channel.instrument = .audioUnit(synth)
+      let note = MIDINote(pitch: 57, velocity: 127, start: .zero, length: .quarterNotes(4))
+      track.regions = [Region(name: "Note", start: .zero, length: .quarterNotes(4), content: .midi(MIDISequence(notes: [note])))]
+      if automated {
+        let volume = PluginParameter(pluginID: synth.id, address: 428, name: "Volume")
+        track.automation = [AutomationLane(parameter: .plugin(volume), points: [point(0, 24.0 / 36), point(4, 12.0 / 36)])]
+      }
+      return Project(tracks: [track])
+    }
+    func rms(_ samples: [Float], at seconds: Double) -> Double {
+      let window = samples[Int(seconds * rate)..<Int((seconds + 0.05) * rate)]
+      return 10 * log10(Double(window.map { $0 * $0 }.reduce(0, +)) / Double(window.count))
+    }
+    let (plain, _) = try await bounce(synthProject(automated: false), locate: folder)
+    let (automated, _) = try await bounce(synthProject(automated: true), locate: folder)
+    let early = rms(automated, at: 0.4) - rms(plain, at: 0.4)
+    let late = rms(automated, at: 1.8) - rms(plain, at: 1.8)
+    #expect(abs(early + 2.4) < 1.5, "At 0.4 s the volume was about -2.4 dB (\(early) dB)")
+    #expect(abs(late + 10.8) < 1.5, "At 1.8 s it was about -10.8 dB (\(late) dB)")
+  }
+
   @Test func offModeIgnoresAutomation() async throws {
     let (project, url) = try toneProject {
       $0.channel.volume = -6

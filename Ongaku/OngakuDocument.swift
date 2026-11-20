@@ -65,6 +65,32 @@ final class OngakuDocument: Document {
       .appending(path: file.fileName)
   }
 
+  /// The audio files saved in the package, used or not: files no longer used stay there
+  /// (see `makePackage`), so a new file mustn't take one of their names.
+  var savedAudioFileNames: Set<String> {
+    guard let folder = configuration?.fileURL?.appending(path: ProjectArchive.audioFilesDirectoryName, directoryHint: .isDirectory)
+    else { return [] }
+    return Set((try? FileManager.default.contentsOfDirectory(atPath: folder.path(percentEncoded: false))) ?? [])
+  }
+
+  /// A new file in the staging folder for audio Ongaku renders (an Audio File Editor edit, a
+  /// Bounce in Place), to be adopted with `adoptRecordedAudio`.
+  func newRenderedAudioURL() throws -> URL {
+    try FileManager.default.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
+    return stagingDirectory.appending(path: "Render \(UUID().uuidString).caf")
+  }
+
+  /// When each of the song's backups was made, newest first (see `keepBackup`).
+  var backups: [Date] {
+    configuration?.fileURL.map(ProjectPackage.backups(inPackageAt:)) ?? []
+  }
+
+  /// The song as it was saved at `date` (one of `backups`).
+  func backup(from date: Date) throws -> Project {
+    guard let package = configuration?.fileURL else { throw CocoaError(.fileNoSuchFile) }
+    return try ProjectPackage.backup(from: date, inPackageAt: package)
+  }
+
   /// A new file for a flexed region's render. Renders can always be made again, so they
   /// stay in the staging folder and aren't saved in the package.
   func newFlexRenderURL() throws -> URL {
@@ -210,6 +236,7 @@ nonisolated enum ProjectPackage {
 
     if let oldProjectFile = package.fileWrappers?[ProjectArchive.projectFileName] {
       package.removeFileWrapper(oldProjectFile)
+      keepBackup(of: oldProjectFile, in: package)
     }
     let (stored, pluginStates) = ProjectArchive.separatingLargePluginStates(snapshot.project)
     let projectFile = FileWrapper(regularFileWithContents: try ProjectArchive.encode(stored))
@@ -236,6 +263,75 @@ nonisolated enum ProjectPackage {
     }
     try updateFreezeFiles(in: package, from: snapshot)
     return package
+  }
+
+  // MARK: - Backups
+
+  /// The folder in the package where earlier versions of the song are kept.
+  static let backupsDirectoryName = "Backups"
+  static let maximumBackups = 10
+  /// Saves (autosaves too) closer together than this keep no new backup, so the ten span a
+  /// while of work rather than the last few minutes.
+  static let backupInterval: TimeInterval = 5 * 60
+
+  // Only ever read after it's made, so it's safe to share.
+  nonisolated(unsafe) static let backupDateFormat: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(identifier: "UTC")
+    formatter.dateFormat = "yyyyMMdd-HHmmss"
+    return formatter
+  }()
+
+  /// "Backup 20261121-073000.json", in UTC.
+  static func backupFileName(for date: Date) -> String {
+    "Backup \(backupDateFormat.string(from: date)).json"
+  }
+
+  static func backupDate(fromFileName name: String) -> Date? {
+    guard name.hasPrefix("Backup "), name.hasSuffix(".json") else { return nil }
+    return backupDateFormat.date(from: String(name.dropFirst(7).dropLast(5)))
+  }
+
+  /// Keeps the song as it was before this save, like Logic's project backups: at most one
+  /// every `backupInterval`, the newest `maximumBackups` of them.
+  /// When each backup in a saved package was made, newest first.
+  static func backups(inPackageAt package: URL) -> [Date] {
+    let folder = package.appending(path: backupsDirectoryName, directoryHint: .isDirectory)
+    let names = (try? FileManager.default.contentsOfDirectory(atPath: folder.path(percentEncoded: false))) ?? []
+    return names.compactMap(backupDate(fromFileName:)).sorted(by: >)
+  }
+
+  /// The song as it was saved at `date`, with its plug-ins' large settings where they're
+  /// still in the package.
+  static func backup(from date: Date, inPackageAt package: URL) throws -> Project {
+    let data = try Data(contentsOf: package.appending(path: backupsDirectoryName).appending(path: backupFileName(for: date)))
+    var project = try ProjectArchive.decode(data)
+    let settings = package.appending(path: ProjectArchive.pluginSettingsDirectoryName, directoryHint: .isDirectory)
+    ProjectArchive.restoringPluginStates(&project) { try? Data(contentsOf: settings.appending(path: $0)) }
+    return project
+  }
+
+  static func keepBackup(of oldProjectFile: FileWrapper, in package: FileWrapper, now: Date = Date()) {
+    guard let contents = oldProjectFile.regularFileContents else { return }
+    let folder: FileWrapper
+    if let existing = package.fileWrappers?[backupsDirectoryName] {
+      folder = existing
+    } else {
+      folder = FileWrapper(directoryWithFileWrappers: [:])
+      folder.preferredFilename = backupsDirectoryName
+      package.addFileWrapper(folder)
+    }
+    let backups = (folder.fileWrappers ?? [:]).compactMap { name, wrapper in backupDate(fromFileName: name).map { ($0, wrapper) } }
+      .sorted { $0.0 > $1.0 }
+    if let newest = backups.first, now.timeIntervalSince(newest.0) < backupInterval { return }
+    if let newest = backups.first, newest.1.regularFileContents == contents { return }
+    let backup = FileWrapper(regularFileWithContents: contents)
+    backup.preferredFilename = backupFileName(for: now)
+    folder.addFileWrapper(backup)
+    for (_, old) in backups.dropFirst(maximumBackups - 1) {
+      folder.removeFileWrapper(old)
+    }
   }
 
   /// Large plug-in states, one file each. Files are named for their contents, so unchanged

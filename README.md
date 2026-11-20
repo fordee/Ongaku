@@ -15,13 +15,14 @@ The [user manual](Docs/Manual/README.md) explains every feature, step by step.
 - Logic-style tools (pointer, pencil, eraser, scissors, glue, mute, fade), clipboard, repeat, option-drag copies and section edits between the locators
 - Markers, arrangement, tempo, signature and Chord tracks
 - Track stacks (summing stacks), track freeze and plug-in delay compensation
+- Drag tracks to reorder them, vertical zoom, and hidden tracks
 
 **MIDI**
 
 ![The Piano Roll, with notes coloured by velocity and the velocity lane below](Docs/Manual/images/piano-roll.png)
 
 - Piano Roll with quantize (including triplet and mixed grids), velocity and note functions
-- Step Editor, Step Sequencer pattern regions and MIDI Draw lanes for controllers, pitch bend and aftertouch
+- Step Editor, Event List, Step Sequencer pattern regions and MIDI Draw lanes for controllers, pitch bend and aftertouch
 - MIDI FX: Arpeggiator, Chord Trigger, Scale Quantize, Note Repeater, Transposer and more
 
 **Recording and audio editing**
@@ -32,14 +33,16 @@ The [user manual](Docs/Manual/README.md) explains every feature, step by step.
 - A Drummer that plays each section of the song, and bass and keyboard players that follow the Chord track
 
 **Mixing**
-- Channel strips with inserts, aux sends, groups, meters and automation of volume, pan, sends and plug-in parameters
+- Channel strips with inserts, aux sends, groups, meters and automation of volume, pan, sends and the parameters of inserts, instruments and MIDI effect plug-ins
+- Other makers' Audio Unit instruments, effects and MIDI effects, with a Plug-in Manager, presets, side chains and multi-output instruments
 - Bounce to audio files
 
 **Ongaku plug-ins**
-- An AUv3 extension inside the app, with C++ real-time kernels behind SwiftUI windows: Channel EQ, Compressor, Reverb, Convolution Reverb, Delay, Noise Gate, Transient Shaper, Maximizer, De-Esser, Saturation, Doubler and Vocal Strip; Retro Synth, Drum Machine, Sampler and Session Drummer instruments
+- An AUv3 extension inside the app, with C++ real-time kernels behind SwiftUI windows: Channel EQ, Compressor, Reverb, Convolution Reverb, Delay, Noise Gate, Transient Shaper, Maximizer, De-Esser, Saturation, Doubler, Vocal Strip, Chorus, Flanger, Phaser, Tremolo, Multiband Compressor, Gain and Tuner; Retro Synth, Drum Machine, Sampler (with key and velocity zones), Electric Piano, Organ and Session Drummer instruments
 - They're ordinary Audio Units, so they also work in Logic Pro, GarageBand and other Mac hosts
 
-**Interchange**
+**Sounds and interchange**
+- Sound libraries from any folder (Logic Pro's or GarageBand's, sample packs, SoundFonts): a Loop Browser whose loops follow the song's tempo and key, and EXS, SoundFont, DLS and SFZ sampler instruments
 - Standard MIDI files in and out
 
 **AI agents**
@@ -74,7 +77,7 @@ Run the tests from Xcode (Product › Test). A few tests read files that exist o
 
 ## A note on Logic Pro
 
-Ongaku Studio takes its workflow from Logic Pro, but it isn't affiliated with or endorsed by Apple, and it can't open Logic projects or load Logic's instruments and effects. The repository doesn't include any Apple sound content. The General MIDI sounds and drum kits Ongaku can play come with macOS.
+Ongaku Studio takes its workflow from Logic Pro, but it isn't affiliated with or endorsed by Apple, and it can't open Logic projects or use Logic's own instruments and effects. If you have Logic's or GarageBand's sound library, you can add it as a sound library and play its loops and sampler instruments from your own copy. The repository doesn't include any Apple sound content. The General MIDI sounds and drum kits Ongaku can play come with macOS.
 
 ## Contributing
 

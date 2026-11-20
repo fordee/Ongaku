@@ -8,9 +8,9 @@ Ongaku's effects and instruments are **Audio Units**, the standard plug-in forma
 
 In Ongaku Studio you'll find them here:
 
-- **Effects:** on a channel strip, click **+** under **Audio FX** and look in the **Ongaku** section of the menu. They're grouped as **EQ**, **Dynamics**, **Reverb & Delay**, **Distortion**, **Imaging**, **Vocal** and **Mastering**. See [Chapter 7](07-mixing-and-automation.md) for inserts in general.
-- **Instruments:** click a software instrument track's instrument name (on the track header or the channel strip) and look in the **Ongaku** section: **Retro Synth**, **Drum Machine**, **Sampler** and **Session Drummer**. They're also in the Library (see [Chapter 9](09-library-bounce-files-settings.md)).
-- **MIDI FX:** click **+** under **MIDI FX** on a software instrument track's channel strip. MIDI FX are part of Ongaku Studio itself rather than plug-ins, so they only work inside Ongaku Studio.
+- **Effects:** on a channel strip, click **+** under **Audio FX** and look in the **Ongaku** section of the menu. They're grouped as **EQ**, **Dynamics**, **Reverb & Delay**, **Modulation**, **Distortion**, **Imaging**, **Utility**, **Vocal** and **Mastering**. See [Chapter 7](07-mixing-and-automation.md) for inserts in general.
+- **Instruments:** click a software instrument track's instrument name (on the track header or the channel strip) and look in the **Ongaku** section: **Retro Synth**, **Drum Machine**, **Sampler**, **Electric Piano**, **Organ** and **Session Drummer**. They're also in the Library (see [Chapter 9](09-library-bounce-files-settings.md)).
+- **MIDI FX:** click **+** under **MIDI FX** on a software instrument track's channel strip and look in the **Ongaku** section. Ongaku's MIDI FX are part of Ongaku Studio itself rather than plug-ins, so they only work inside Ongaku Studio. MIDI effect plug-ins from other makers are in the same menu's **Audio Units** submenu (see [MIDI effect plug-ins](#midi-effect-plug-ins)).
 
 To open a plug-in's window, click its insert slot, or for an instrument click the instrument name and choose **Show Instrument Window…**.
 
@@ -20,6 +20,7 @@ The Ongaku effects aren't the same as Apple's effects of the same name in the **
 |---|---|---|
 | Channel EQ | EQ | none |
 | Compressor | Dynamics | none |
+| Multiband Compressor | Dynamics | 5 |
 | Noise Gate | Dynamics | 5 |
 | Transient Shaper | Dynamics | 5 |
 | Maximizer | Dynamics | 5 |
@@ -27,8 +28,14 @@ The Ongaku effects aren't the same as Apple's effects of the same name in the **
 | Reverb | Reverb & Delay | 5 rooms |
 | Delay | Reverb & Delay | none |
 | Convolution Reverb | Reverb & Delay | 7 |
+| Chorus | Modulation | 5 |
+| Flanger | Modulation | 5 |
+| Phaser | Modulation | 5 |
+| Tremolo | Modulation | 5 |
 | Saturation | Distortion | 5 |
 | Doubler | Imaging | 5 |
+| Gain | Utility | 5 |
+| Tuner | Utility | none |
 | Vocal Strip | Vocal | 5 |
 | Mastering | Mastering | 4 destinations |
 
@@ -130,6 +137,34 @@ The bands start at 0 dB, so a new Channel EQ changes nothing until you move some
 | **Detection** | **Peak** / **RMS** | Peak | Peak reacts to every spike; RMS reacts to average loudness and sounds smoother. |
 
 > Tip: Start from the defaults, play the track, and lower the **Threshold** until the Gain Reduction meter moves by a few dB on the loudest parts. Then raise **Make Up** until the track is as loud as it was with the Compressor bypassed.
+
+### Multiband Compressor
+
+**What it is.** Three compressors in one, like Logic's Multipressor: the sound is split into lows, mids and highs, each band is compressed on its own, and they're put back together. The picture shows the three bands across the frequencies, each in its colour, and each one's top drops as that band is turned down, so you can see which part of the sound is doing the work.
+
+**When to use it.** When one part of the sound needs holding back and the rest doesn't: a boomy bass note, a harsh vocal, a drum bus where the kick pumps the cymbals. With no compression set, the bands add back up to exactly the original.
+
+![The Multiband Compressor: each band dips as it is turned down](images/multiband-compressor.png)
+
+Each band (**Low**, **Mid**, **High**) has:
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Threshold** | −60 to 0 dB | −20 dB | Above this, the band is turned down. |
+| **Ratio** | 1 : 1 – 20 : 1 | 2.5 : 1 | How firmly: 2 : 1 is gentle, 8 : 1 holds it right down. |
+| **Make-Up** | −24 to +24 dB | 0 dB | Turns the band back up (or down) after compressing. |
+
+And the bands share:
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Low Crossover** | 40 Hz – 2 kHz | 200 Hz | Where the low band ends and the mid band starts. |
+| **High Crossover** | 500 Hz – 16 kHz | 3 kHz | Where the mid band ends and the high band starts (always at least an octave above the low one). |
+| **Attack** | 0.5 – 200 ms | 10 ms | How quickly a band is turned down when it gets loud. |
+| **Release** | 10 ms – 2 s | 150 ms | How quickly it comes back up. |
+| **Output** | −24 to +24 dB | 0 dB | The level out. |
+
+The two sides are compressed together, so the stereo image doesn't shift. **Factory presets:** **Gentle Glue**, **Tame the Lows**, **Smooth Vocal**, **Drum Bus Punch** and **Mastering Polish**.
 
 ### Noise Gate
 
@@ -282,6 +317,63 @@ If a file can't be used, a message in orange says why.
 
 Like the Maximizer, the Convolution Reverb delays its sound slightly, and Ongaku Studio compensates for it automatically.
 
+### Chorus, Flanger, Phaser and Tremolo
+
+The four **Modulation** effects all move something with a slow wave. Each window draws one cycle of it, with a white dot for each side showing where the wave is right now (an **L** and, when the sides are set apart, an **R**), and says underneath what the wave is sweeping. Drag **Rate** and watch the dots speed up.
+
+**Chorus** thickens a part: each side gets two copies, a little behind the original, whose delays sweep slowly so their pitch wavers like a section of players. Good on clean guitars, electric piano and pads.
+
+![The Chorus: the line shows the delay sweeping, and where each side has got to](images/chorus.png)
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Rate** | 0.05 – 5 Hz | 0.6 Hz | How fast the pitch wavers. |
+| **Depth** | 0 – 100 % | 50 % | How far it wavers: a little thickens, a lot sounds seasick. |
+| **Delay** | 5 – 30 ms | 14 ms | How far behind the copies are. |
+| **Width** | 0 – 100 % | 80 % | How differently the two sides waver, for a wider sound. |
+| **Mix** | 0 – 100 % | 50 % | How much chorus against the original, keeping the level steady. At 100 % it's vibrato. |
+
+**Factory presets:** **Classic Chorus**, **Shimmer**, **Slow and Wide**, **Thickener** and **Vibrato**.
+
+**Flanger** sweeps a delay of only a few milliseconds up and down and feeds it back, which drags a comb of notches through the sound: the jet-plane whoosh.
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Rate** | 0.02 – 5 Hz | 0.25 Hz | How fast it sweeps. |
+| **Depth** | 0 – 100 % | 70 % | How far it sweeps. |
+| **Delay** | 0.3 – 10 ms | 1.5 ms | Where the sweep starts: shorter is higher and more metallic. |
+| **Feedback** | −95 to +95 % | 55 % | How much it rings. Below zero sounds hollow. |
+| **Width** | 0 – 100 % | 50 % | How far apart the two sides' sweeps are. |
+| **Mix** | 0 – 100 % | 100 % | How much flanging. Full mix gives the deepest notches. |
+
+**Factory presets:** **Jet**, **Gentle Sweep**, **Metallic**, **Hollow** and **Through Zero**.
+
+**Phaser** passes the sound through a chain of filters whose frequency sweeps, and mixes it with the original, so notches move up and down: the swirl of a 70s phaser pedal.
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Rate** | 0.02 – 8 Hz | 0.4 Hz | How fast the notches sweep. |
+| **Depth** | 0 – 100 % | 70 % | How far either side of the centre they go (up to two octaves). |
+| **Centre** | 100 Hz – 6 kHz | 800 Hz | The middle of the sweep. |
+| **Feedback** | −95 to +95 % | 40 % | How sharp and resonant the notches are. |
+| **Width** | 0 – 100 % | 50 % | How far apart the two sides' sweeps are. |
+| **Mix** | 0 – 100 % | 100 % | How much of the phased sound. |
+| **Stages** | 2, 4, 6, 8, 12 | 4 | How many filters: more stages, more notches and a stronger effect. |
+
+**Factory presets:** **Classic Phase**, **Slow Swirl**, **Funky Four**, **Deep Twelve** and **Subtle**.
+
+**Tremolo** makes the level rise and fall, like an amp's tremolo. Set the two sides 180° apart and it becomes an **auto-pan**: the sound moves from side to side, and the **L** and **R** bars beside the wave show it.
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Sync to Tempo** | on/off | off | On, one cycle lasts a note value at the song's tempo (the Delay's notes, 1/32 to 1/2). |
+| **Rate** or **Note** | 0.1 – 20 Hz, or 1/32 – 1/2 | 5 Hz | How fast it goes. |
+| **Depth** | 0 – 100 % | 50 % | How far the level falls: 100 % goes all the way to silence. |
+| **Shape** | Sine, Triangle, Square | Sine | Smooth, steady, or chopping the sound on and off. |
+| **Stereo** | 0 – 180° | 0° | How far apart the sides are. |
+
+**Factory presets:** **Amp Tremolo**, **Auto-Pan**, **Eighth-Note Chop** (synced, square, the full depth), **Slow Throb** and **Wide Shimmer**.
+
 ### Saturation
 
 **What it is.** Gentle distortion that adds warmth and harmonics, like recording through tape, a valve (tube) amp or a transistor circuit pushed hard. The level stays about the same as you turn up **Drive**, so you hear the colour rather than just "louder". The picture shows the curve for the type and drive.
@@ -313,6 +405,34 @@ Like the Maximizer, the Convolution Reverb delays its sound slightly, and Ongaku
 | **Mix** | 0 – 100 % | 60 % | How loud the copies are against the original. |
 
 **Factory presets:** **Natural Double** (the defaults), **Wide Guitars**, **Tight ADT**, **Chorused** and **Subtle**.
+
+### Gain
+
+**What it is.** Logic's Gain utility: the level, and the tools for fixing a stereo signal. The picture shows the stereo image: how wide it is, which way it leans, and whether the sides have been swapped.
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Gain** | −48 to +24 dB | 0 dB | Turns the sound up or down, before anything after it on the strip. |
+| **Ø Left** / **Ø Right** | on/off | off | Flips one side's polarity (its waveform upside down), to fix a microphone out of phase with another. |
+| **Swap L/R** | on/off | off | Left and right change places. |
+| **Mono** | on/off | off | Both sides the same: put it on Stereo Out to check the mix still works on one speaker. |
+| **Width** | 0 – 200 % | 100 % | Narrower to the left (0 % is mono), wider to the right. |
+| **Balance** | −100 to +100 | 0 | Turns one side down, to lean the sound left or right. |
+
+**Factory presets:** **Unity**, **Mono Check**, **Swap Sides**, **Flip Polarity** and **Extra Wide**.
+
+### Tuner
+
+**What it is.** A tuner for guitars, basses, voices and anything else that plays one note at a time. Put it first on an audio track with the instrument's input monitored, play a single note, and the window shows the note (middle C is C3, as in the Piano Roll), a needle showing how many cents sharp or flat it is, and its frequency. The note turns green when it's within 3 cents.
+
+![The Tuner hearing an A a little sharp](images/tuner.png)
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Reference** | 430 – 450 Hz | 440 Hz | The pitch of the A above middle C. |
+| **Mute While Tuning** | on/off | off | Silences what comes out, so you can tune without being heard. |
+
+It hears notes from about 40 Hz (a bass's low E an octave down) to 1.5 kHz. Chords, or a note with a lot of noise, read as no note. Other hosts can also read what it hears from its **Frequency** parameter.
 
 ### Vocal Strip
 
@@ -417,7 +537,7 @@ The result is one step called **Analyze Whole Song**, which **Edit › Undo** ta
 
 ## Instruments
 
-Ongaku's instruments go in a software instrument track's instrument slot. Each has a keyboard or pads in its window so you can hear it without a MIDI keyboard, and a hint line along the bottom. Double-click or Option-click any knob to reset it. Choose patches, kits and presets from the header's preset menu.
+Ongaku's instruments go in a software instrument track's instrument slot. Each has a keyboard or pads in its window so you can hear it without a MIDI keyboard, and a hint line along the bottom. Option-click any knob to reset it; in the Retro Synth, Drum Machine and Sampler, double-clicking a knob resets it too. Choose patches, kits and presets from the header's preset menu.
 
 > Note: The plug-in windows name notes the way Ongaku Studio's Piano Roll and Logic do: middle C (MIDI note 60) is **C3**.
 
@@ -534,16 +654,16 @@ In the automation menu, pad settings are named after the pad, for example **Snar
 
 ### Sampler
 
-**What it is.** Plays any sound you give it from the keyboard: a single note of a real instrument, a vocal phrase, a drum hit, a sound effect. Higher keys play it faster and higher, lower keys slower and lower, unless you fix the pitch. It has a filter, envelopes and an LFO for shaping the sound, much like the Retro Synth.
+**What it is.** Plays any sound you give it from the keyboard: a single note of a real instrument, a vocal phrase, a drum hit, a sound effect. Higher keys play it faster and higher, lower keys slower and lower, unless you fix the pitch. Give it several sounds and it maps them across the keyboard as **zones**, like Logic's Sampler: the notes of a real instrument, soft and hard versions of each note, or a kit of drums. It has a filter, envelopes and an LFO for shaping the sound, much like the Retro Synth.
 
 **Loading a sample.**
 
-1. Click **Load Sample…** and choose an audio file, or drag a file onto the waveform area (it says **Drag an audio file here** when empty).
+1. Click **Load Sample…** and choose an audio file, or drag a file onto the waveform area (it says **Drag an audio file here** when empty). Choosing or dragging several files at once lays them out as zones (see [Zones](#zones) below).
 2. The section title shows the sample's name, length and whether it's mono or stereo.
 3. The start and end markers go back to the ends of the sample, and if the sound has a clear pitch, the **Root Note** is set to it for you.
 4. Play it from the keyboard at the bottom. The dot on the keyboard marks the root note, where the sample plays at its own pitch.
 
-The sample is saved inside your song (and inside the plug-in's settings in other apps too), so you don't need to keep the original file.
+The sample is saved inside your song (and inside the plug-in's settings in other apps too), so you don't need to keep the original file. The same goes for every zone's sample.
 
 > Important: The Sampler keeps the **first 60 seconds** of a file, and its first two channels. When a file is cut to fit, an orange note on the waveform says so: "Only the first 60 s is used.", "Only the first two of its 6 channels are used.", or both. Trim long files first if you need a particular part.
 
@@ -559,7 +679,7 @@ The sample is saved inside your song (and inside the plug-in's settings in other
 | **X-Fade** (Loop X-Fade) | 0 – 500 ms | 20 ms | Blends the loop's end into its start so the jump is smooth. |
 | Sample Start / End (S, E) | 0 – 100 % | 0 % / 100 % | Where the sample starts and ends. |
 | Loop Start / End | 0 – 100 % | 25 % / 90 % | The part that repeats. |
-| **Root Note** | C−2 – G8 | C3 (MIDI 60) | The key that plays the sample at its own pitch. |
+| **Root Note** | C−2 – G8 | C3 (MIDI 60) | The key that plays the sample at its own pitch, for zones that don't set their own. |
 | **Transpose** | −24 to +24 semitones | 0 | Shifts the whole sample up or down. |
 | **Fine** (Fine Tune) | −100 to +100 cents | 0 | Tunes the sample finely. |
 | **Follow Keys** (FIXED / KEYS) | Fixed, Keys | Keys | Fixed plays every key at the sample's own pitch, for drums and sound effects. |
@@ -577,13 +697,109 @@ The sample is saved inside your song (and inside the plug-in's settings in other
 | **Wah** (LFO Wah (to Filter)) | 0 – 100 % | 0 % | Moves the filter cutoff. |
 | **Tremolo** | 0 – 100 % | 0 % | Wobbles the volume. |
 
+#### Zones
+
+A zone is one sample and where it plays: a range of keys, a range of velocities (how hard you play), the key that plays it at its own pitch (its **root**), and its own tuning, level and pan. A single sample is one zone over the whole keyboard. Where zones overlap, they all play together, so you can layer sounds.
+
+Click **ZONES** at the top right of the sample section to see them. The map shows the keys from left to right, with a keyboard along the bottom, and velocity from soft (bottom) to hard (top). Each zone is a coloured box, and a small triangle on the keyboard marks its root. **WAVEFORM** goes back to the selected zone's sample, with its markers. When there are several zones, the section title says which one it is ("Zone 3 of 8").
+
+![The Sampler's zones: notes of an instrument, two of them with soft and hard layers](images/sampler-zones.png)
+
+**Laying out several sounds.** When you load several files at once (with **Load Sample…** or by dragging them onto the waveform), the Sampler finds the note each one plays:
+- By its pitch, as for a single sample.
+- If it hasn't a clear pitch, by a note name in its file name ("Piano C3", "Bass_F#1_mf"). Middle C is C3, as in the Piano Roll.
+
+Then it lays them out:
+- Each pitched sound plays from its root to halfway to the next one, with the lowest down to the bottom of the keyboard and the highest to the top.
+- Sounds on the same note share it as **velocity layers**: the quietest plays when you play softly, the loudest when you play hard.
+- Sounds without a note (drums, effects) get a key each, from C1 up, and play at their own pitch there.
+
+**Editing zones.**
+- Click a zone to select it.
+- Drag it to move it (its root moves with it).
+- Drag its left or right edge to change its lowest or highest key, and its top or bottom edge to change its velocities.
+- Use the arrows in the panel on the right to change a zone's settings one step at a time.
+- **Add Samples…**, or dragging files onto the map, adds them as new zones. Each one takes the keys around its note that no zone plays yet, so it doesn't land on top of what's there.
+- **Auto Map** lays out every zone again from its root, as for several new files.
+- **Replace Sample…** plays another file in the selected zone, keeping where it plays. **Remove** removes the zone.
+
+Zone changes can be undone with the header's arrows, and A/B compares them along with the knobs.
+
+| Setting | Range | Default | What it does |
+|---|---|---|---|
+| **Keys** | C−2 – G8 | The whole keyboard | The lowest and highest keys the zone plays. |
+| **Velocity** | 1 – 127 | 1 – 127 | How hard a key must be played for the zone to sound. |
+| **Root** | C−2 – G8 | Follows the **Root Note** knob | The key that plays the sample at its own pitch. "(knob)" means it follows the Root Note knob, as a single sample does; changing it gives the zone its own. Zones made from several files have their own. |
+| **Tune** | −100 to +100 cents | 0 | Tunes this zone, on top of the **Fine** knob. |
+| **Level** | −24 to +12 dB | 0 dB | Balances this zone with the others. |
+| **Pan** | L 100 – R 100 | Centre | Where this zone sits between the speakers. |
+
+Every other control applies to all the zones: the markers, loop and mode, transpose and fine tuning, the filter, envelopes and LFO. The markers are a share of each sample's length, so the same settings suit every zone only when their samples are similar.
+
 **Presets**, chosen from the header's preset menu, set how the sample plays, never the sample itself, its markers or its root note: **Classic**, **One Shot**, **Sustained Loop**, **Soft Pad**, **Pluck**, **Reverse Swell**, **Lo-Fi**, **Mono Lead** and **Fixed Pitch**.
 
 > Tip: For a drum hit or sound effect, choose the **Fixed Pitch** preset. For a sustained instrument note, try **Sustained Loop**, then drag the loop markers to a steady part of the sound and raise **X-Fade** until the loop is smooth.
 
+### Electric Piano
+
+**What it is.** A tine electric piano in the style of the classic 1970s stage and suitcase pianos. Each note is a struck tine: a soft, round tone that gets brighter and barks when you play harder, with a bell-like ping at the start. Notes fade while you hold them (low notes ring longer than high ones) and are damped when you let go, unless the sustain pedal is down. The Suitcase controls add the stereo tremolo that pans the sound between the speakers, and an amp that growls on the loud notes.
+
+**Getting started.** Choose a preset from the header's preset menu: **Classic Tines** (the default), **Bright Bark**, **Mellow Ballad**, **Suitcase Tremolo** or **Driven**. Play the keyboard at the bottom with your mouse. It covers five octaves from C1.
+
+![The Electric Piano](images/electric-piano.png)
+
+| Control | Range | Default | What it does |
+|---|---|---|---|
+| **Tone** | 0 – 100 % | 50 % | How bright the tines are. Higher is more bite; lower is round and mellow. |
+| **Bell** | 0 – 100 % | 35 % | The bell-like ping at the start of a hard note. |
+| **Decay** | 25 – 400 % | 100 % | How long notes ring while you hold them. |
+| **Velocity** | 0 – 100 % | 70 % | How much playing harder makes notes louder and brighter. |
+| **Trem Rate** (Tremolo Rate) | 0.5 – 12 Hz | 4.5 Hz | How fast the tremolo pans between the speakers. |
+| **Trem Depth** (Tremolo Depth) | 0 – 100 % | 0 % | How far it pans. At 0 % the tremolo is off. |
+| **Drive** | 0 – 100 % | 10 % | Pushes the amp, for growl on the loud notes. |
+| **Volume** | −24 to +12 dB | 0 dB | The level out. |
+
+### Organ
+
+**What it is.** A tonewheel organ in the style of the Hammond B3, with its rotary speaker. Nine drawbars mix the organ's pitches; percussion, key click, the scanner vibrato and chorus, and a drive add the rest of the sound. Notes sound at full level as soon as you press a key and stop as soon as you let go, as on the real thing.
+
+**Getting started.** Choose a registration from the header's preset menu: **Jazz Trio** (the default), **Full Gospel**, **Rock Drive**, **Soft Ballad** or **Church Hymn**. Each sets every control. Play the keyboard at the bottom with your mouse. It covers five octaves from C1.
+
+![The Organ with the Jazz Trio registration](images/organ.png)
+
+**Drawbars.** Drag a drawbar down to pull it out and up to push it in. Each one goes from 0 (in, silent) to 8 (all the way out, loudest), and the number above it shows how far out it is. Organists write a registration as the nine numbers from left to right: Jazz Trio is 888000000. From the left, the drawbars are:
+
+| Drawbar | Colour | Pitch |
+|---|---|---|
+| **16′** | Brown | An octave below the note |
+| **5⅓′** | Brown | A fifth above the note |
+| **8′** | White | The note itself |
+| **4′** | White | An octave above |
+| **2⅔′** | Black | An octave and a fifth above |
+| **2′** | White | Two octaves above |
+| **1⅗′** | Black | Two octaves and a major third above |
+| **1⅓′** | Black | Two octaves and a fifth above |
+| **1′** | White | Three octaves above |
+
+**Rotary speaker.** The spinning horn in the window turns at the speaker's speed. **Slow** (chorale) swirls gently; **Fast** (tremolo) throbs. Switching between them speeds up or slows down gradually, as a real speaker does. With **Slow** chosen, pushing the mod wheel past halfway switches it to fast, so you can change speed while you play.
+
+| Control | Range | Default | What it does |
+|---|---|---|---|
+| Drawbars (Drawbar 16′ … Drawbar 1′) | 0 – 8 | 8, 8, 8, then 0 | How much of each pitch is in the sound. |
+| **Percussion** | On, Off | On | A quick ping on the 2nd or 3rd harmonic when you strike a key with no other key held. Play legato and it stays quiet, as on a B3. |
+| **2nd** / **3rd** (Percussion Harmonic) | Second, Third | Third | Which harmonic the percussion plays. |
+| **Fast** / **Slow** (Percussion Decay) | Fast, Slow | Fast | How quickly the percussion dies away. |
+| **Vibrato** | Off, V1 – V3, C1 – C3 | C3 | The scanner. V1 to V3 wobble the pitch, more each step; C1 to C3 mix that with the steady sound for chorus. |
+| **Rotary** | Off, Slow, Fast | Slow | The rotary speaker's speed. Off plays the organ straight. |
+| **Key Click** | 0 – 100 % | 40 % | The click of the key contacts closing. |
+| **Drive** | 0 – 100 % | 15 % | Pushes the preamp, from warm to a full rock growl. |
+| **Volume** | −24 to +12 dB | 0 dB | The level out. |
+
+> Tip: For a classic rock organ, choose **Rock Drive**, then switch **Rotary** between Slow and Fast (or use the mod wheel) at the ends of phrases.
+
 ### Session Drummer
 
-**What it is.** The plug-in version of Ongaku Studio's Drummer (see [Chapter 5](05-session-players.md)). It plays a drum part that follows the host app's tempo and position, section by section. Other apps don't tell plug-ins about their song sections, so the Session Drummer keeps its own list, laid out from bar 1 of the host's timeline. It's mainly for using Ongaku's drummer in other apps; inside Ongaku Studio, a Drummer track does the same job with your real arrangement markers.
+**What it is.** The plug-in version of Ongaku Studio's Drummer (see [Chapter 5](05-session-players.md)). It plays a drum part that follows the host app's tempo and position, section by section. Other apps don't tell plug-ins about their song sections, so the Session Drummer keeps its own list, laid out from bar 1 of the host's timeline. It's mainly for using Ongaku's drummer in other apps. It works inside Ongaku Studio too, playing along when you press play, but there a Drummer track does the same job with your real arrangement markers.
 
 A new Session Drummer starts with a Rock **Verse** and **Chorus** of 8 bars each, repeating.
 
@@ -632,13 +848,24 @@ A MIDI effect changes **notes**, not sound. It sits before the instrument on a s
 ### Adding and editing MIDI FX
 
 1. Open the Mixer (**X**) or Inspector (**I**) and find the software instrument track's strip.
-2. Click **+** under **MIDI FX** and choose an effect: **Arpeggiator**, **Chord Trigger**, **Note Repeater**, **Randomizer**, **Scale Quantize**, **Transposer** or **Velocity Processor**.
+2. Click **+** under **MIDI FX** and choose an effect from the **Ongaku** section: **Arpeggiator**, **Chord Trigger**, **Note Repeater**, **Randomizer**, **Scale Quantize**, **Transposer** or **Velocity Processor**.
 3. Click the effect's slot to open its editor, a small popover with a one-line description, an **On** switch and its settings. Changes are heard straight away, and each one can be undone with ⌘Z (a slider's change counts when you let go).
 4. Click and **hold** the slot, or **Control-click** it, for its menu: **Edit *name*…**, **Bypass**, **Move Up**, **Move Down** and **Remove**. A bypassed effect is dimmed.
 
 ![The Arpeggiator's editor, opened from its MIDI FX slot](images/arpeggiator.png)
 
 Note values used below: **1/4** is a quarter note, **1/8** an eighth, and so on; a **T** after one means a triplet (**1/8T** is an eighth-note triplet).
+
+### MIDI effect plug-ins
+
+Other makers' MIDI effects (arpeggiators, chord generators, step sequencers and so on, as Audio Units) go in the same slots:
+
+1. Click **+** under **MIDI FX** and open **Audio Units**. Effects are listed in a submenu for each maker. If you have none, it says **No Audio Unit MIDI effects are installed**.
+2. Choose one. Click its slot to open the plug-in's own window; hold or Control-click the slot for **Bypass**, **Move Up**, **Move Down** and **Remove**. Its window has a **Presets** menu ([Chapter 7](07-mixing-and-automation.md#presets-for-apples-and-other-makers-plug-ins)).
+
+They play in time with the song and know its tempo and position, so arpeggios and patterns stay on the grid, live and in bounces. They're saved with the song like any plug-in.
+
+**Ongaku's MIDI FX always come first.** Ongaku's own MIDI FX change the notes before they're sent, and plug-ins change them as they're played, so plug-ins are always below Ongaku's effects in the slots. **Move Up** and **Move Down** keep each kind in its own group.
 
 ### Arpeggiator
 
@@ -716,10 +943,11 @@ Makes notes louder or softer, keeps them within a range, or fixes them all at on
 
 ## Limitations
 
+- **The Sampler's markers and loop apply to every zone** as a share of each sample's length; zones can't have markers of their own.
 - **The Sampler keeps only the first 60 seconds** (and the first two channels) of a file, and the Convolution Reverb the first 8 seconds (and two channels) of an impulse response. Each says so when it cuts a file short.
 - **Channel EQ, Compressor and Delay have no factory presets.** Save your own with the header's save button.
 - **Plug-in undo and A/B are per window.** They're cleared when the window closes; after that, use **Edit › Undo** in the main window.
-- **Plug-in settings show in their own units in the automation strip only while the plug-in is loaded** (see [Chapter 7](07-mixing-and-automation.md)); otherwise they show as a percentage of their range. Instrument settings can't be automated in Ongaku Studio.
+- **Plug-in settings show in their own units in the automation strip only while the plug-in is loaded** (see [Chapter 7](07-mixing-and-automation.md)); otherwise they show as a percentage of their range.
 - **MIDI FX only work inside Ongaku Studio**, on software instrument tracks.
 - **The Delay assumes 120 BPM** until the app hosting it has told it the song's tempo. If the tempo readout at the top right doesn't match your song, synced echoes won't either.
 - **There's no way to turn MIDI FX output into ordinary notes.** The effects always play live from your original notes.
@@ -733,12 +961,15 @@ Makes notes louder or softer, keeps them within a range, or fixes them all at on
 | Open a plug-in window | Click the insert slot; instrument › **Show Instrument Window…** |
 | Turn a knob | Drag up or down |
 | Type a value (effects) | Double-click the value, type, press Return |
-| Reset a knob or value | Option-click it (instruments: double-click works too) |
+| Reset a knob or value | Option-click it (Retro Synth, Drum Machine and Sampler: double-click works too) |
+| Set an Organ drawbar | Drag it down to pull it out, up to push it in |
 | Choose a preset, patch, kit or room | Header preset menu, or the **<** **>** arrows |
 | Save, rename or delete your preset | Header save button; preset menu › **Rename** / **Delete** |
 | Compare two settings | **A** / **B** in the header; **⋯** › **Copy A to B** |
 | Undo or redo in a plug-in window | Header arrows, or ⌘Z / ⇧⌘Z |
 | Load a sample | Sampler › **Load Sample…**, or drag a file onto the waveform |
+| Map several samples across the keys | Sampler › **Load Sample…** and choose several, or drag several onto the waveform |
+| Edit the Sampler's zones | Sampler › **ZONES**; drag a zone or its edges |
 | Load an impulse response | Convolution Reverb › **Load Impulse Response…**, or drag a file onto the picture |
 | Take the Session Drummer's part as MIDI | Drag **Drag MIDI** into the tracks, or click the export button |
 | Add a MIDI effect | Channel strip › **+** under **MIDI FX** |

@@ -14,7 +14,8 @@ import Foundation
 /// an aux waits for the latest path into it, so each earlier path gets a delay that makes
 /// up the difference, and the aux's own inserts add to what it passes on. Stereo Out works
 /// the same way; how late it is overall is the total latency, which the playhead, metronome,
-/// recording and bounce allow for.
+/// recording and bounce allow for. Side chains and an instrument's extra outputs are
+/// paths too.
 ///
 /// All values are in samples at the engine's rate. This is pure arithmetic over the
 /// routing, so it can be tested without audio.
@@ -74,7 +75,10 @@ public struct DelayCompensation: Equatable, Sendable {
       defer { visiting.remove(trackID) }
       let value: Int
       if track.kind == .aux {
-        value = (feeders[trackID] ?? []).map(outputLatency).max() ?? 0
+        // An aux playing one of an instrument's extra outputs hears it as late as the
+        // instrument makes it (before that track's inserts).
+        let instrumentOutput = track.channel.instrumentOutput.map { max(0, latencies[$0.trackID]?.source ?? 0) } ?? 0
+        value = max(instrumentOutput, (feeders[trackID] ?? []).map(outputLatency).max() ?? 0)
       } else {
         value = max(0, latencies[trackID]?.source ?? 0)
       }
@@ -98,6 +102,14 @@ public struct DelayCompensation: Equatable, Sendable {
         outputArrival - latency
       for send in track.channel.sends {
         delays[Connection(from: track.id, to: .track(send.destinationTrackID))] = arrivalLatency(of: send.destinationTrackID) - latency
+      }
+      // A side chain is a connection from its source track (before the fader) to the
+      // plug-in, keyed by the plug-in's ID. It's delayed to arrive with the sound reaching
+      // the plug-in's track. (If the source is the later one, the side chain stays late:
+      // the track itself isn't delayed for it.)
+      for insert in track.channel.inserts {
+        guard let source = insert.sidechainSourceID, project.track(withID: source) != nil else { continue }
+        delays[Connection(from: source, to: .track(insert.id))] = arrivalLatency(of: track.id) - outputLatency(of: source)
       }
     }
   }

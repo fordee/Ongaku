@@ -14,7 +14,7 @@ extension AgentToolbox {
   private static let notesSchema = Schema.array(
     [
       "type": ["object", "string"],
-      "description": "A note: {\"pitch\": \"C4\", \"start\": 0, \"length\": 1, \"velocity\": 100}, or the same as a string \"C4 0 1 100\" (pitch, start, length, optional velocity). Start and length are in beats (quarter notes) from the region's start; velocity is 1–127 (100 if left out).",
+      "description": "A note: {\"pitch\": \"E3\", \"start\": 0, \"length\": 1, \"velocity\": 100}, or the same as a string \"E3 0 1 100\" (pitch, start, length, optional velocity). Start and length are in beats (quarter notes) from the region's start; velocity is 1–127 (100 if left out).",
       "properties": [
         "pitch": Schema.pitch,
         "start": Schema.number("Beats from the region's start."),
@@ -206,14 +206,14 @@ extension AgentToolbox {
     }
     if length != region.length {
       guard length > .zero else { throw AgentError.invalidArgument("end", "the region must end after it starts.") }
-      commands.append(TrimRegion(region.id, start: region.start, length: length))
+      commands.append(ResizeRegion(region.id, start: region.start, length: length))
     }
     let start = try arguments.optionalPosition("start", in: project)
     let track = try arguments.optionalTrack("track", in: project)
     if start != nil || track != nil {
       commands.append(MoveRegion(region.id, to: start ?? region.start, track: track?.id))
     }
-    if let name = try arguments.optionalString("name") { commands.append(RenameRegion(regionID: region.id, name: name)) }
+    if let name = try arguments.optionalString("name") { commands.append(RenameRegion(region.id, to: name)) }
     if let mute = try arguments.optionalBool("mute") { commands.append(SetRegionMuted(region.id, isMuted: mute)) }
     if let loopEnd = try arguments.optionalPosition("loopEnd", in: project) {
       commands.append(SetRegionLoop(region.id, to: loopEnd))
@@ -282,7 +282,7 @@ extension AgentToolbox {
       if let text = item.stringValue {
         let parts = text.split(separator: " ").map(String.init)
         guard (3...4).contains(parts.count), let parsedStart = Double(parts[1]), let parsedLength = Double(parts[2]) else {
-          throw AgentError.invalidArgument(label, "“\(text)” should be \"pitch start length [velocity]\", such as \"C4 0 1 100\".")
+          throw AgentError.invalidArgument(label, "“\(text)” should be \"pitch start length [velocity]\", such as \"E3 0 1 100\".")
         }
         pitch = try AgentNotation.pitch(.string(parts[0]), key: label)
         (start, length) = (parsedStart, parsedLength)
@@ -351,20 +351,5 @@ extension AgentToolbox {
 extension Region {
   fileprivate func description(in project: Project) -> [String: AgentValue] {
     AgentDescriptions.region(self, in: project).objectValue ?? [:]
-  }
-}
-
-/// Renames a region.
-struct RenameRegion: EditCommand {
-  var regionID: Region.ID
-  var name: String
-
-  var actionName: String { "Rename Region" }
-
-  func apply(to project: inout Project) throws {
-    let location = try project.requireRegionLocation(regionID)
-    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !trimmed.isEmpty else { throw EditError.invalidValue("A region name can’t be empty.") }
-    project.tracks[location.track].regions[location.region].name = trimmed
   }
 }

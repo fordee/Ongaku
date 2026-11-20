@@ -64,6 +64,10 @@ public final class PlaybackEngine {
 
   @ObservationIgnored let engine = AVAudioEngine()
   @ObservationIgnored private(set) var project: Project
+  /// How far folder stacks and VCAs move each track's fader, in dB (see `Project.mixOffsets`).
+  @ObservationIgnored private var volumeOffsets: [Track.ID: Double] = [:]
+  /// Each track's own fader level, before folder stacks and VCAs move it.
+  @ObservationIgnored private var ownVolumes: [Track.ID: Double] = [:]
   @ObservationIgnored private let locateAudioFile: AudioFileLocator
   /// Every track's mixer path, by track.
   @ObservationIgnored private var mixerChannels: [Track.ID: ChannelNodes] = [:]
@@ -100,12 +104,17 @@ public final class PlaybackEngine {
   @ObservationIgnored private var tickerTask: Task<Void, Never>?
   /// The takes being written while recording.
   @ObservationIgnored var recordingSession: RecordingSession?
+  /// While playing without recording: the MIDI played, for Capture as Recording.
+  @ObservationIgnored var performanceCapture: MIDICapture?
+  /// What was played the last time the song played without recording, on the timeline.
+  @ObservationIgnored var lastPerformance: CapturedPerformance?
   /// Where recorded audio files are written; the app points this at the document's
   /// staging folder.
   @ObservationIgnored public var recordingDirectory: URL?
   /// Called on the main actor with each finished recording, for the app to add to the project.
   @ObservationIgnored public var onRecordingFinished: (@MainActor (RecordingResult) -> Void)?
   @ObservationIgnored private var configurationTask: Task<Void, Never>?
+  @ObservationIgnored private var pluginProcessTask: Task<Void, Never>?
   /// Plug-in delay compensation for the current routing and plug-ins (see `DelayCompensation`).
   @ObservationIgnored private(set) var compensation = DelayCompensation()
 
@@ -129,14 +138,18 @@ public final class PlaybackEngine {
   }
 
   public init(project: Project, locateAudioFile: @escaping AudioFileLocator) {
-    self.project = project.playingFreezeFiles { Self.exists($0, locateAudioFile) }
+    self.project = project.playingFreezeFiles { Self.exists($0, locateAudioFile) }.mixingFoldersAndVCAs()
+    volumeOffsets = project.mixOffsets
+    ownVolumes = Dictionary(uniqueKeysWithValues: project.tracks.map { ($0.id, $0.channel.volume) })
     self.locateAudioFile = locateAudioFile
     isMetronomeEnabled = project.isMetronomeEnabled
 
     if let metronome = Metronome(format: instrumentFormat) {
       engine.attach(metronome.node)
       do {
-        try engine.connectNode(metronome.node, to: engine.mainMixerNode, format: metronome.format)
+        // Straight to the main mixer, after Stereo Out's plug-ins, as Logic's click is.
+        let bus = engine.freeInputBus(on: engine.mainMixerNode, for: metronome.node)
+        try engine.connectNode(metronome.node, to: engine.mainMixerNode, fromBus: 0, toBus: bus, format: metronome.format)
         metronome.volume = 0
         self.metronome = metronome
       } catch {
@@ -154,6 +167,7 @@ public final class PlaybackEngine {
     updateMetronomeVolume()
     meters.meter(stereoOut?.fader ?? engine.mainMixerNode, as: LevelMeters.masterID)
     observeConfigurationChanges()
+    observePluginProcesses()
     startEngineIfNeeded()
   }
 
@@ -201,6 +215,7 @@ public final class PlaybackEngine {
   public func shutDown() {
     stop()
     configurationTask?.cancel()
+    pluginProcessTask?.cancel()
     if !midiInputTrackIDs.isEmpty {
       connectMIDIInput(toTracks: [])
     }
@@ -232,6 +247,7 @@ public final class PlaybackEngine {
     if recordingSession != nil {
       finishRecording()
     }
+    endPerformanceCapture()
     session = nil
     for source in audioSources.values {
       source.end()
@@ -245,6 +261,8 @@ public final class PlaybackEngine {
     }
     metronome?.end()
     isPlaying = false
+    musicalContext.setTransport(isPlaying: false, in: project.tempoMap)
+    musicalContext.update(at: playheadPosition, in: project.tempoMap)
     updateMetronomeVolume()
   }
 
@@ -259,6 +277,7 @@ public final class PlaybackEngine {
       startPlayback(from: clamped)
     } else {
       playheadPosition = clamped
+      musicalContext.update(at: clamped, in: project.tempoMap)
       applyAutomation(at: clamped)
     }
   }
@@ -273,9 +292,12 @@ public final class PlaybackEngine {
 
   /// Applies an edited project. Mixer changes take effect immediately; arrangement changes
   /// during playback restart playback from the current position so the change is heard.
-  /// Frozen tracks play their freeze files (see `Project.playingFreezeFiles`).
+  /// Frozen tracks play their freeze files (see `Project.playingFreezeFiles`), and folder
+  /// stacks and VCAs move their faders (`Project.mixingFoldersAndVCAs`).
   public func update(project edited: Project) {
-    let newProject = edited.playingFreezeFiles { Self.exists($0, locateAudioFile) }
+    let newProject = edited.playingFreezeFiles { Self.exists($0, locateAudioFile) }.mixingFoldersAndVCAs()
+    volumeOffsets = edited.mixOffsets
+    ownVolumes = Dictionary(uniqueKeysWithValues: edited.tracks.map { ($0.id, $0.channel.volume) })
     let arrangementChanged = Arrangement(newProject) != Arrangement(project)
     let automationChanged = newProject.tracks.map(\.automation) != project.tracks.map(\.automation)
       || newProject.tracks.map(\.automationMode) != project.tracks.map(\.automationMode)
@@ -307,7 +329,8 @@ public final class PlaybackEngine {
   private struct Arrangement: Equatable {
     var tracks: [[Region]]
     var trackKinds: [TrackKind]
-    /// MIDI effects change which notes play, so changing them plans playback again.
+    /// MIDI effects change which notes play, so changing them plans playback again. A
+    /// plug-in's own settings don't: it has them already.
     var midiEffects: [[MIDIEffect]]
     var tempoMap: TempoMap
     var cycle: CycleRange
@@ -317,7 +340,13 @@ public final class PlaybackEngine {
     init(_ project: Project) {
       tracks = project.tracks.map(\.regions)
       trackKinds = project.tracks.map(\.kind)
-      midiEffects = project.tracks.map(\.channel.midiEffects)
+      midiEffects = project.tracks.map { track in
+        track.channel.midiEffects.map { effect in
+          var effect = effect
+          effect.plugin?.state = nil
+          return effect
+        }
+      }
       tempoMap = project.tempoMap
       cycle = project.cycle
       endPosition = project.endPosition
@@ -357,7 +386,7 @@ public final class PlaybackEngine {
           track.channel, isAudible: project.isTrackAudible(track.id),
           automated: Set(track.automatedParameters.filter(track.isAutomated)))
         let trackName = track.name
-        channel.setInserts(track.channel.inserts) { [weak self] plugin, error in
+        channel.setInserts(track.channel.inserts.filter { !stoppedPluginIDs.contains($0.id) }) { [weak self] plugin, error in
           self?.lastError = "“\(plugin.name)” on “\(trackName)” couldn’t be loaded: \(error.localizedDescription)"
         } onInstalled: { [weak self] in
           // The plug-in's latency is known now.
@@ -370,14 +399,20 @@ public final class PlaybackEngine {
       }
     }
 
-    stereoOut?.setInserts(project.stereoOutInserts) { [weak self] plugin, error in
+    stereoOut?.setInserts(project.stereoOutInserts.filter { !stoppedPluginIDs.contains($0.id) }) { [weak self] plugin, error in
       self?.lastError = "“\(plugin.name)” on Stereo Out couldn’t be loaded: \(error.localizedDescription)"
     } onInstalled: { [weak self] in
       self?.latencyMayHaveChanged()
       self?.initializeNewNodes()
     }
 
-    musicalContext.update(at: playheadPosition, in: project.tempoMap)
+    musicalContext.setSampleRate(instrumentFormat.sampleRate)
+    if let session {
+      updateMusicalContext(session, now: mach_absolute_time())
+    } else {
+      musicalContext.update(at: playheadPosition, in: project.tempoMap)
+    }
+    connectInstrumentOutputs()
     let latencyChanged = applyRouting()
     masterFader.outputVolume = Float(project.masterLinearGain)
     if !isPlaying {
@@ -454,12 +489,17 @@ public final class PlaybackEngine {
     let changed = plan.mixLatency != compensation.mixLatency
     compensation = plan
 
-    let auxInputs = mixerChannels.filter { id, _ in project.track(withID: id)?.kind == .aux }.mapValues(\.input)
+    var auxInputs = mixerChannels.filter { id, _ in project.track(withID: id)?.kind == .aux }.mapValues(\.input)
+    // Side chain inputs are fed like auxes.
+    for channel in Array(mixerChannels.values) + [stereoOut].compactMap(\.self) {
+      auxInputs.merge(channel.sidechainInputs) { aux, _ in aux }
+    }
     for track in project.tracks {
       guard let channel = mixerChannels[track.id] else { continue }
       do {
         let routing = ChannelNodes.Routing(
-          sends: track.channel.sends, output: track.channel.output, automatedSends: track.automatedSends)
+          sends: track.channel.sends, output: track.channel.output, automatedSends: track.automatedSends,
+          sidechains: project.sidechains(from: track.id).filter { auxInputs[$0] != nil })
         try channel.applyRouting(routing.compensated(by: plan, for: track.id), auxInputs: auxInputs)
         // Send and plug-in automation needs its nodes' timelines before playback starts.
         channel.prepareAutomation(for: Set(track.automatedParameters.filter(track.isAutomated)))
@@ -538,14 +578,34 @@ public final class PlaybackEngine {
         }
       }
     case .softwareInstrument:
-      let instrument = instruments[track.id] ?? InstrumentChannel(engine: engine, destination: channel.input)
+      let instrument =
+        instruments[track.id] ?? InstrumentChannel(engine: engine, destination: channel.input, musicalContext: musicalContext)
       instruments[track.id] = instrument
-      let wanted = track.channel.instrument
+      channel.sourcePlugin = { [weak instrument] in instrument?.pluginNode($0) }
+      var wanted = track.channel.instrument
+      if case .audioUnit(let plugin) = wanted, stoppedPluginIDs.contains(plugin.id) { wanted = nil }
       // Reload when the instrument changed, or when it's missing and not already loading
       // (an Audio Unit has no node until it finishes loading).
       let isMissing = instrument.instrument == nil && wanted != nil && instrumentLoads[track.id] == nil
       if !InstrumentChannel.isSameInstrument(instrument.source, wanted) || isMissing {
         loadInstrument(wanted, into: instrument, for: track)
+      }
+      // Changes made now are heard when `update(project:)` plans playback again (the
+      // MIDI effects are part of the arrangement); a plug-in that loads later restarts it.
+      let trackName = track.name
+      instrument.setMIDIEffects(
+        track.channel.midiEffects.pluginChain.filter { !stoppedPluginIDs.contains($0.id) }, format: instrumentFormat,
+        maximumFrames: Self.maximumFramesToRender
+      ) { [weak self] plugin, error in
+        self?.lastError = "“\(plugin.name)” on “\(trackName)” couldn’t be loaded: \(error.localizedDescription)"
+      } onInstalled: { [weak self] in
+        guard let self else { return }
+        self.refreshMIDIInput()
+        self.initializeNewNodes()
+        // Notes already queued were dropped.
+        if self.isPlaying, !self.isRecording {
+          self.startPlayback(from: self.playheadPosition)
+        }
       }
     case .aux:
       break
@@ -558,7 +618,25 @@ public final class PlaybackEngine {
   /// is committed with an edit command.
   public func setLiveVolume(_ decibels: Double, forTrack trackID: Track.ID) {
     guard project.isTrackAudible(trackID) else { return }
-    mixerChannels[trackID]?.setLiveVolume(decibels)
+    mixerChannels[trackID]?.setLiveVolume(Self.moved(decibels, by: volumeOffsets[trackID] ?? 0))
+  }
+
+  /// While a VCA or folder stack fader is dragged: each track's fader as moved by `offsets`
+  /// (every track it moves, including by its other VCA or folder). Tracks with volume
+  /// automation follow once the move is committed.
+  public func setLiveVolumeOffsets(_ offsets: [Track.ID: Double]) {
+    for (trackID, offset) in offsets {
+      guard let track = project.track(withID: trackID), !track.isAutomated(.volume), project.isTrackAudible(trackID),
+        let own = ownVolumes[trackID]
+      else { continue }
+      mixerChannels[trackID]?.setLiveVolume(Self.moved(own, by: offset))
+    }
+  }
+
+  /// A fader level moved by an offset, as `Project.mixingFoldersAndVCAs` moves it.
+  private static func moved(_ decibels: Double, by offset: Double) -> Double {
+    let range = ChannelStrip.volumeRange
+    return decibels <= range.lowerBound ? decibels : min(max(decibels + offset, range.lowerBound), range.upperBound)
   }
 
   /// Moves a control by hand: an automated one is set directly (and should be overriding
@@ -603,10 +681,18 @@ public final class PlaybackEngine {
     channel(for: trackID)?.withInsertAudioUnit(pluginID, body)
   }
 
-  /// The parameters of an insert that automation can drive, with where each is now (0…1),
+  /// Scoped access to any plug-in on a channel strip: an insert, a MIDI effect plug-in or
+  /// the instrument (see `ChannelStrip.plugins`).
+  public func withPluginAudioUnit<Result>(
+    _ pluginID: PluginReference.ID, onTrack trackID: Track.ID, _ body: (borrowing AUAudioUnit) -> Result
+  ) -> Result? {
+    channel(for: trackID)?.withPluginAudioUnit(pluginID, body)
+  }
+
+  /// The parameters of a plug-in that automation can drive, with where each is now (0…1),
   /// for the automation lane's menu.
-  public func automatableParameters(ofInsert pluginID: PluginReference.ID, onTrack trackID: Track.ID) -> [PluginParameter] {
-    withInsertAudioUnit(pluginID, onTrack: trackID) { unit in
+  public func automatableParameters(ofPlugin pluginID: PluginReference.ID, onTrack trackID: Track.ID) -> [PluginParameter] {
+    withPluginAudioUnit(pluginID, onTrack: trackID) { unit in
       (unit.parameterTree?.allParameters ?? []).compactMap { parameter -> PluginParameter? in
         guard parameter.flags.contains(.flag_IsWritable), parameter.maxValue > parameter.minValue else { return nil }
         let fraction = Double((parameter.value - parameter.minValue) / (parameter.maxValue - parameter.minValue))
@@ -615,16 +701,40 @@ public final class PlaybackEngine {
     } ?? []
   }
 
-  /// How one of an insert's parameters reads, for showing its automation in real units;
+  /// Where one of a plug-in's parameters is now, from 0 to 1 across its range (for Smart
+  /// Controls); `nil` while the plug-in isn't loaded.
+  public func currentValue(of parameter: PluginParameter, onTrack trackID: Track.ID) -> Double? {
+    withPluginAudioUnit(parameter.pluginID, onTrack: trackID) { unit in
+      unit.parameterTree?.parameter(withAddress: parameter.address).map { value -> Double in
+        guard value.maxValue > value.minValue else { return 0 }
+        return Double((value.value - value.minValue) / (value.maxValue - value.minValue))
+      }
+    } ?? nil
+  }
+
+  /// How one of a plug-in's parameters reads, for showing its automation in real units;
   /// `nil` while the plug-in isn't loaded.
   public func valueFormat(of parameter: PluginParameter, onTrack trackID: Track.ID) -> PluginValueFormat? {
-    withInsertAudioUnit(parameter.pluginID, onTrack: trackID) { unit in
+    withPluginAudioUnit(parameter.pluginID, onTrack: trackID) { unit in
       unit.parameterTree?.parameter(withAddress: parameter.address).map(PluginValueFormat.init)
     } ?? nil
   }
 
+  /// Whether a loaded insert has a side chain input (a second input bus).
+  public func hasSidechainInput(_ pluginID: PluginReference.ID, onTrack trackID: Track.ID) -> Bool {
+    channel(for: trackID)?.hasSidechainInput(pluginID) ?? false
+  }
+
   public func isLoadingInsert(_ pluginID: PluginReference.ID, onTrack trackID: Track.ID) -> Bool {
     channel(for: trackID)?.isLoadingInsert(pluginID) ?? false
+  }
+
+  /// Any plug-in's current settings (an insert, a MIDI effect plug-in or the instrument),
+  /// to store after they change.
+  public func pluginState(_ pluginID: PluginReference.ID, onTrack trackID: Track.ID) -> Data? {
+    if let state = insertState(pluginID, onTrack: trackID) ?? midiEffectState(pluginID, onTrack: trackID) { return state }
+    guard case .audioUnit(let instrument) = project.track(withID: trackID)?.channel.instrument, instrument.id == pluginID else { return nil }
+    return instrumentState(forTrack: trackID)
   }
 
   /// An insert's current settings, to store after the person changes them.
@@ -654,6 +764,7 @@ public final class PlaybackEngine {
         guard let self, !Task.isCancelled else { return }
         self.instrumentLoads[trackID] = nil
         self.refreshMIDIInput()
+        self.connectInstrumentOutputs()
         // The instrument's latency is known now.
         _ = self.applyRouting()
         self.initializeNewNodes()
@@ -744,9 +855,14 @@ public final class PlaybackEngine {
 
     self.session = session
     isPlaying = true
+    musicalContext.setTransport(
+      isPlaying: true, isRecording: recording != nil, cycle: plan.cycleRange, in: playedProject.tempoMap)
+    updateMusicalContext(session, now: mach_absolute_time())
     updateMetronomeVolume()
     if let recording {
       beginRecording(recording, startHostTime: startHostTime)
+    } else {
+      beginPerformanceCapture()
     }
 
     tickerTask = Task { [weak self] in
@@ -812,6 +928,8 @@ public final class PlaybackEngine {
   private func rescheduleAutomation() {
     guard var session else { return }
     session.plan = PlaybackPlan(project: plannedProject(isRecording: session.isRecording), startPosition: session.plan.startPosition)
+    musicalContext.setTransport(
+      isPlaying: true, isRecording: session.isRecording, cycle: session.plan.cycleRange, in: project.tempoMap)
     for channel in mixerChannels.values {
       channel.flushAutomation()
     }
@@ -822,6 +940,22 @@ public final class PlaybackEngine {
       scheduleAutomation(&session, in: from..<session.scheduledUntil)
     }
     self.session = session
+  }
+
+  /// Tells plug-ins where the song is. They render ahead of what's heard by the output's
+  /// latency, so that's the position they're given, anchored to now; before a count-in
+  /// ends, the position waits at the start until it's rendered.
+  private func updateMusicalContext(_ session: Session, now: UInt64) {
+    let lead = engine.outputNode.presentationLatency
+    let start = session.startHostTime
+    let rendered =
+      now >= start ? AVAudioTime.seconds(forHostTime: now - start) + lead : lead - AVAudioTime.seconds(forHostTime: start - now)
+    if rendered >= 0 {
+      musicalContext.update(at: session.plan.timelinePosition(atPlaybackTime: rendered), hostTime: now, in: project.tempoMap)
+    } else {
+      let startRendered = start - min(start, AVAudioTime.hostTime(forSeconds: lead))
+      musicalContext.update(at: session.plan.timelinePosition(atPlaybackTime: 0), hostTime: startRendered, in: project.tempoMap)
+    }
   }
 
   /// Advances the playhead and keeps the look-ahead window filled.
@@ -839,7 +973,7 @@ public final class PlaybackEngine {
     }
 
     playheadPosition = session.plan.timelinePosition(atPlaybackTime: heard)
-    musicalContext.update(at: playheadPosition, in: project.tempoMap)
+    updateMusicalContext(session, now: now)
     for source in audioSources.values {
       source.pump()
     }
@@ -874,7 +1008,7 @@ public final class PlaybackEngine {
   /// play its own copy of what's played.
   private func refreshMIDIInput() {
     guard !midiInputTrackIDs.isEmpty else { return }
-    var direct: [AUScheduleMIDIEventBlock] = []
+    var direct: [(schedule: AUScheduleMIDIEventBlock, channel: Int?)] = []
     var live: [Track.ID: LiveMIDIEffects] = [:]
     for trackID in midiInputTrackIDs {
       guard let instrument = instruments[trackID] else { continue }
@@ -887,7 +1021,7 @@ public final class PlaybackEngine {
           live[trackID] = makeLiveEffects(effects, playing: instrument)
         }
       } else if let schedule = instrument.scheduleMIDIEvent {
-        direct.append(schedule)
+        direct.append((schedule, project.track(withID: trackID)?.midiInputChannel))
       }
     }
     // Tracks no longer played, or whose effects were all bypassed.
@@ -908,7 +1042,7 @@ public final class PlaybackEngine {
 
   /// Plays a message from a MIDI keyboard through each played track's MIDI effects.
   private func playLiveEffects(_ bytes: [UInt8], at hostTime: UInt64) {
-    for effects in liveEffects.values {
+    for (trackID, effects) in liveEffects where project.track(withID: trackID)?.acceptsMIDIInput(bytes) ?? true {
       effects.receive(bytes, at: hostTime)
     }
   }
@@ -921,7 +1055,8 @@ public final class PlaybackEngine {
         if let hostTime { instrument?.schedule(bytes, atHostTime: hostTime) } else { instrument?.playNow(bytes) }
       },
       songPosition: { [weak self] hostTime in self?.songPosition(atHostTime: hostTime) },
-      tempo: { musicalContext.currentTempo })
+      tempo: { musicalContext.currentTempo },
+      tempoMap: { [weak self] in self?.project.tempoMap ?? TempoMap() })
   }
 
   private func stopLiveEffects() {
@@ -937,6 +1072,10 @@ public final class PlaybackEngine {
     let elapsed = hostTime > session.startHostTime ? AVAudioTime.seconds(forHostTime: hostTime - session.startHostTime) : 0
     return session.plan.timelinePosition(atPlaybackTime: elapsed)
   }
+
+  /// The most frames the engine asks a node for at once (it renders 4,096 at most; some
+  /// headroom costs only a little memory), for plug-ins it renders itself.
+  static let maximumFramesToRender: AUAudioFrameCount = 8_192
 
   /// Plays a short note, for auditioning notes while editing.
   public func previewNote(pitch: Int, velocity: Int = 100, channel: Int = 0, onTrack trackID: Track.ID) {
@@ -955,6 +1094,22 @@ public final class PlaybackEngine {
     forTrack trackID: Track.ID, _ body: (borrowing AUAudioUnit) -> Result
   ) -> Result? {
     instruments[trackID]?.instrument?.withAUAudioUnit(body)
+  }
+
+  /// Scoped access to a track's MIDI effect plug-in, for its interface.
+  public func withMIDIEffectAudioUnit<Result>(
+    _ pluginID: PluginReference.ID, onTrack trackID: Track.ID, _ body: (borrowing AUAudioUnit) -> Result
+  ) -> Result? {
+    instruments[trackID]?.withMIDIEffectAudioUnit(pluginID, body)
+  }
+
+  /// A MIDI effect plug-in's current settings, to store after the person changes them.
+  public func midiEffectState(_ pluginID: PluginReference.ID, onTrack trackID: Track.ID) -> Data? {
+    instruments[trackID]?.midiEffectState(pluginID)
+  }
+
+  public func isLoadingMIDIEffect(_ pluginID: PluginReference.ID, onTrack trackID: Track.ID) -> Bool {
+    instruments[trackID]?.isLoadingMIDIEffect(pluginID) ?? false
   }
 
   /// An instrument's current settings, to store in the project after the person changes
@@ -990,6 +1145,138 @@ public final class PlaybackEngine {
 
   /// When the output device or its format changes, AVAudioEngine stops itself. Restart
   /// playback where it was so switching headphones doesn't stop the song.
+  // MARK: - Instrument outputs
+
+  /// Each aux track playing an instrument output: the instrument it's connected to, the
+  /// output, and the input bus it arrives on.
+  @ObservationIgnored private var instrumentOutputConnections:
+    [Track.ID: (instrument: ObjectIdentifier, output: InstrumentOutput, bus: AVAudioNodeBus)] = [:]
+
+  /// Connects each aux track that plays an instrument output to that output, once the
+  /// instrument has loaded (and again when it's replaced).
+  private func connectInstrumentOutputs() {
+    for (auxID, connection) in instrumentOutputConnections {
+      let track = project.track(withID: auxID)
+      let unit = track?.channel.instrumentOutput.flatMap { instruments[$0.trackID]?.instrument }
+      guard track?.channel.instrumentOutput != connection.output || unit.map(ObjectIdentifier.init) != connection.instrument
+      else { continue }
+      if let channel = mixerChannels[auxID] {
+        engine.disconnectNodeInput(channel.input, bus: connection.bus)
+      }
+      instrumentOutputConnections[auxID] = nil
+    }
+    for track in project.tracks where track.kind == .aux && instrumentOutputConnections[track.id] == nil {
+      guard let output = track.channel.instrumentOutput, let channel = mixerChannels[track.id],
+        let unit = instruments[output.trackID]?.instrument
+      else { continue }
+      if let bus = Self.connect(output, of: unit, to: channel.input, in: engine, sampleRate: instrumentFormat.sampleRate) {
+        instrumentOutputConnections[track.id] = (ObjectIdentifier(unit), output, bus)
+      }
+    }
+  }
+
+  /// Connects one of an instrument's outputs to a channel's input, at its own channel count.
+  /// Returns the input bus, or `nil` if the instrument doesn't have that output.
+  static func connect(
+    _ output: InstrumentOutput, of unit: AVAudioUnit, to input: AVAudioMixerNode, in engine: AVAudioEngine, sampleRate: Double
+  ) -> AVAudioNodeBus? {
+    guard output.bus > 0, output.bus < unit.numberOfOutputs else { return nil }
+    let channels = max(1, unit.outputFormat(forBus: output.bus).channelCount)
+    guard let format = AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: channels) else { return nil }
+    let bus = engine.freeInputBus(on: input, for: unit)
+    do {
+      try engine.connectNode(unit, to: input, fromBus: output.bus, toBus: bus, format: format)
+      return bus
+    } catch {
+      return nil
+    }
+  }
+
+  /// The names of a track's instrument's outputs after its first (as the instrument names
+  /// them, or "Output 2"…), for adding an aux track for each.
+  public func extraInstrumentOutputNames(forTrack trackID: Track.ID) -> [String] {
+    guard let unit = instruments[trackID]?.instrument, unit.numberOfOutputs > 1 else { return [] }
+    let names = unit.withAUAudioUnit { audioUnit in
+      (0..<audioUnit.outputBusses.count).map { audioUnit.outputBusses[$0].name }
+    }
+    return (1..<unit.numberOfOutputs).map { bus in
+      let name = bus < names.count ? names[bus] : nil
+      return name.flatMap { $0.isEmpty ? nil : $0 } ?? "Output \(bus + 1)"
+    }
+  }
+
+  // MARK: - Plug-ins that quit
+
+  /// Plug-ins whose process kept quitting, left out until the song is opened again, and how
+  /// often each one has quit.
+  @ObservationIgnored public private(set) var stoppedPluginIDs: Set<PluginReference.ID> = []
+  @ObservationIgnored private var pluginQuitCounts: [PluginReference.ID: Int] = [:]
+  /// The plug-in that quit most recently, so its window (showing the old one) can close,
+  /// and how many have quit (it changes even when the same one quits again).
+  public private(set) var lastQuitPluginID: PluginReference.ID?
+  public private(set) var pluginQuitCount = 0
+  /// After quitting this often, a plug-in isn't started again.
+  static let pluginRestartLimit = 3
+
+  /// A plug-in's process can quit (it crashed): the system says so, and the plug-in is
+  /// started again with the song's settings for it.
+  private func observePluginProcesses() {
+    pluginProcessTask = Task { [weak self] in
+      let name = Notification.Name(kAudioComponentInstanceInvalidationNotification as String)
+      for await notification in NotificationCenter.default.notifications(named: name) {
+        guard let self else { return }
+        let audioUnit = notification.object as? AUAudioUnit
+        let instance = (notification.userInfo?["audioUnit"] as? NSValue)?.pointerValue
+        self.pluginProcessQuit(audioUnit, instance: instance)
+      }
+    }
+  }
+
+  /// Takes out the plug-in whose process quit and loads it again, unless it keeps quitting.
+  func pluginProcessQuit(_ audioUnit: AUAudioUnit?, instance: UnsafeMutableRawPointer? = nil) {
+    let matches: (AVAudioUnit) -> Bool = { unit in
+      if let audioUnit, unit.withAUAudioUnit({ $0 === audioUnit }) { return true }
+      guard let instance else { return false }
+      return unit.withAudioUnit { (unit: borrowing AudioUnit) in UnsafeMutableRawPointer(unit) == instance }
+    }
+    var quit: (plugin: PluginReference, channelName: String)?
+    for (trackID, instrument) in instruments {
+      if let plugin = instrument.removeQuitPlugin(where: matches) {
+        quit = (plugin, project.track(withID: trackID)?.name ?? "a track")
+        instrumentLoads[trackID]?.cancel()
+        instrumentLoads[trackID] = nil
+        break
+      }
+    }
+    if quit == nil {
+      for (trackID, channel) in mixerChannels {
+        if let plugin = channel.removeQuitPlugin(where: matches) {
+          quit = (plugin, project.track(withID: trackID)?.name ?? "a track")
+          break
+        }
+      }
+    }
+    if quit == nil, let plugin = stereoOut?.removeQuitPlugin(where: matches) {
+      quit = (plugin, "Stereo Out")
+    }
+    guard let quit else { return }
+
+    lastQuitPluginID = quit.plugin.id
+    pluginQuitCount += 1
+    let count = (pluginQuitCounts[quit.plugin.id] ?? 0) + 1
+    pluginQuitCounts[quit.plugin.id] = count
+    if count >= Self.pluginRestartLimit {
+      stoppedPluginIDs.insert(quit.plugin.id)
+    }
+    syncChannels()
+    if isPlaying, !isRecording {
+      startPlayback(from: playheadPosition)
+    }
+    lastError = count >= Self.pluginRestartLimit
+      ? "“\(quit.plugin.name)” on “\(quit.channelName)” keeps quitting, so it’s off until you open the song again."
+      : "“\(quit.plugin.name)” on “\(quit.channelName)” quit unexpectedly and was started again, with the settings last stored in the song."
+  }
+
   private func observeConfigurationChanges() {
     configurationTask = Task { [weak self, engine] in
       for await _ in NotificationCenter.default.notifications(named: .AVAudioEngineConfigurationChange, object: engine) {

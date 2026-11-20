@@ -45,7 +45,7 @@ struct KeyChangeTests {
     #expect(project.keyChanges.isEmpty, "C major to C major changes nothing")
     // Changing the song's key to the change's key leaves the change with nothing to do.
     try SetKey(dMajor, at: bar * 4).apply(to: &project)
-    try SetKeySignature(dMajor).apply(to: &project)
+    try SetKey(dMajor, at: .zero).apply(to: &project)
     #expect(project.keyChanges.isEmpty)
   }
 
@@ -58,7 +58,7 @@ struct KeyChangeTests {
     #expect(project.keyChanges.map(\.position) == [bar * 8, bar * 10], "Kept in order")
     #expect(project.key(at: bar * 9) == bMinor)
     #expect(throws: EditError.self) { try MoveKeyChange(first.id, to: .zero).apply(to: &project) }
-    try RemoveKeyChanges([first.id]).apply(to: &project)
+    try DeleteKeyChanges([first.id]).apply(to: &project)
     #expect(project.keyChanges.map(\.key) == [bMinor])
   }
 
@@ -81,7 +81,7 @@ struct KeyChangeTests {
     try CutSection(bar * 2..<bar * 4).apply(to: &project)
     #expect(project.keyChanges.map(\.position) == [bar * 8])
     try CutSection(bar * 6..<bar * 10).apply(to: &project)
-    #expect(project.keyChanges.isEmpty, "A change in the cut goes with it")
+    #expect(project.keyChanges.map(\.position) == [bar * 6], "What followed the cut was in D, and still is")
   }
 
   @Test func theBassPlayerPlaysTheNewKeysHomeChordWhereThereAreNoChords() throws {

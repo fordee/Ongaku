@@ -22,7 +22,7 @@ public struct SetRegionLoop: EditCommand {
   public func apply(to project: inout Project) throws {
     let location = try project.requireRegionLocation(regionID)
     var region = project.tracks[location.track].regions[location.region]
-    try region.requireNotTakeFolder()
+    try region.requireEditable(for: .loop)
     if end > region.end {
       region.isLooped = true
       region.loopedLength = end - region.start

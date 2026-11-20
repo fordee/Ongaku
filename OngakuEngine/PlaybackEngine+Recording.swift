@@ -36,6 +36,25 @@ public struct RecordingResult: Sendable {
   public var isEmpty: Bool { audio.isEmpty && midi.isEmpty }
 }
 
+/// MIDI played while the song played without recording, for Capture as Recording.
+struct CapturedPerformance {
+  /// What was played, where on the timeline.
+  var events: [(position: Tick, bytes: [UInt8])]
+  /// Where the first event was played, and where playing stopped.
+  var start: Tick
+  var stop: Tick
+
+  /// What a track listening to `accepts` would have recorded.
+  func recorder(accepting accepts: ([UInt8]) -> Bool) -> MIDIRecorder {
+    var recorder = MIDIRecorder()
+    for event in events where accepts(event.bytes) {
+      recorder.add(event.bytes, at: event.position)
+    }
+    recorder.finish(at: stop)
+    return recorder
+  }
+}
+
 /// The takes being captured during one recording.
 struct RecordingSession {
   var audio: [AudioTakeRecorder]
@@ -105,14 +124,9 @@ extension PlaybackEngine {
     startPlayback(from: playheadPosition, recording: recording)
   }
 
-  /// Turns on audio input. The engine has to be stopped to add its input the first time.
+  /// Turns on audio input. The engine has to be stopped to add its input the first time;
+  /// like every restart, it goes through `restartEngine`, which reloads the samplers' sounds.
   func prepareInput() -> AVAudioInputNode {
-    guard engine.isRunning else {
-      let input = engine.inputNode
-      engine.prepare()
-      try? engine.start()
-      return input
-    }
     var input: AVAudioInputNode?
     restartEngine { input = engine.inputNode }
     return input ?? engine.inputNode
@@ -219,6 +233,20 @@ extension PlaybackEngine {
     from events: [(hostTime: UInt64, bytes: [UInt8])], recording: RecordingSession, plan: PlaybackPlan,
     stopPosition: Tick
   ) -> [RecordingResult.MIDITake] {
+    // Each track records only the channel it listens to.
+    recording.midiTrackIDs.flatMap { trackID -> [RecordingResult.MIDITake] in
+      guard let track = project.track(withID: trackID) else { return [] }
+      var single = recording
+      single.midiTrackIDs = [trackID]
+      return midiTakes(from: events.filter { track.acceptsMIDIInput($0.bytes) }, recordingOne: single, plan: plan, stopPosition: stopPosition)
+    }
+  }
+
+  /// `midiTakes` for one track (`recording.midiTrackIDs` holds just it).
+  private func midiTakes(
+    from events: [(hostTime: UInt64, bytes: [UInt8])], recordingOne recording: RecordingSession, plan: PlaybackPlan,
+    stopPosition: Tick
+  ) -> [RecordingResult.MIDITake] {
     if let cycle = plan.cycleRange, let takes = cycleMIDITakes(from: events, recording: recording, plan: plan, cycle: cycle) {
       return takes
     }
@@ -276,6 +304,86 @@ extension PlaybackEngine {
         takeFolder: TakeFolder(takes: takes, playing: takes[takes.count - 1].id, length: length))
       return RecordingResult.MIDITake(trackID: trackID, region: region)
     }
+  }
+
+  // MARK: - Capture as Recording
+
+  /// Starts remembering what's played while the song plays without recording.
+  func beginPerformanceCapture() {
+    let capture = MIDICapture()
+    performanceCapture = capture
+    MIDIInputRouter.shared?.setCapture(capture)
+  }
+
+  /// Keeps what was played (if anything) as the last performance, as playback stops.
+  func endPerformanceCapture() {
+    guard let capture = performanceCapture else { return }
+    performanceCapture = nil
+    MIDIInputRouter.shared?.setCapture(nil)
+    guard let session, recordingSession == nil else { return }
+    let stop = session.plan.timelinePosition(atPlaybackTime: elapsedPlaybackTime(of: session))
+    if let performance = Self.performance(from: capture.capturedSoFar(), session: session, outputLatency: performanceOutputLatency, stop: stop) {
+      lastPerformance = performance
+    }
+  }
+
+  /// Logic's Capture as Recording: what was played while the song played without
+  /// recording (or is being played now), as takes for `trackIDs`, as if it had been
+  /// recorded. `nil` if nothing was played.
+  public func capturedPerformance(for trackIDs: [Track.ID]) -> RecordingResult? {
+    var performance = lastPerformance
+    if let capture = performanceCapture, let session {
+      let now = session.plan.timelinePosition(atPlaybackTime: elapsedPlaybackTime(of: session))
+      performance = Self.performance(from: capture.capturedSoFar(), session: session, outputLatency: performanceOutputLatency, stop: now)
+        ?? performance
+    }
+    guard let performance else { return nil }
+    var result = RecordingResult()
+    result.midi = trackIDs.compactMap { trackID in
+      guard let track = project.track(withID: trackID), track.kind == .softwareInstrument,
+        var region = performance.recorder(accepting: track.acceptsMIDIInput).makeRegion(
+          name: track.name, recordedFrom: performance.start, to: performance.stop, tempoMap: project.tempoMap)
+      else { return nil }
+      region.id = UUID()
+      return RecordingResult.MIDITake(trackID: trackID, region: region)
+    }
+    return result.isEmpty ? nil : result
+  }
+
+  /// Notes are played against what's heard: the device's latency and compensation's late.
+  private var performanceOutputLatency: Double {
+    engine.outputNode.presentationLatency + compensationSeconds
+  }
+
+  private func elapsedPlaybackTime(of session: Session) -> Double {
+    let now = mach_absolute_time()
+    let elapsed = now > session.startHostTime ? AVAudioTime.seconds(forHostTime: now - session.startHostTime) : 0
+    return max(0, elapsed - session.latency)
+  }
+
+  /// Played MIDI as positions on the timeline. With the cycle on, only the last pass
+  /// played is kept, as Logic does.
+  static func performance(
+    from events: [(hostTime: UInt64, bytes: [UInt8])], session: Session, outputLatency: Double, stop: Tick
+  ) -> CapturedPerformance? {
+    let plan = session.plan
+    let played = events.map { event in
+      let seconds = event.hostTime >= session.startHostTime
+        ? AVAudioTime.seconds(forHostTime: event.hostTime - session.startHostTime)
+        : -AVAudioTime.seconds(forHostTime: session.startHostTime - event.hostTime)
+      return (time: max(0, seconds - outputLatency), bytes: event.bytes)
+    }
+    let lastPass = plan.cycleRange == nil ? nil : played.map { plan.passIndex(atPlaybackTime: $0.time) }.max()
+    var positioned: [(position: Tick, bytes: [UInt8])] = []
+    for event in played where lastPass == nil || plan.passIndex(atPlaybackTime: event.time) == lastPass {
+      positioned.append((plan.timelinePosition(atPlaybackTime: event.time), event.bytes))
+    }
+    guard let start = positioned.map(\.position).min() else { return nil }
+    // A cycle pass ends at the cycle's end; otherwise where playback stopped.
+    let end = lastPass != nil ? (plan.cycleRange?.upperBound ?? stop) : stop
+    let performance = CapturedPerformance(events: positioned, start: start, stop: max(end, start))
+    guard performance.recorder(accepting: { _ in true }).makeSequence(relativeTo: start) != nil else { return nil }
+    return performance
   }
 
   private func fail(_ error: RecordingError) {

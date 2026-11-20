@@ -12,10 +12,10 @@ When you switch it on, Ongaku Studio runs a small MCP server on your Mac. An age
 
 - **Read the song**: tempo, key, sections, chords, tracks, regions and notes.
 - **Set up the song**: tempo, time signature, key and key changes, the cycle, Arrangement sections, markers and the Chord track.
-- **Write parts**: create tracks with any sound from the Library, write notes into regions, transform and quantize them, and copy and move regions.
+- **Write and arrange**: create tracks with any sound from the Library, write notes into regions, transform and quantize them, copy, move, split and join regions, reorder tracks, and cut, insert or repeat a stretch of the whole song (as the section commands do).
 - **Use your sound libraries**: if you've added libraries in **Settings › Libraries**, an agent can search their instruments (a sampled grand piano, strings, a SoundFont preset) and play them on tracks, find loops by instrument, key, tempo and genre and add them to the song (fitted to its tempo and key, as dragging from the Loop Browser does), and give the Convolution Reverb an impulse response.
 - **Use the session players**: add the Drummer and the Bass and Keyboard players to sections, change their style and settings, or ask for a new take (see [Chapter 5](05-session-players.md)).
-- **Mix**: set levels, pan, mute and solo; add effects and change their settings and presets; send tracks to an aux with a reverb; draw automation; add MIDI effects such as the Arpeggiator (see [Chapter 7](07-mixing-and-automation.md) and [Chapter 8](08-instruments-effects-midi-fx.md)).
+- **Mix**: set levels, pan, mute and solo; add effects and change their settings and presets, and the settings of an instrument or MIDI effect plug-in; send tracks to an aux with a reverb; draw automation; add MIDI effects such as the Arpeggiator (see [Chapter 7](07-mixing-and-automation.md) and [Chapter 8](08-instruments-effects-midi-fx.md)).
 - **Listen, in its way**: an agent can't hear, so it can *measure* the mix instead. It renders the song (faster than real time, nothing is played) and gets its loudness, peaks, stereo width and tonal balance compared with a typical finished master, for the whole song and each section.
 - **Finish**: master the song with Ongaku Mastering's Analyze Whole Song, bounce it to an audio file, and save.
 - **Play and stop** the song, so you can listen to what it made.
@@ -106,7 +106,7 @@ You don't need to know this to use an agent, but it helps to read what it says:
 
 - Positions are **bar:beat**: "5:3" is beat 3 of bar 5.
 - Note lengths are in beats: 1 is a quarter note, 0.5 an eighth.
-- Note names put middle C at **C4**. (Ongaku's Piano Roll, like Logic, calls middle C **C3**, so an agent's "C4" is the Piano Roll's C3.)
+- Note names put middle C at **C3**, as Ongaku's Piano Roll and Logic do, so an agent's notes have the names you see. If you'd rather agents use scientific names (middle C is **C4**), choose it in **Settings › Agents › Middle C is**. An agent picks up the change when it next connects.
 
 ## Tips and limitations
 

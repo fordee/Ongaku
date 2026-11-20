@@ -54,7 +54,7 @@ public struct PlaybackPlan: Sendable {
   /// The track's notes through its MIDI effects. Each note keeps the bounds of the region it
   /// came from (an arpeggio from a chord stops where the chord's region does).
   private static func applyingMIDIEffects(_ effects: [MIDIEffect], to notes: [IndexedNote]) -> [IndexedNote] {
-    guard effects.contains(where: { !$0.isBypassed }), !notes.isEmpty else { return notes }
+    guard effects.contains(where: { !$0.isBypassed && $0.settings.isBuiltIn }), !notes.isEmpty else { return notes }
     // The regions' bounds, once each (there are far fewer regions than notes).
     var seen = Set<Tick>()
     let regions = notes.compactMap { seen.insert($0.regionStart).inserted ? ($0.regionStart, $0.regionEnd) : nil }
@@ -309,7 +309,7 @@ public struct PlaybackPlan: Sendable {
       gain: audio.gain <= ChannelStrip.volumeRange.lowerBound ? 0 : pow(10, audio.gain / 20),
       offset: tempoMap.seconds(at: start) - regionStartSeconds,
       regionDuration: tempoMap.seconds(at: region.end) - regionStartSeconds,
-      fadeIn: audio.fadeIn, fadeOut: audio.fadeOut)
+      fadeIn: audio.fadeIn, fadeOut: audio.fadeOut, fadeInCurve: audio.fadeInCurve, fadeOutCurve: audio.fadeOutCurve)
     return AudioSegment(
       trackID: track.id, regionID: region.id, fileID: file.id,
       fileStartFrame: fileStartFrame, frameCount: frameCount,
@@ -587,13 +587,31 @@ public struct AudioEnvelope: Equatable, Sendable {
   public var regionDuration: Double
   public var fadeIn: Double
   public var fadeOut: Double
+  /// The fades' shapes (see `fadeShape`).
+  public var fadeInCurve: Double
+  public var fadeOutCurve: Double
 
-  public init(gain: Double = 1, offset: Double = 0, regionDuration: Double = .infinity, fadeIn: Double = 0, fadeOut: Double = 0) {
+  public init(
+    gain: Double = 1, offset: Double = 0, regionDuration: Double = .infinity, fadeIn: Double = 0, fadeOut: Double = 0,
+    fadeInCurve: Double = 0, fadeOutCurve: Double = 0
+  ) {
     self.gain = gain
     self.offset = offset
     self.regionDuration = regionDuration
     self.fadeIn = fadeIn
     self.fadeOut = fadeOut
+    self.fadeInCurve = fadeInCurve
+    self.fadeOutCurve = fadeOutCurve
+  }
+
+  /// How far a fade has risen (0…1) a fraction `progress` of the way through it, for a
+  /// curve from −1 to 1: 0 is straight, 1 rises fast then levels off (x^¼), −1 starts
+  /// slowly (x⁴). A curve of ½ is the square root, so two fades crossing at ½ keep the
+  /// total power constant: Logic's equal-power crossfade.
+  public static func fadeShape(_ progress: Double, curve: Double) -> Double {
+    let x = min(max(progress, 0), 1)
+    let clamped = min(max(curve, -1), 1)
+    return clamped == 0 ? x : pow(x, pow(4, -clamped))
   }
 
   /// Whether every sample just gets `gain`.
@@ -606,10 +624,10 @@ public struct AudioEnvelope: Equatable, Sendable {
     let position = offset + seconds
     var level = gain
     if fadeIn > 0, position < fadeIn {
-      level *= max(0, position / fadeIn)
+      level *= Self.fadeShape(position / fadeIn, curve: fadeInCurve)
     }
     if fadeOut > 0, position > regionDuration - fadeOut {
-      level *= max(0, (regionDuration - position) / fadeOut)
+      level *= Self.fadeShape((regionDuration - position) / fadeOut, curve: fadeOutCurve)
     }
     return level
   }

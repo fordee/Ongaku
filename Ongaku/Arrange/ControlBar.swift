@@ -42,6 +42,7 @@ struct ControlBar: View {
       }
 
       HStack(spacing: 4) {
+        ViewToggle(title: "Smart Controls", symbol: "dial.medium", shortcut: "B", isOn: model.bottomPane == .smartControls, action: model.toggleSmartControls)
         ViewToggle(title: "Mixer", symbol: "slider.vertical.3", shortcut: "X", isOn: model.bottomPane == .mixer, action: model.toggleMixer)
         // It opens whichever editor suits the region: Piano Roll, Step Sequencer, Drummer…
         ViewToggle(title: "Editor", symbol: "pianokeys", shortcut: "E", isOn: model.isEditorVisible, action: model.toggleEditor)
@@ -234,6 +235,11 @@ private struct TempoField: View {
     return tempoMap.tempoChanges.last { $0.position <= playhead } ?? tempoMap.tempoChanges[0]
   }
 
+  /// The tempo at the playhead: inside a ramp, where it has glided to.
+  private var currentTempo: Double {
+    (model.project.tempoMap.tempo(at: model.engine.playheadPosition) * 100).rounded() / 100
+  }
+
   var body: some View {
     VStack(spacing: 1) {
       Group {
@@ -267,7 +273,7 @@ private struct TempoField: View {
     .padding(.horizontal, 12)
     .help("Double-click to type a new tempo")
     .onAppear(perform: resetTempoText)
-    .onChange(of: currentChange.bpm) { resetTempoText() }
+    .onChange(of: currentTempo) { resetTempoText() }
   }
 
   private func commitTempo() {
@@ -279,7 +285,7 @@ private struct TempoField: View {
   }
 
   private func resetTempoText() {
-    tempoText = currentChange.bpm.formatted(.number.precision(.fractionLength(0...2)))
+    tempoText = currentTempo.formatted(.number.precision(.fractionLength(0...2)))
   }
 }
 

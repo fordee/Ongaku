@@ -131,14 +131,7 @@ private struct CornerView: View {
   private var topRow: some View {
     HStack(spacing: 6) {
       Menu {
-        Button("Audio") { model.addTrack(.audio) }
-        Button("Software Instrument") { model.addTrack(.softwareInstrument) }
-        Button("Aux") { model.addTrack(.aux) }
-        Divider()
-        Button("Drummer") { model.addDrummerTrack() }
-        Button("Drummer (Drum Machine)") { model.addDrummerTrack(style: .electronic, kit: .drumMachine) }
-        Button("Bass Player") { model.addPlayerTrack(.bass) }
-        Button("Keyboard Player") { model.addPlayerTrack(.keys) }
+        NewTrackMenuItems(model: model)
       } label: {
         Image(systemName: "plus")
           .font(Theme.font(12, weight: .semibold))
@@ -340,4 +333,14 @@ private struct PlayheadFollower: View {
         if !isRecording { model.canvasEndWhileRecording = nil }
       }
   }
+}
+
+#Preview("Tall tracks") {
+  @Previewable @State var model: ProjectWindowModel = {
+    let model = ProjectWindowModel(document: OngakuDocument(project: .previewSong))
+    model.trackHeight = 110
+    return model
+  }()
+  ArrangeView(model: model)
+    .frame(width: 1100, height: 700)
 }

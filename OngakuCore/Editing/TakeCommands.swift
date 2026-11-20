@@ -189,7 +189,7 @@ public struct PackTakeFolder: EditCommand {
     }
     let regions = project.tracks[trackIndex].regions.filter { regionIDs.contains($0.id) }
     guard regions.count > 1 else { throw EditError.invalidValue("Select two or more regions to pack into a take folder.") }
-    for region in regions { try region.requireNotTakeFolder() }
+    for region in regions { try region.requireEditable(for: .packIntoTakeFolder) }
 
     let start = regions.map(\.start).min() ?? .zero
     let end = regions.map(\.end).max() ?? start

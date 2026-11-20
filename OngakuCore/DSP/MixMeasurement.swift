@@ -11,8 +11,10 @@ import Foundation
 /// signal, mid and side energy, peak), so a mix can be described against the same reference
 /// as Mastering uses, for the whole song or any part of it.
 ///
-/// Loudness is K-weighted as ITU-R BS.1770 and EBU R128 describe. Peaks are sample peaks,
-/// which can read a little under true peaks.
+/// Loudness is K-weighted as ITU-R BS.1770 and EBU R128 describe, from 400 ms windows every
+/// 100 ms, as the Mastering plug-in's meter measures it (the first three blocks, without a
+/// whole window yet, read as silent). Peaks are true peaks, 4× oversampled as BS.1770
+/// describes, like the plug-in's.
 public enum MixMeasurement {
   /// What a stretch of the mix measures.
   public struct Summary: Sendable, Equatable {
@@ -20,7 +22,7 @@ public enum MixMeasurement {
     public var loudness: Double?
     /// The loudest momentary loudness (LUFS).
     public var maximumLoudness: Double?
-    /// The highest sample peak (dBFS).
+    /// The highest true peak (dBTP).
     public var peak: Double
     /// How far the peaks stand above the loudness (dB).
     public var peakToLoudness: Double?
@@ -55,7 +57,7 @@ public enum MixMeasurement {
       // Momentary loudness: the last 400 ms.
       let window = weightedEnergy.suffix(4)
       let energy = window.reduce(0, +) / Double(window.count)
-      let loudness = energy > 0 ? -0.691 + 10 * log10(energy) : -120
+      let loudness = window.count == 4 && energy > 0 ? -0.691 + 10 * log10(energy) : -120
 
       let mid = vDSP.multiply(0.5, vDSP.add(leftStep, rightStep))
       let side = vDSP.multiply(0.5, vDSP.subtract(leftStep, rightStep))
@@ -67,7 +69,7 @@ public enum MixMeasurement {
           bands.append(0)
         }
       }
-      let peak = max(vDSP.maximumMagnitude(leftStep), vDSP.maximumMagnitude(rightStep))
+      let peak = max(truePeak(left, in: range), truePeak(right, in: range))
       blocks.append(MasteringAnalysis.Block(
         loudness: loudness, bands: bands, mid: meanSquare(mid), side: meanSquare(side), truePeak: Double(peak)))
       start += step
@@ -91,6 +93,42 @@ public enum MixMeasurement {
     return Summary(
       loudness: loudness, maximumLoudness: audible.map(\.loudness).max(), peak: peak, peakToLoudness: peak - loudness,
       balance: MasteringAnalysis.balance(of: gated), sideToMid: mid > 0 ? 10 * log10(max(side, 1e-12) / mid) : nil)
+  }
+
+  // MARK: - True peak
+
+  /// The highest peak in `range` of `samples`, between the samples too: the signal is
+  /// interpolated at quarter-sample steps with a windowed sinc. Inter-sample peaks only
+  /// matter near full scale, so quieter stretches use their sample peak.
+  static func truePeak(_ samples: [Float], in range: Range<Int>) -> Float {
+    let samplePeak = samples[range].isEmpty ? 0 : vDSP.maximumMagnitude(Array(samples[range]))
+    guard samplePeak > 0.7 else { return samplePeak }  // About −3 dBFS.
+    let half = interpolationTaps / 2
+    // Neighbouring samples on each side, so the edges interpolate as they do mid-song.
+    let lower = max(0, range.lowerBound - half), upper = min(samples.count, range.upperBound + half)
+    let padded = [Float](repeating: 0, count: half - (range.lowerBound - lower)) + samples[lower..<upper]
+      + [Float](repeating: 0, count: half - (upper - range.upperBound))
+    var peak = samplePeak
+    for kernel in interpolationKernels {
+      peak = max(peak, vDSP.maximumMagnitude(vDSP.convolve(padded, withKernel: kernel)))
+    }
+    return peak
+  }
+
+  private static let interpolationTaps = 16
+
+  /// One kernel per fraction of a sample (¼, ½, ¾): sinc at that offset, Hann-windowed and
+  /// normalized to unity gain.
+  private static let interpolationKernels: [[Float]] = [0.25, 0.5, 0.75].map { fraction in
+    let taps = interpolationTaps
+    let kernel = (0..<taps).map { index -> Double in
+      let x = Double(index - taps / 2 + 1) - fraction
+      let sinc = x == 0 ? 1 : sin(.pi * x) / (.pi * x)
+      let window = 0.5 + 0.5 * cos(.pi * x / Double(taps / 2 + 1))
+      return sinc * window
+    }
+    let sum = kernel.reduce(0, +)
+    return kernel.map { Float($0 / sum) }
   }
 
   // MARK: - Filters

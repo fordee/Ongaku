@@ -228,12 +228,17 @@ public struct ReplaceControlEvents: EditCommand {
 
 extension Project {
   /// Runs `body` on a MIDI region's notes and controls, and keeps them sorted afterwards.
+  /// Generated regions (patterns, drummers, players) take controller edits but not note
+  /// edits, which their next render would undo.
   mutating func editMIDI(in regionID: Region.ID, _ body: (inout MIDISequence) throws -> Void) throws {
     let location = try requireRegionLocation(regionID)
-    guard case .midi(var sequence) = tracks[location.track].regions[location.region].content else {
+    let region = tracks[location.track].regions[location.region]
+    guard case .midi(var sequence) = region.content else {
       throw EditError.trackKindMismatch(expected: .softwareInstrument, found: .audio)
     }
+    let notes = sequence.notes
     try body(&sequence)
+    if sequence.notes != notes { try region.requireEditable(for: .editNotes) }
     sequence.sortNotes()
     tracks[location.track].regions[location.region].content = .midi(sequence)
   }

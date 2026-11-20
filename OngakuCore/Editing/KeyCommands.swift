@@ -64,7 +64,7 @@ public struct MoveKeyChange: EditCommand {
 }
 
 /// Removes key changes: the key before them carries on.
-public struct RemoveKeyChanges: EditCommand {
+public struct DeleteKeyChanges: EditCommand {
   public var changeIDs: Set<KeyChange.ID>
 
   public init(_ changeIDs: Set<KeyChange.ID>) {

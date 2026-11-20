@@ -24,6 +24,10 @@
 #import "VocalStrip.hpp"
 #import "SessionDrummer.hpp"
 #import "Mastering.hpp"
+#import "Modulation.hpp"
+#import "Utility.hpp"
+#import "MultibandCompressor.hpp"
+#import "Keys.hpp"
 
 /// How many samples have been written to an analyser tap (see `setAnalyserTap`), read
 /// safely from another thread.
@@ -95,6 +99,15 @@ public:
       case OngakuEffectKindVocalStrip: mVocalStrip.initialize(outputChannelCount, inSampleRate); break;
       case OngakuEffectKindSessionDrummer: mDrummer.initialize(inSampleRate); break;
       case OngakuEffectKindMastering: mMastering.initialize(outputChannelCount, inSampleRate); break;
+      case OngakuEffectKindChorus: mChorus.initialize(outputChannelCount, inSampleRate); break;
+      case OngakuEffectKindFlanger: mFlanger.initialize(outputChannelCount, inSampleRate); break;
+      case OngakuEffectKindPhaser: mPhaser.initialize(outputChannelCount, inSampleRate); break;
+      case OngakuEffectKindTremolo: mTremolo.initialize(outputChannelCount, inSampleRate); break;
+      case OngakuEffectKindGain: mGain.initialize(outputChannelCount, inSampleRate); break;
+      case OngakuEffectKindTuner: mTuner.initialize(outputChannelCount, inSampleRate); break;
+      case OngakuEffectKindMultibandCompressor: mMultiband.initialize(outputChannelCount, inSampleRate); break;
+      case OngakuEffectKindElectricPiano: mElectricPiano.initialize(inSampleRate); break;
+      case OngakuEffectKindOrgan: mOrgan.initialize(inSampleRate); break;
     }
   }
 
@@ -125,6 +138,15 @@ public:
       case OngakuEffectKindVocalStrip: mVocalStrip.setParameter(address, value); break;
       case OngakuEffectKindSessionDrummer: mDrummer.setParameter(address, value); break;
       case OngakuEffectKindMastering: mMastering.setParameter(address, value); break;
+      case OngakuEffectKindChorus: mChorus.setParameter(address, value); break;
+      case OngakuEffectKindFlanger: mFlanger.setParameter(address, value); break;
+      case OngakuEffectKindPhaser: mPhaser.setParameter(address, value); break;
+      case OngakuEffectKindTremolo: mTremolo.setParameter(address, value); break;
+      case OngakuEffectKindGain: mGain.setParameter(address, value); break;
+      case OngakuEffectKindTuner: mTuner.setParameter(address, value); break;
+      case OngakuEffectKindMultibandCompressor: mMultiband.setParameter(address, value); break;
+      case OngakuEffectKindElectricPiano: mElectricPiano.setParameter(address, value); break;
+      case OngakuEffectKindOrgan: mOrgan.setParameter(address, value); break;
     }
   }
 
@@ -148,6 +170,15 @@ public:
       case OngakuEffectKindVocalStrip: return mVocalStrip.parameter(address);
       case OngakuEffectKindSessionDrummer: return mDrummer.parameter(address);
       case OngakuEffectKindMastering: return mMastering.parameter(address);
+      case OngakuEffectKindChorus: return mChorus.parameter(address);
+      case OngakuEffectKindFlanger: return mFlanger.parameter(address);
+      case OngakuEffectKindPhaser: return mPhaser.parameter(address);
+      case OngakuEffectKindTremolo: return mTremolo.parameter(address);
+      case OngakuEffectKindGain: return mGain.parameter(address);
+      case OngakuEffectKindTuner: return mTuner.parameter(address);
+      case OngakuEffectKindMultibandCompressor: return mMultiband.parameter(address);
+      case OngakuEffectKindElectricPiano: return mElectricPiano.parameter(address);
+      case OngakuEffectKindOrgan: return mOrgan.parameter(address);
     }
     return 0;
   }
@@ -159,6 +190,9 @@ public:
       case OngakuEffectKindDelay: return mDelay.tailSeconds(mLastTempo);
       case OngakuEffectKindConvolutionReverb: return mConvolution.tailSeconds();
       case OngakuEffectKindDoubler: return 0.1;
+      case OngakuEffectKindChorus: return 0.05;
+      case OngakuEffectKindFlanger: return 0.5;
+      case OngakuEffectKindPhaser: return 0.1;
       default: return 0;
     }
   }
@@ -205,8 +239,10 @@ public:
 
   // MARK: - Sampler
 
-  /// The Sampler's sample (see `ongaku::Sampler::setSample`).
-  void setSample(SamplerSample const *sample) { mSampler.setSample(sample); }
+  /// The Sampler's zones (see `ongaku::Sampler::setKeymap`).
+  void setKeymap(SamplerKeymap const *keymap) { mSampler.setKeymap(keymap); }
+  /// The sample the Sampler's window shows (see `ongaku::Sampler::setShownSample`).
+  void setShownSample(float const *left) { mSampler.setShownSample(left); }
 
   // MARK: - Convolution and loudness
 
@@ -327,6 +363,55 @@ public:
             meter(OngakuMeter(OngakuMeterFirstPlayhead + index), mSampler.playhead(index));
           }
           break;
+        case OngakuEffectKindChorus:
+          mChorus.process(inputBuffers, outputBuffers, int(frameCount));
+          levels(mChorus.meters, 0);
+          meter(OngakuMeterLFO, float(mChorus.phase()));
+          break;
+        case OngakuEffectKindFlanger:
+          mFlanger.process(inputBuffers, outputBuffers, int(frameCount));
+          levels(mFlanger.meters, 0);
+          meter(OngakuMeterLFO, float(mFlanger.phase()));
+          break;
+        case OngakuEffectKindPhaser:
+          mPhaser.process(inputBuffers, outputBuffers, int(frameCount));
+          levels(mPhaser.meters, 0);
+          meter(OngakuMeterLFO, float(mPhaser.phase()));
+          break;
+        case OngakuEffectKindTremolo: {
+          double tempo = hostTempo();
+          mTremolo.process(inputBuffers, outputBuffers, int(frameCount), tempo);
+          levels(mTremolo.meters, 0);
+          meter(OngakuMeterLFO, float(mTremolo.phase()));
+          meter(OngakuMeterTremoloLeft, mTremolo.gain(0));
+          meter(OngakuMeterTremoloRight, mTremolo.gain(1));
+          meter(OngakuMeterTempo, float(tempo));
+          break;
+        }
+        case OngakuEffectKindGain:
+          mGain.process(inputBuffers, outputBuffers, int(frameCount));
+          levels(mGain.meters, 0);
+          break;
+        case OngakuEffectKindTuner:
+          mTuner.process(inputBuffers, outputBuffers, int(frameCount));
+          meter(OngakuMeterTunerFrequency, mTuner.frequency());
+          meter(OngakuMeterTunerClarity, mTuner.clarity());
+          break;
+        case OngakuEffectKindMultibandCompressor: {
+          mMultiband.process(inputBuffers, outputBuffers, int(frameCount));
+          float deepest = 0;
+          for (int band = 0; band < ongaku::MultibandCompressor::bandCount; ++band) {
+            meter(OngakuMeter(OngakuMeterFirstBandReduction + band), mMultiband.reduction(band));
+            deepest = std::min(deepest, mMultiband.reduction(band));
+          }
+          levels(mMultiband.meters, deepest);
+          break;
+        }
+        case OngakuEffectKindElectricPiano: mElectricPiano.process(outputBuffers, int(frameCount)); break;
+        case OngakuEffectKindOrgan:
+          mOrgan.process(outputBuffers, int(frameCount));
+          meter(OngakuMeterLFO, mOrgan.hornRate());
+          break;
         case OngakuEffectKindSessionDrummer: {
           DrummerClock clock = drummerClock(bufferStartTime, frameCount);
           mDrummer.process(outputBuffers, int(frameCount), bufferStartTime, clock);
@@ -374,6 +459,8 @@ private:
     if (mKind == OngakuEffectKindDrumMachine) mDrums.midi(status, data1 & 0x7F, data2 & 0x7F);
     if (mKind == OngakuEffectKindSampler) mSampler.midi(status, data1 & 0x7F, data2 & 0x7F);
     if (mKind == OngakuEffectKindSessionDrummer) mDrummer.midi(status, data1 & 0x7F, data2 & 0x7F);
+    if (mKind == OngakuEffectKindElectricPiano) mElectricPiano.midi(status, data1 & 0x7F, data2 & 0x7F);
+    if (mKind == OngakuEffectKindOrgan) mOrgan.midi(status, data1 & 0x7F, data2 & 0x7F);
   }
 
   /// Where the host's song is at `sampleTime` (within this render, for `frameCount` frames):
@@ -500,6 +587,15 @@ private:
   ongaku::VocalStrip mVocalStrip;
   ongaku::SessionDrummer mDrummer;
   ongaku::Mastering mMastering;
+  ongaku::Chorus mChorus;
+  ongaku::Flanger mFlanger;
+  ongaku::Phaser mPhaser;
+  ongaku::Tremolo mTremolo;
+  ongaku::Gain mGain;
+  ongaku::Tuner mTuner;
+  ongaku::MultibandCompressor mMultiband;
+  ongaku::ElectricPiano mElectricPiano;
+  ongaku::Organ mOrgan;
   AUHostTransportStateBlock mTransportStateBlock = nullptr;
   double mCycleBeat = -1, mPreviousCycleBeat = -1;
   AUEventSampleTime mCycleStart = 0, mLastBeatChange = -1'000'000'000;

@@ -119,9 +119,9 @@ extension StepEditorTests {
 
   @Test func theTrackMenuMakesAPatternRegionAtThePlayhead() throws {
     window.selectedTrackID = window.project.tracks[0].id
-    #expect(window.canCreatePatternRegionAtPlayhead)
+    #expect(window.canCreateRegionAtPlayhead(.pattern))
     window.engine.locate(to: Tick(3840 * 2 + 500))
-    window.createPatternRegionAtPlayhead()
+    window.createRegionAtPlayhead(.pattern)
     let region = try #require(editor.region)
     #expect(region.pattern != nil && region.start == Tick(3840 * 2), "At the start of the playhead's bar")
     #expect(window.project.tracks[0].regions.contains { $0.id == region.id })
@@ -129,7 +129,7 @@ extension StepEditorTests {
 
     window.perform(AddTrack(Track(name: "Audio", kind: .audio)))
     window.selectedTrackID = window.project.tracks[1].id
-    #expect(!window.canCreatePatternRegionAtPlayhead, "Only on instrument tracks")
+    #expect(!window.canCreateRegionAtPlayhead(.pattern), "Only on instrument tracks")
   }
 
   @Test func paintingStepsInEachMode() throws {

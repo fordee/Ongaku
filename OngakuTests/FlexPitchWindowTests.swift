@@ -38,7 +38,7 @@ struct FlexPitchWindowTests {
     let (window, region) = window()
     window.openEditor(for: region.id)
     #expect(window.editorRegionID == region.id)
-    #expect(window.pianoRoll.availableEditors == [.pitch])
+    #expect(window.pianoRoll.availableEditors == [.pitch, .audioFile])
     #expect(window.pianoRoll.shownEditor == .pitch)
   }
 

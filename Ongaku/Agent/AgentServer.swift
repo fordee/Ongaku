@@ -147,7 +147,7 @@ final class AgentServer {
   nonisolated static func makeMCPServer() async -> Server {
     let server = Server(
       name: "ongaku-studio", version: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0",
-      title: "Ongaku Studio", instructions: AgentToolbox.instructions,
+      title: "Ongaku Studio", instructions: AgentToolbox.instructions(pitchNaming: AppSettings.agentPitchNaming),
       capabilities: .init(
         prompts: .init(listChanged: false), resources: .init(subscribe: false, listChanged: false), tools: .init(listChanged: false)))
     await server.withMethodHandler(ListTools.self) { _ in
@@ -204,7 +204,7 @@ final class AgentServer {
       defer { server.callsInProgress -= 1 }
       let title = AgentToolbox.tool(named: name)?.title ?? name
       do {
-        let result = try await AgentToolbox.call(name, arguments: converted, in: window).jsonString
+        let result = try await AgentToolbox.call(name, arguments: converted, in: window, pitchNaming: AppSettings.agentPitchNaming).jsonString
         server.lastAction = (title, true, Date())
         return .success(result)
       } catch {
@@ -280,7 +280,7 @@ nonisolated enum AgentResources {
     if uri == songURI {
       let song: String? = await Task { @MainActor in
         guard let window = AgentServer.shared.activeWindow else { return nil }
-        return try? await AgentToolbox.call("get_song", arguments: [:], in: window).jsonString
+        return try? await AgentToolbox.call("get_song", arguments: [:], in: window, pitchNaming: AppSettings.agentPitchNaming).jsonString
       }.value
       return (song ?? #"{"error":"No song is open."}"#, "application/json")
     }

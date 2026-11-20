@@ -135,10 +135,42 @@ public struct SetPluginState: EditCommand {
       channel.instrument = .audioUnit(instrument)
     } else if let index = channel.inserts.firstIndex(where: { $0.id == pluginID }) {
       channel.inserts[index].state = state
+    } else if let index = channel.midiEffects.firstIndex(where: { $0.plugin?.id == pluginID }) {
+      channel.midiEffects[index].plugin?.state = state
     } else {
       throw EditError.invalidValue("That plug-in isn’t on this channel strip.")
     }
     project.tracks[trackIndex].channel = channel
+  }
+}
+
+/// Feeds a track's sound to an insert's side chain input, or stops it (`nil`).
+public struct SetSidechain: EditCommand {
+  public var channelID: Track.ID
+  public var pluginID: PluginReference.ID
+  public var sourceID: Track.ID?
+
+  public init(_ sourceID: Track.ID?, forPlugin pluginID: PluginReference.ID, on channelID: Track.ID) {
+    self.channelID = channelID
+    self.pluginID = pluginID
+    self.sourceID = sourceID
+  }
+
+  public var actionName: String { "Side Chain" }
+
+  public func apply(to project: inout Project) throws {
+    if let sourceID {
+      guard project.track(withID: sourceID) != nil else { throw EditError.trackNotFound(sourceID) }
+      if channelID != Project.stereoOutID, project.sidechainWouldCreateFeedback(from: sourceID, to: channelID) {
+        throw EditError.invalidValue("That would feed the track’s sound back into itself.")
+      }
+    }
+    try project.modifyInserts(of: channelID) { inserts in
+      guard let index = inserts.firstIndex(where: { $0.id == pluginID }) else {
+        throw EditError.invalidValue("That plug-in isn’t on this channel strip.")
+      }
+      inserts[index].sidechainSourceID = sourceID
+    }
   }
 }
 
@@ -214,7 +246,7 @@ func validateSend(_ send: Send, from trackID: Track.ID, in project: Project) thr
   guard let destination = project.track(withID: send.destinationTrackID) else {
     throw EditError.trackNotFound(send.destinationTrackID)
   }
-  guard destination.kind == .aux else {
+  guard destination.kind == .aux, !destination.isFolderStack else {
     throw EditError.invalidValue("Sends can only go to aux tracks.")
   }
   guard project.track(withID: trackID)?.channel.output != .track(send.destinationTrackID) else {
@@ -335,7 +367,7 @@ public struct AddMIDIEffect: EditCommand {
     }
     guard !effects.contains(where: { $0.id == effect.id }) else { throw EditError.duplicateID(effect.id) }
     effects.insert(effect, at: min(max(index ?? effects.count, 0), effects.count))
-    project.tracks[trackIndex].channel.midiEffects = effects
+    project.tracks[trackIndex].channel.midiEffects = MIDIEffect.ordered(effects)
   }
 }
 
@@ -401,6 +433,6 @@ public struct MoveMIDIEffect: EditCommand {
     }
     let effect = effects.remove(at: index)
     effects.insert(effect, at: min(max(destinationIndex, 0), effects.count))
-    project.tracks[trackIndex].channel.midiEffects = effects
+    project.tracks[trackIndex].channel.midiEffects = MIDIEffect.ordered(effects)
   }
 }

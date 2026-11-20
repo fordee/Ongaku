@@ -132,38 +132,3 @@ extension ProjectWindowModel {
     return nil
   }
 }
-
-/// Analyze Whole Song's progress, as a sheet over the window.
-struct SongAnalysisView: View {
-  let model: ProjectWindowModel
-  let analysis: SongAnalysis
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 16) {
-      Text("Analyzing “\(model.exportFileName)” for Mastering").font(.headline)
-      VStack(alignment: .leading, spacing: 6) {
-        ProgressView(value: analysis.progress)
-        Text(analysis.isWaitingForFlex
-          ? "Finishing processing flexed audio…"
-          : "Mastering is listening to the whole song, faster than it plays. When it’s done, it sets the EQ, compression and loudness for the song.")
-          .font(.callout)
-          .foregroundStyle(.secondary)
-          .fixedSize(horizontal: false, vertical: true)
-      }
-      HStack {
-        Spacer()
-        Button("Cancel", role: .cancel) { analysis.cancel() }
-          .keyboardShortcut(.cancelAction)
-      }
-    }
-    .padding(20)
-    .frame(width: 420)
-  }
-}
-
-#Preview {
-  let model = ProjectWindowModel(document: OngakuDocument())
-  let analysis = SongAnalysis()
-  analysis.progress = 0.4
-  return SongAnalysisView(model: model, analysis: analysis)
-}

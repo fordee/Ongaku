@@ -107,24 +107,29 @@ enum AgentNotation {
     "opentriangle": 81, "mutetriangle": 80,
   ]
 
-  /// Reads a pitch: a MIDI note number, a name ("C4" is 60, middle C) or a drum's name.
+  /// How agents name pitches for the call being run (see `AgentToolbox.call`).
+  @TaskLocal static var pitchNaming: PitchNaming = .logic
+
+  /// Reads a pitch: a MIDI note number, a name (middle C, 60, is "C3" or "C4" as
+  /// `pitchNaming` says) or a drum's name.
   static func pitch(_ value: AgentValue, key: String = "pitch") throws -> Int {
     if let number = value.intValue {
       guard MIDINote.pitchRange.contains(number) else { throw AgentError.invalidArgument(key, "MIDI notes run from 0 to 127.") }
       return number
     }
     guard let text = value.stringValue?.trimmingCharacters(in: .whitespaces), !text.isEmpty else {
-      throw AgentError.invalidArgument(key, "give a MIDI note number or a name such as \"C4\".")
+      throw AgentError.invalidArgument(key, "give a MIDI note number or a name such as \"\(pitchNaming.middleC)\".")
     }
     if let drum = drumNames[AgentNames.simplified(text)] { return drum }
     guard let pitch = pitch(named: text) else {
-      throw AgentError.invalidArgument(key, "“\(text)” isn't a note; use a name such as \"C4\", \"F#3\" or \"Bb2\" (C4 = 60), or a MIDI number.")
+      throw AgentError.invalidArgument(
+        key, "“\(text)” isn't a note; use a name such as \"\(pitchNaming.middleC)\", \"F#3\" or \"Bb2\" (\(pitchNaming.middleC) = 60, middle C), or a MIDI number.")
     }
     guard MIDINote.pitchRange.contains(pitch) else { throw AgentError.invalidArgument(key, "“\(text)” is outside MIDI's range (C-1 to G9).") }
     return pitch
   }
 
-  /// "C4" = 60, "F#3" = 54, "Bb2" = 46, "C-1" = 0.
+  /// With Logic's naming, "C3" = 60, "F#2" = 54, "C-2" = 0; scientifically, "C4" = 60.
   static func pitch(named text: String) -> Int? {
     var rest = Substring(text)
     guard let letter = rest.first?.uppercased().first, let pitchClass = letterPitchClasses[letter] else { return nil }
@@ -135,12 +140,12 @@ enum AgentNotation {
       rest = rest.dropFirst()
     }
     guard let octave = Int(rest) else { return nil }
-    return (octave + 1) * 12 + pitchClass + accidental
+    return (octave + pitchNaming.octaveOffset) * 12 + pitchClass + accidental
   }
 
-  /// Scientific pitch name: 60 is "C4".
+  /// A pitch's name: 60 is "C3" (Logic) or "C4" (scientific).
   static func name(ofPitch pitch: Int) -> String {
-    "\(sharpNames[((pitch % 12) + 12) % 12])\(Int((Double(pitch) / 12).rounded(.down)) - 1)"
+    "\(sharpNames[((pitch % 12) + 12) % 12])\(Int((Double(pitch) / 12).rounded(.down)) - pitchNaming.octaveOffset)"
   }
 
   // MARK: - Keys, meters and grids
@@ -199,4 +204,17 @@ enum AgentNotation {
     let length = Tick.perQuarterNote * 4 / Int64(division)
     return Tick(isTriplet ? length * 2 / 3 : length)
   }
+}
+
+/// How agents name octaves. Ongaku's Piano Roll names middle C (60) "C3", as Logic does;
+/// scientific pitch names call it "C4". Agents use Logic's unless the person chooses
+/// otherwise in Settings › Agents.
+public enum PitchNaming: String, Sendable, CaseIterable {
+  case logic, scientific
+
+  /// Middle C's name.
+  public var middleC: String { self == .logic ? "C3" : "C4" }
+
+  /// Added to a name's octave number to count octaves from MIDI note 0.
+  var octaveOffset: Int { self == .logic ? 2 : 1 }
 }

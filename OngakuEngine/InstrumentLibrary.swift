@@ -15,7 +15,21 @@ public enum InstrumentLibrary {
     public var componentType: UInt32
     public var componentSubType: UInt32
     public var componentManufacturer: UInt32
+    /// The plug-in's version, as its maker numbers it.
+    public var version: String
     public var id: String { "\(componentType)-\(componentSubType)-\(componentManufacturer)" }
+
+    public init(
+      manufacturer: String, name: String, componentType: UInt32, componentSubType: UInt32, componentManufacturer: UInt32,
+      version: String = ""
+    ) {
+      self.manufacturer = manufacturer
+      self.name = name
+      self.componentType = componentType
+      self.componentSubType = componentSubType
+      self.componentManufacturer = componentManufacturer
+      self.version = version
+    }
 
     /// A new reference for adding this instrument to a track.
     public func makeReference() -> PluginReference {
@@ -43,9 +57,32 @@ public enum InstrumentLibrary {
       return Entry(
         manufacturer: component.manufacturerName, name: component.name,
         componentType: description.componentType, componentSubType: description.componentSubType,
-        componentManufacturer: description.componentManufacturer)
+        componentManufacturer: description.componentManufacturer, version: component.versionString)
     }
     .sorted { ($0.manufacturer, $0.name) < ($1.manufacturer, $1.name) }
+  }
+
+  /// Installed MIDI effect plug-ins (Audio Unit MIDI processors), for the MIDI FX slots.
+  public static func audioUnitMIDIEffects() -> [Entry] {
+    AVAudioUnitComponentManager.shared().components(
+      matching: AudioComponentDescription(
+        componentType: kAudioUnitType_MIDIProcessor, componentSubType: 0, componentManufacturer: 0, componentFlags: 0,
+        componentFlagsMask: 0))
+    .map { component in
+      let description = component.audioComponentDescription
+      return Entry(
+        manufacturer: component.manufacturerName, name: component.name,
+        componentType: description.componentType, componentSubType: description.componentSubType,
+        componentManufacturer: description.componentManufacturer, version: component.versionString)
+    }
+    .sorted { ($0.manufacturer, $0.name) < ($1.manufacturer, $1.name) }
+  }
+
+  /// Every installed plug-in of another maker's that a song can use: instruments, effects
+  /// and MIDI effects, for the Plug-in Manager.
+  public static func thirdPartyPlugins() -> [Entry] {
+    audioUnitInstruments().filter { $0.componentManufacturer != kAudioUnitManufacturer_Apple }
+      + audioUnitEffects() + audioUnitMIDIEffects().filter { $0.componentManufacturer != kAudioUnitManufacturer_Apple }
   }
 
   /// Ongaku's own instruments, from the extension inside the app.
@@ -75,7 +112,7 @@ public enum InstrumentLibrary {
         return Entry(
           manufacturer: component.manufacturerName, name: component.name,
           componentType: description.componentType, componentSubType: description.componentSubType,
-          componentManufacturer: description.componentManufacturer)
+          componentManufacturer: description.componentManufacturer, version: component.versionString)
       }
       .sorted { ($0.manufacturer, $0.name) < ($1.manufacturer, $1.name) }
   }

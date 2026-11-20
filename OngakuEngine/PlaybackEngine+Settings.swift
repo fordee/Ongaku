@@ -92,6 +92,8 @@ extension PlaybackEngine {
     if isPlaying {
       stop()
     }
+    // Not `restartEngine`: `outputDidChange` below loads every instrument again at the new
+    // device's rate, which covers the samplers' sounds too.
     engine.stop()
     let failure = engine.outputNode.withAUAudioUnit { unit -> (any Error)? in
       do {

@@ -109,7 +109,7 @@ extension ProjectWindowModel: AgentSession {
   }
 
   var installedEffects: [AgentAudioUnit] {
-    InstrumentLibrary.audioUnitEffects().map { AgentAudioUnit(name: $0.name, manufacturer: $0.manufacturer, reference: $0.makeReference()) }
+    audioUnitEffects.map { AgentAudioUnit(name: $0.name, manufacturer: $0.manufacturer, reference: $0.makeReference()) }
   }
 
   // MARK: - Plug-ins
@@ -117,15 +117,16 @@ extension ProjectWindowModel: AgentSession {
   /// Plug-ins load in the background (out of process), so this waits up to ten seconds.
   func waitForPlugin(_ pluginID: PluginReference.ID, on channelID: Track.ID) async -> Bool {
     for _ in 0..<200 {
-      guard (try? project.inserts(of: channelID))?.contains(where: { $0.id == pluginID }) == true else { return false }
-      if engine.withInsertAudioUnit(pluginID, onTrack: channelID, { _ in }) != nil { return true }
+      let plugins = project.track(withID: channelID)?.channel.plugins ?? (try? project.inserts(of: channelID)) ?? []
+      guard plugins.contains(where: { $0.id == pluginID }) else { return false }
+      if engine.withPluginAudioUnit(pluginID, onTrack: channelID, { _ in }) != nil { return true }
       try? await Task.sleep(for: .milliseconds(50))
     }
     return false
   }
 
   func parameters(ofPlugin pluginID: PluginReference.ID, on channelID: Track.ID) -> [AgentPluginParameter]? {
-    engine.withInsertAudioUnit(pluginID, onTrack: channelID) { unit in
+    engine.withPluginAudioUnit(pluginID, onTrack: channelID) { unit in
       (unit.parameterTree?.allParameters ?? []).compactMap { parameter -> AgentPluginParameter? in
         guard parameter.flags.contains(.flag_IsWritable), parameter.maxValue > parameter.minValue else { return nil }
         return AgentPluginParameter(
@@ -137,7 +138,7 @@ extension ProjectWindowModel: AgentSession {
   }
 
   func presets(ofPlugin pluginID: PluginReference.ID, on channelID: Track.ID) -> [String] {
-    engine.withInsertAudioUnit(pluginID, onTrack: channelID) { unit in (unit.factoryPresets ?? []).map(\.name) } ?? []
+    engine.withPluginAudioUnit(pluginID, onTrack: channelID) { unit in (unit.factoryPresets ?? []).map(\.name) } ?? []
   }
 
   /// Changes a loaded plug-in, then stores its new settings in the song as one undo step.
@@ -146,12 +147,12 @@ extension ProjectWindowModel: AgentSession {
   ) async throws {
     // Undo goes back to the settings it has now. Changes made in its window only reach the
     // song when the window closes, so store them first, as saving does.
-    if let current = engine.insertState(pluginID, onTrack: channelID) {
+    if let current = engine.pluginState(pluginID, onTrack: channelID) {
       var settled = project
       try? SetPluginState(current, forPlugin: pluginID, on: channelID).apply(to: &settled)
       document.editor.load(settled)
     }
-    let found: Bool? = engine.withInsertAudioUnit(pluginID, onTrack: channelID) { unit in
+    let found: Bool? = engine.withPluginAudioUnit(pluginID, onTrack: channelID) { unit in
       if let preset, let match = unit.factoryPresets?.first(where: { $0.name.compare(preset, options: .caseInsensitive) == .orderedSame }) {
         unit.currentPreset = match
       }
@@ -163,7 +164,7 @@ extension ProjectWindowModel: AgentSession {
     guard found == true else { throw AgentError.notPossible("The plug-in isn't loaded.") }
     // An out-of-process plug-in takes a moment to take the changes in.
     try? await Task.sleep(for: .milliseconds(100))
-    guard let state = engine.insertState(pluginID, onTrack: channelID) else {
+    guard let state = engine.pluginState(pluginID, onTrack: channelID) else {
       throw AgentError.notPossible("The plug-in's settings couldn't be read back.")
     }
     try performEdit(SetPluginState(state, forPlugin: pluginID, on: channelID), named: actionName)
@@ -191,12 +192,13 @@ extension ProjectWindowModel: AgentSession {
   // MARK: - Rendering
 
   /// Renders to a temporary 32-bit float file and reads it back, as analysis needs samples.
+  /// It renders at the device's rate, as Freeze and Analyze Whole Song do.
   func renderMix(_ range: Range<Tick>) async throws -> AgentAudio {
     let folder = FileManager.default.temporaryDirectory.appending(path: "Agent Renders/\(UUID().uuidString)", directoryHint: .isDirectory)
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: folder) }
     let url = folder.appending(path: "Mix.wav")
-    let settings = BounceSettings(format: .wav, bitDepth: .thirtyTwoFloat, sampleRate: 48_000, normalize: false, includeTail: false)
+    let settings = BounceSettings(format: .wav, bitDepth: .thirtyTwoFloat, sampleRate: engine.outputSampleRate, normalize: false, includeTail: false)
     _ = try await render(range, settings: settings, to: url)
     let file = try AVAudioFile(forReading: url, commonFormat: .pcmFormatFloat32, interleaved: false)
     guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(file.length)) else {

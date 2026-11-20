@@ -52,7 +52,7 @@ extension AgentToolbox {
       track = existing
     } else {
       let kit: DrummerPerformance.Kit = try arguments.optionalString("kit").map(AgentNames.simplified) == "drummachine" ? .drumMachine : .generalMIDI
-      var new = Track(name: uniqueTrackName("Drummer", in: project), kind: .softwareInstrument)
+      var new = session.makeTrack(name: project.uniqueTrackName("Drummer"), kind: .softwareInstrument)
       new.channel.instrument = kit == .drumMachine ? .audioUnit(OngakuInstrument.drumMachine.makeReference()) : .generalMIDIPercussion(kit: 0)
       commands.append(AddTrack(new))
       track = new
@@ -120,7 +120,7 @@ extension AgentToolbox {
       }
       track = existing
     } else {
-      var new = Track(name: uniqueTrackName(instrument == .bass ? "Bass Player" : "Keyboard Player", in: project), kind: .softwareInstrument)
+      var new = session.makeTrack(name: project.uniqueTrackName(instrument == .bass ? "Bass Player" : "Keyboard Player"), kind: .softwareInstrument)
       new.channel.instrument = try arguments.optionalString("sound").map { try AgentInstruments.resolve($0, audioUnits: session.installedAudioUnits, libraries: session.soundLibraries, key: "sound") }
         ?? (instrument == .bass ? .generalMIDI(program: 33) : .generalMIDI(program: 4))
       commands.append(AddTrack(new))
@@ -301,14 +301,4 @@ extension AgentToolbox {
     ]
   }
 
-  static func uniqueTrackName(_ base: String, in project: Project) -> String {
-    let existing = Set(project.tracks.map(\.name))
-    var name = base
-    var number = 2
-    while existing.contains(name) {
-      name = "\(base) \(number)"
-      number += 1
-    }
-    return name
-  }
 }

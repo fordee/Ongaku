@@ -7,7 +7,9 @@ import AudioToolbox
 import SwiftUI
 
 // The plug-in windows as the manual shows them (Docs/Manual, chapter 8). Render these with
-// the OngakuEffectsPreviews scheme active.
+// the OngakuEffectsPreviews scheme active, and crop off the preview window's title bar. The
+// Chorus, Multiband Compressor, Tuner, Electric Piano, Organ and Sampler Zones images are
+// their own files' previews.
 
 #Preview("Manual: Vocal Strip") {
   // Header, hint line and knobs, as every Ongaku effect has.

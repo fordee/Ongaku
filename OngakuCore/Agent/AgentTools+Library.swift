@@ -56,6 +56,8 @@ public struct AgentLibraryPlacement: Sendable {
 
 /// The library things only the app can do; sessions without libraries (tests) have none.
 extension AgentSession {
+  public func makeTrack(name: String, kind: TrackKind) -> Track { Track(name: name, kind: kind) }
+
   public var soundLibraries: [AgentSoundLibrary] { [] }
 
   public func addLibrarySound(_ sound: AgentLibrarySound, at position: Tick, onTrack trackID: Track.ID?) async throws -> AgentLibraryPlacement {

@@ -88,7 +88,7 @@ struct MIDIControlEventTests {
 
   @Test func trimmingTheStartKeepsControlsOnTheTimeline() throws {
     var (project, regionID) = makeProject()
-    try TrimRegion(regionID, start: Tick(3840 + 960), length: Tick(2880)).apply(to: &project)
+    try ResizeRegion(regionID, start: Tick(3840 + 960), length: Tick(2880)).apply(to: &project)
     #expect(controls(project).map(\.position) == [Tick(-960), Tick(960), Tick(1040), Tick(2040)])
   }
 

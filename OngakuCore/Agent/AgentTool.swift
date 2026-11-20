@@ -24,6 +24,9 @@ public protocol AgentSession: AnyObject {
   /// Undoes the last change, returning its name, or `nil` when there's nothing to undo.
   func undo() -> String?
   func redo() -> String?
+  /// A new track with the person's defaults for new tracks (colour, automation mode), as
+  /// the app makes them.
+  func makeTrack(name: String, kind: TrackKind) -> Track
   /// Saves the song (one that's never been saved can't be: the person chooses where).
   func save() async throws
   /// The Audio Unit instruments installed on this Mac.
@@ -234,7 +237,7 @@ enum Schema {
   /// A pitch: a MIDI note number or a name.
   static let pitch: AgentValue = [
     "type": ["string", "integer"],
-    "description": "MIDI note number (60 is middle C) or a name such as \"C4\", \"F#3\" or \"Bb2\" (C4 = 60). On drum tracks, General MIDI drum names work too: \"kick\", \"snare\", \"closed hat\", \"open hat\", \"crash\", \"ride\", \"low tom\", \"clap\"…",
+    "description": "MIDI note number (60 is middle C) or a name such as \"F#3\" or \"Bb2\" (middle C's name is in the guide: C3 unless it says C4). On drum tracks, General MIDI drum names work too: \"kick\", \"snare\", \"closed hat\", \"open hat\", \"crash\", \"ride\", \"low tom\", \"clap\"…",
   ]
 }
 

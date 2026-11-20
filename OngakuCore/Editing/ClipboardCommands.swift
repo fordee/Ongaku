@@ -145,8 +145,8 @@ public struct DuplicateTrack: EditCommand {
   public func apply(to project: inout Project) throws {
     let index = try project.requireTrackIndex(trackID)
     let original = project.tracks[index]
-    guard !original.isSummingStack else {
-      throw EditError.invalidValue("Summing stacks can't be duplicated yet; duplicate their tracks instead.")
+    guard !original.isStack else {
+      throw EditError.invalidValue("Stacks can't be duplicated yet; duplicate their tracks instead.")
     }
     var copy = original
     copy.id = copyID
@@ -164,7 +164,9 @@ public struct DuplicateTrack: EditCommand {
       copy.channel.inserts[insertIndex].id = newID
     }
     if case .audioUnit(var instrument) = copy.channel.instrument {
-      instrument.id = UUID()
+      let newID = UUID()
+      pluginIDs[instrument.id] = newID
+      instrument.id = newID
       copy.channel.instrument = .audioUnit(instrument)
     }
     var sendIDs: [Send.ID: Send.ID] = [:]
@@ -173,20 +175,27 @@ public struct DuplicateTrack: EditCommand {
       sendIDs[copy.channel.sends[sendIndex].id] = newID
       copy.channel.sends[sendIndex].id = newID
     }
-    copy.automation = copy.automation.compactMap { lane in
-      var lane = lane
-      switch lane.parameter {
-      case .plugin(var parameter):
-        guard let newID = pluginIDs[parameter.pluginID] else { return nil }
-        parameter.pluginID = newID
-        lane.parameter = .plugin(parameter)
+    // The copy's controls, for its automation and Smart Controls.
+    func copied(_ parameter: AutomationParameter) -> AutomationParameter? {
+      switch parameter {
+      case .plugin(var plugin):
+        guard let newID = pluginIDs[plugin.pluginID] else { return nil }
+        plugin.pluginID = newID
+        return .plugin(plugin)
       case .sendLevel(let sendID):
-        guard let newID = sendIDs[sendID] else { return nil }
-        lane.parameter = .sendLevel(newID)
-      default:
-        break
+        return sendIDs[sendID].map(AutomationParameter.sendLevel)
+      case .volume, .pan:
+        return parameter
       }
+    }
+    copy.automation = copy.automation.compactMap { lane in
+      guard let parameter = copied(lane.parameter) else { return nil }
+      var lane = lane
+      lane.parameter = parameter
       return lane
+    }
+    copy.smartControls = copy.smartControls.compactMap { control in
+      copied(control.parameter).map { SmartControl(parameter: $0) }
     }
     project.tracks.insert(copy, at: index + 1)
   }

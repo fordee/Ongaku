@@ -8,16 +8,39 @@ import Foundation
 /// Converts between musical time (ticks, bars and beats) and real time (seconds and samples).
 ///
 /// A tempo map always has a tempo change at tick 0 and a meter change at bar index 0. Tempo
-/// changes are instantaneous steps; tempo ramps can be added later as a new segment kind
-/// without changing how positions are stored.
+/// changes step, or ramp linearly (in BPM) to the next change when `rampsToNext` is set;
+/// times through a ramp are worked out exactly.
 public struct TempoMap: Codable, Sendable, Equatable {
   public struct TempoChange: Codable, Sendable, Equatable {
     public var position: Tick
     public var bpm: Double
+    /// Whether the tempo glides from this change to the next (a linear ramp in BPM, as
+    /// Logic's tempo curves) instead of stepping there.
+    public var rampsToNext: Bool
 
-    public init(position: Tick, bpm: Double) {
+    public init(position: Tick, bpm: Double, rampsToNext: Bool = false) {
       self.position = position
       self.bpm = bpm
+      self.rampsToNext = rampsToNext
+    }
+
+    private enum CodingKeys: String, CodingKey {
+      case position, bpm, rampsToNext
+    }
+
+    // Ramps were added in format version 30; older changes step.
+    public init(from decoder: any Decoder) throws {
+      let container = try decoder.container(keyedBy: CodingKeys.self)
+      position = try container.decode(Tick.self, forKey: .position)
+      bpm = try container.decode(Double.self, forKey: .bpm)
+      rampsToNext = try container.decodeIfPresent(Bool.self, forKey: .rampsToNext) ?? false
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+      var container = encoder.container(keyedBy: CodingKeys.self)
+      try container.encode(position, forKey: .position)
+      try container.encode(bpm, forKey: .bpm)
+      if rampsToNext { try container.encode(true, forKey: .rampsToNext) }
     }
   }
 
@@ -70,7 +93,19 @@ public struct TempoMap: Codable, Sendable, Equatable {
   // MARK: - Tempo
 
   public func tempo(at position: Tick) -> Double {
-    tempoChanges.last(where: { $0.position <= position })?.bpm ?? tempoChanges[0].bpm
+    guard let index = tempoChanges.lastIndex(where: { $0.position <= position }) else { return tempoChanges[0].bpm }
+    let change = tempoChanges[index]
+    guard change.rampsToNext, index + 1 < tempoChanges.count else { return change.bpm }
+    let next = tempoChanges[index + 1]
+    let fraction = Double((position - change.position).rawValue) / Double((next.position - change.position).rawValue)
+    return change.bpm + (next.bpm - change.bpm) * fraction
+  }
+
+  /// Makes the tempo change at `position` ramp to the next one, or step again. The last
+  /// change has nothing to ramp to.
+  public mutating func setRamp(_ ramps: Bool, at position: Tick) {
+    guard let index = tempoChanges.firstIndex(where: { $0.position == position }) else { return }
+    tempoChanges[index].rampsToNext = ramps
   }
 
   public mutating func setTempo(_ bpm: Double, at position: Tick = .zero) throws {
@@ -93,22 +128,84 @@ public struct TempoMap: Codable, Sendable, Equatable {
   public mutating func removeTempoChange(at position: Tick) {
     guard position != .zero else { return }
     tempoChanges.removeAll { $0.position == position }
+    // The last change has nothing to ramp to.
+    tempoChanges[tempoChanges.count - 1].rampsToNext = false
+  }
+
+  // MARK: - Section edits
+
+  /// Moves the tempo and meter changes after the start, for an edit that moves time around
+  /// (see `Project.remapTimeline`). `newPosition` returns `nil` to delete a change. Meter
+  /// changes land on the bar line at or after their new position. Changes that end up
+  /// repeating the tempo or meter already playing are dropped.
+  mutating func remapChanges(_ newPosition: (Tick) -> Tick?) {
+    let old = self
+    var tempos: [Tick: TempoChange] = [:]
+    for change in tempoChanges.dropFirst() {
+      guard let position = newPosition(change.position), position > .zero else { continue }
+      tempos[position] = TempoChange(position: position, bpm: change.bpm, rampsToNext: change.rampsToNext)
+    }
+    tempoChanges = [tempoChanges[0]]
+    for (_, change) in tempos.sorted(by: { $0.key < $1.key }) {
+      // A change repeating the tempo before it is dropped, unless a ramp runs to or from it.
+      let previous = tempoChanges[tempoChanges.count - 1]
+      guard change.bpm != previous.bpm || previous.rampsToNext || change.rampsToNext else { continue }
+      tempoChanges.append(change)
+    }
+    // The last change has nothing to ramp to.
+    tempoChanges[tempoChanges.count - 1].rampsToNext = false
+
+    let meters = meterChanges.dropFirst().compactMap { change -> (position: Tick, signature: TimeSignature)? in
+      guard let position = newPosition(old.tickPosition(ofBarIndex: change.barIndex)), position > .zero else { return nil }
+      return (position, change.signature)
+    }
+    meterChanges = [meterChanges[0]]
+    for meter in meters.sorted(by: { $0.position < $1.position }) {
+      // Bars are counted in the meters placed so far, so each lands on a bar line.
+      let bar = bar(containing: meter.position)
+      let index = bar.start == meter.position ? bar.index : bar.index + 1
+      meterChanges.removeAll { $0.barIndex >= index && $0.barIndex > 0 }
+      guard timeSignature(atBarIndex: index) != meter.signature else { continue }
+      meterChanges.append(MeterChange(barIndex: index, signature: meter.signature))
+    }
   }
 
   // MARK: - Ticks ↔ seconds ↔ samples
 
-  private static func secondsPerTick(atBPM bpm: Double) -> Double {
-    60 / (bpm * Double(Tick.perQuarterNote))
+  /// The tempo at the start of segment `index` and how fast it changes per tick through
+  /// it (0 when it steps).
+  private func slope(ofSegment index: Int) -> (bpm: Double, perTick: Double) {
+    let change = tempoChanges[index]
+    guard change.rampsToNext, index + 1 < tempoChanges.count else { return (change.bpm, 0) }
+    let next = tempoChanges[index + 1]
+    return (change.bpm, (next.bpm - change.bpm) / Double((next.position - change.position).rawValue))
+  }
+
+  /// Seconds from the start of segment `index` to `ticks` into it. Through a ramp the tempo
+  /// is b + k·x BPM at x ticks, so the time is ∫ 60 / (960 (b + k x)) dx = (60/960) ln(1 + k x / b) / k.
+  private func seconds(intoSegment index: Int, ticks: Double) -> Double {
+    let (bpm, perTick) = slope(ofSegment: index)
+    let secondsPerBeatTick = 60 / Double(Tick.perQuarterNote)
+    guard abs(perTick) > 1e-12 else { return ticks * secondsPerBeatTick / bpm }
+    return secondsPerBeatTick * log1p(perTick * ticks / bpm) / perTick
+  }
+
+  /// The inverse: ticks into segment `index` after `seconds` (b (e^{k s′} − 1) / k, with s′
+  /// the seconds in beat-ticks).
+  private func ticks(intoSegment index: Int, seconds: Double) -> Double {
+    let (bpm, perTick) = slope(ofSegment: index)
+    let scaled = seconds * Double(Tick.perQuarterNote) / 60
+    guard abs(perTick) > 1e-12 else { return scaled * bpm }
+    return bpm * expm1(perTick * scaled) / perTick
   }
 
   public func seconds(at position: Tick) -> Double {
     var elapsed = 0.0
     for (index, change) in tempoChanges.enumerated() {
-      let secondsPerTick = TempoMap.secondsPerTick(atBPM: change.bpm)
       if index + 1 < tempoChanges.count, position > tempoChanges[index + 1].position {
-        elapsed += Double((tempoChanges[index + 1].position - change.position).rawValue) * secondsPerTick
+        elapsed += seconds(intoSegment: index, ticks: Double((tempoChanges[index + 1].position - change.position).rawValue))
       } else {
-        return elapsed + Double((position - change.position).rawValue) * secondsPerTick
+        return elapsed + seconds(intoSegment: index, ticks: Double((position - change.position).rawValue))
       }
     }
     return elapsed
@@ -118,16 +215,15 @@ public struct TempoMap: Codable, Sendable, Equatable {
   public func tickPosition(atSeconds seconds: Double) -> Tick {
     var elapsed = 0.0
     for (index, change) in tempoChanges.enumerated() {
-      let secondsPerTick = TempoMap.secondsPerTick(atBPM: change.bpm)
       if index + 1 < tempoChanges.count {
         let segmentTicks = tempoChanges[index + 1].position - change.position
-        let segmentSeconds = Double(segmentTicks.rawValue) * secondsPerTick
+        let segmentSeconds = self.seconds(intoSegment: index, ticks: Double(segmentTicks.rawValue))
         if seconds > elapsed + segmentSeconds {
           elapsed += segmentSeconds
           continue
         }
       }
-      return change.position + Tick(Int64(((seconds - elapsed) / secondsPerTick).rounded()))
+      return change.position + Tick(Int64(ticks(intoSegment: index, seconds: seconds - elapsed).rounded()))
     }
     return .zero
   }

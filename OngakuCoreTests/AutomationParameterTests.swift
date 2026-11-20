@@ -69,4 +69,28 @@ struct AutomationParameterTests {
     try editor.perform(SetChannelStrip(track.id, to: channel), undoManager: nil)
     #expect(editor.project.tracks[0].automation.map(\.parameter) == [.volume])
   }
+
+  @Test func instrumentAndMIDIEffectPluginsCanBeAutomated() throws {
+    let synth = OngakuInstrument.retroSynth.makeReference()
+    // A MIDI processor ('aumi'), as a third-party arpeggiator would be.
+    let arpeggiator = PluginReference(componentType: 0x6175_6D69, componentSubType: 0x6172_7070, componentManufacturer: 0x5465_7374, name: "Arp")
+    var track = Track(name: "Synth", kind: .softwareInstrument)
+    track.channel.instrument = .audioUnit(synth)
+    track.channel.midiEffects = [MIDIEffect(.audioUnit(arpeggiator))]
+    #expect(track.channel.plugins.map(\.id) == [arpeggiator.id, synth.id], "MIDI effects, then the instrument")
+    let point = [AutomationPoint(position: .zero, value: 0)]
+    track.automation = [
+      AutomationLane(parameter: .plugin(PluginParameter(pluginID: synth.id, address: 428, name: "Volume")), points: point),
+      AutomationLane(parameter: .plugin(PluginParameter(pluginID: arpeggiator.id, address: 1, name: "Rate")), points: point),
+    ]
+    let editor = ProjectEditor(project: Project(tracks: [track]))
+    try editor.perform(SetTrackColor(track.id, to: .blue), undoManager: nil)
+    #expect(editor.project.tracks[0].automation.count == 2, "Kept while the plug-ins are on the strip")
+
+    var channel = track.channel
+    channel.instrument = .generalMIDI(program: 0)
+    channel.midiEffects = []
+    try editor.perform(SetChannelStrip(track.id, to: channel), undoManager: nil)
+    #expect(editor.project.tracks[0].automation.isEmpty, "Replacing them takes their automation")
+  }
 }

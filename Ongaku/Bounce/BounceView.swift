@@ -7,14 +7,16 @@ import OngakuCore
 import OngakuEngine
 import SwiftUI
 
-/// The Bounce dialog (File > Bounce, ⌘B): choose a format, render, then save.
+/// The Bounce dialog (File > Bounce, ⌘B): choose a format, render, then save. It's also
+/// Export All Tracks as Audio Files (⇧⌘E), with a file for each track.
 struct BounceView: View {
   let model: ProjectWindowModel
   @Bindable var bounce: BounceModel
 
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
-      Text("Bounce “\(model.exportFileName)”").font(.headline)
+      Text(bounce.target == .mix ? "Bounce “\(model.exportFileName)”" : "Export All Tracks of “\(model.exportFileName)”")
+        .font(.headline)
 
       switch bounce.phase {
       case .options:
@@ -29,6 +31,15 @@ struct BounceView: View {
         .frame(minHeight: 120)
       case .finished(let result):
         summary(of: result)
+      case .finishedTracks(_, let files):
+        VStack(alignment: .leading, spacing: 8) {
+          LabeledContent("Files", value: files.count == 1 ? "1 track" : "\(files.count) tracks")
+          Text(files.map(\.lastPathComponent).joined(separator: "\n"))
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .lineLimit(6)
+        }
+        .frame(minHeight: 120, alignment: .top)
       }
 
       HStack {
@@ -38,6 +49,9 @@ struct BounceView: View {
     }
     .padding(20)
     .frame(width: 420)
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("Bounce")
+    .accessibilityIdentifier("bounce")
   }
 
   private var options: some View {
@@ -58,14 +72,21 @@ struct BounceView: View {
           Text("\((rate / 1000).formatted(.number.precision(.fractionLength(0...1)))) kHz").tag(rate)
         }
       }
-      Toggle("Normalize", isOn: $bounce.settings.normalize)
-        .help("Raise or lower the whole bounce so its loudest peak sits just below full scale")
+      if bounce.target == .mix {
+        Toggle("Normalize", isOn: $bounce.settings.normalize)
+          .help("Raise or lower the whole bounce so its loudest peak sits just below full scale")
+      } else {
+        Toggle("Include effect plug-ins", isOn: $bounce.trackOptions.includesEffects)
+          .help("Render each track through its insert plug-ins; off, only the instrument and MIDI effects")
+        Toggle("Include volume and pan", isOn: $bounce.trackOptions.includesVolumeAndPan)
+          .help("Render each track at its fader's level and pan, with their automation; off, at 0 dB in the centre")
+      }
       Toggle("Include audio tail", isOn: $bounce.settings.includeTail)
         .help("Keep rendering after the end until reverb and delay have died away")
     }
     .formStyle(.grouped)
     .scrollDisabled(true)
-    .frame(height: 290)
+    .frame(height: bounce.target == .mix ? 290 : 330)
   }
 
   /// The bit depth shown is the one that will be written, so switching to AIFF with
@@ -101,13 +122,13 @@ struct BounceView: View {
     case .options:
       Button("Cancel", role: .cancel) { model.closeBounce() }
         .keyboardShortcut(.cancelAction)
-      Button("Bounce") { model.startBounce() }
+      Button(bounce.target == .mix ? "Bounce" : "Export") { model.startBounce() }
         .keyboardShortcut(.defaultAction)
     case .rendering:
       Button("Cancel", role: .cancel) { bounce.cancel() }
         .keyboardShortcut(.cancelAction)
-    case .finished:
-      Button("Bounce Again") { bounce.phase = .options }
+    case .finished, .finishedTracks:
+      Button(bounce.target == .mix ? "Bounce Again" : "Export Again") { bounce.phase = .options }
       Button("Discard", role: .cancel) { model.closeBounce() }
         .keyboardShortcut(.cancelAction)
       Button("Save…") { model.saveBounce() }
@@ -119,4 +140,9 @@ struct BounceView: View {
 #Preview {
   let model = ProjectWindowModel(document: OngakuDocument())
   BounceView(model: model, bounce: BounceModel(range: .zero..<Tick.quarterNotes(32)))
+}
+
+#Preview("Export All Tracks") {
+  let model = ProjectWindowModel(document: OngakuDocument())
+  BounceView(model: model, bounce: BounceModel(range: .zero..<Tick.quarterNotes(32), target: .allTracks))
 }

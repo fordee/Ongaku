@@ -76,7 +76,11 @@ final class KeyCommandMonitor {
     return true
   }
 
+  /// While Settings › Key Commands waits for a key, it gets the next key press first.
+  var keyRecorder: ((NSEvent) -> Bool)?
+
   private func handle(_ event: NSEvent) -> NSEvent? {
+    if let keyRecorder, keyRecorder(event) { return nil }
     // Keys typed into a text field (the tempo, say) go the usual way, unclaimed: sending
     // them to the window here as well would type each one twice. A menu item they choose
     // hands them back to the field (see `menuShouldPerform`).
@@ -143,31 +147,22 @@ extension ProjectWindowModel {
     case 51, 117:  // Delete, Forward Delete
       deleteSelectionInActiveArea()
     default:
-      switch event.charactersIgnoringModifiers?.lowercased() {
-      case "c": toggleCycle()
-      case "k": toggleMetronome()
-      case "e": toggleEditor()
-      case "x": toggleMixer()
-      case "r": toggleRecording()
-      case "y": toggleLibrary()
-      case "o": toggleLoopBrowser()
-      case "a": toggleAutomation()
-      case "i": toggleInspector()
-      case "t": showToolMenu()
-      case "g": toggleGlobalTracks()
-      case ",": moveByBars(-1)
-      case ".": moveByBars(1)
-      default: return false
-      }
+      // The rest are the keys chosen in Settings › Key Commands (Logic's, to begin with).
+      guard let key = event.charactersIgnoringModifiers?.lowercased().first,
+        let command = KeyBindings.shared.command(forKey: key)
+      else { return false }
+      run(command)
     }
     return true
   }
 }
 
 extension ProjectWindowModel {
-  /// Whether the Piano Roll's notes are what keys edit: it's showing and was clicked last.
+  /// Whether the open region's notes are what keys edit: the Piano Roll or the Event List
+  /// is showing and was clicked last.
   var isPianoRollEditing: Bool {
-    activeEditingArea == .pianoRoll && isEditorVisible && pianoRoll.shownEditor == .pianoRoll && pianoRoll.region != nil
+    activeEditingArea == .pianoRoll && isEditorVisible && [.pianoRoll, .eventList].contains(pianoRoll.shownEditor)
+      && pianoRoll.region != nil
   }
 
   /// The Piano Roll's own keys, as in Logic: Option-Up and Down transpose the selection a
@@ -191,6 +186,16 @@ extension ProjectWindowModel {
 }
 
 extension ProjectWindowModel {
+  /// Functions › Nudge Left and Right: the selected notes in the Piano Roll, if it's what
+  /// was clicked last, otherwise the selected regions; a grid step either way.
+  func nudgeSelectionInActiveArea(by steps: Int) {
+    if isPianoRollEditing {
+      pianoRoll.nudgeSelection(by: steps)
+    } else if !selectedRegionIDs.isEmpty {
+      nudgeSelectedRegions(by: steps)
+    }
+  }
+
   /// The tracks area's own keys, as in Logic: Option-Left and Right nudge the selected
   /// regions a snap grid step.
   fileprivate func handleTracksAreaKey(_ event: NSEvent, modifiers: NSEvent.ModifierFlags) -> Bool {

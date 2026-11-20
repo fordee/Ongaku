@@ -58,15 +58,27 @@ final class ManualScreenshotUITests: XCTestCase {
       ManualScreenshotUITests.clickIfThere(app.popUpButtons["Flex"].firstMatch)
     },
     Shot(file: "flex-markers", scene: "flex-markers", area: .tracks),
-    Shot(file: "smart-tempo", scene: "smart-tempo", area: .window) { app in
-      ManualScreenshotUITests.clickIfThere(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS 'BPM'")).firstMatch)
-    },
+    // The detected tempo in the Region Inspector, its menu closed.
+    Shot(file: "smart-tempo", scene: "smart-tempo", area: .window),
     Shot(file: "sends", scene: "sends", area: .element("mixer")),
     Shot(file: "automation", scene: "automation", area: .tracks),
     Shot(file: "library", scene: "library", area: .window),
+    Shot(file: "event-list", scene: "event-list", area: .editor),
+    Shot(file: "audio-file-editor", scene: "audio-file-editor", area: .editor),
+    Shot(file: "smart-controls", scene: "smart-controls", area: .element("smart-controls")),
+    Shot(file: "bounce-in-place", scene: "bounce-in-place", area: .element("bounce-in-place")),
+    Shot(file: "strip-silence", scene: "strip-silence", area: .element("strip-silence")),
     Shot(file: "settings-audio", scene: "overview", area: .settings) { app in
       app.typeKey(",", modifierFlags: .command)
       ManualScreenshotUITests.clickIfThere(app.toolbars.buttons["Audio"].firstMatch)
+    },
+    Shot(file: "settings-plugins", scene: "overview", area: .settings) { app in
+      app.typeKey(",", modifierFlags: .command)
+      ManualScreenshotUITests.clickIfThere(app.toolbars.buttons["Plug-ins"].firstMatch)
+    },
+    Shot(file: "settings-key-commands", scene: "overview", area: .settings) { app in
+      app.typeKey(",", modifierFlags: .command)
+      ManualScreenshotUITests.clickIfThere(app.toolbars.buttons["Key Commands"].firstMatch)
     },
   ]
 

@@ -40,7 +40,7 @@ struct AgentBadge: View {
           .fixedSize()
       }
     }
-    .font(.system(size: 11, weight: .medium))
+    .font(Theme.font(11, weight: .medium))
     .foregroundStyle(Theme.agent)
     .padding(.horizontal, isCompact ? 5 : 9)
     .frame(height: 22)

@@ -21,7 +21,10 @@ final class LiveMIDIEffects {
   private let play: ([UInt8], UInt64?) -> Void
   /// Where the song is at a host time, while it plays.
   private let songPosition: (UInt64) -> Tick?
+  /// The tempo now, for a timeline started while the song is stopped.
   private let tempo: () -> Double
+  /// The song's tempo map, for a timeline following the playing song (whose tempo changes).
+  private let tempoMap: () -> TempoMap
 
   private struct Key: Hashable {
     var pitch: Int
@@ -43,8 +46,9 @@ final class LiveMIDIEffects {
   private var sounding: [OutputKey: EffectNote] = [:]
   /// Notes played and stopped this phrase, so they aren't played again.
   private var finished: Set<OutputKey> = []
-  /// The timeline: a tick at a host time.
-  private var origin: (tick: Tick, hostTime: UInt64)?
+  /// The timeline: a tick at a host time, and whether it follows the playing song (and its
+  /// tempo map) or runs at the tempo it started at.
+  private var origin: (tick: Tick, hostTime: UInt64, followsSong: Bool)?
   private var timer: Timer?
 
   /// How far ahead notes are scheduled.
@@ -54,21 +58,23 @@ final class LiveMIDIEffects {
 
   init(
     effects: [MIDIEffect], play: @escaping ([UInt8], UInt64?) -> Void, songPosition: @escaping (UInt64) -> Tick?,
-    tempo: @escaping () -> Double
+    tempo: @escaping () -> Double, tempoMap: @escaping () -> TempoMap
   ) {
     self.effects = effects
     self.play = play
     self.songPosition = songPosition
     self.tempo = tempo
+    self.tempoMap = tempoMap
   }
 
   deinit {
     timer?.invalidate()
   }
 
-  /// Whether any effect would change what's played (if not, input goes straight through).
+  /// Whether any built-in effect would change what's played (if not, input goes straight
+  /// through; plug-in effects are in the instrument's MIDI chain).
   static func isActive(_ effects: [MIDIEffect]) -> Bool {
-    effects.contains { !$0.isBypassed }
+    effects.contains { !$0.isBypassed && $0.settings.isBuiltIn }
   }
 
   // MARK: - Input
@@ -122,7 +128,11 @@ final class LiveMIDIEffects {
 
   private func startTimeline(at hostTime: UInt64) {
     // While the song plays, the song's own position, so timed effects stay on its grid.
-    origin = (songPosition(hostTime) ?? .zero, hostTime)
+    if let position = songPosition(hostTime) {
+      origin = (position, hostTime, true)
+    } else {
+      origin = (.zero, hostTime, false)
+    }
   }
 
   private var ticksPerSecond: Double { max(1, tempo()) / 60 * Double(Tick.perQuarterNote) }
@@ -132,12 +142,21 @@ final class LiveMIDIEffects {
     let seconds = hostTime >= origin.hostTime
       ? AVAudioTime.seconds(forHostTime: hostTime - origin.hostTime)
       : -AVAudioTime.seconds(forHostTime: origin.hostTime - hostTime)
-    return origin.tick + Tick(Int64((seconds * ticksPerSecond).rounded()))
+    guard origin.followsSong else { return origin.tick + Tick(Int64((seconds * ticksPerSecond).rounded())) }
+    // Through the song's tempo changes, as the plan places the song's own notes.
+    let map = tempoMap()
+    return map.tickPosition(atSeconds: map.seconds(at: origin.tick) + seconds)
   }
 
   private func hostTime(at tick: Tick) -> UInt64 {
     guard let origin else { return mach_absolute_time() }
-    let seconds = Double((tick - origin.tick).rawValue) / ticksPerSecond
+    let seconds: Double
+    if origin.followsSong {
+      let map = tempoMap()
+      seconds = map.seconds(at: tick) - map.seconds(at: origin.tick)
+    } else {
+      seconds = Double((tick - origin.tick).rawValue) / ticksPerSecond
+    }
     return seconds >= 0 ? origin.hostTime + AVAudioTime.hostTime(forSeconds: seconds) : origin.hostTime
   }
 

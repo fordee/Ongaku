@@ -135,7 +135,7 @@ struct MixerAndRecordingTests {
     #expect(OngakuEffect.allCases.filter { $0.category == .mastering } == [.mastering])
     #expect(OngakuEffect.mastering.name == "Mastering")
     #expect(OngakuEffect.mastering.subType == 0x6F6D_7374)  // 'omst'
-    #expect(OngakuEffect.mastering.windowSize == CGSize(width: 940, height: 430 + OngakuEffect.headerHeight))
+    #expect(OngakuEffect.mastering.windowSize == CGSize(width: 960, height: 470 + OngakuEffect.headerHeight))
     #expect(OngakuEffect(OngakuEffect.mastering.makeReference()) == .mastering)
   }
 

@@ -11,7 +11,7 @@ Ongaku Studio has two kinds of shortcut, and they behave a little differently.
 - **While you're typing in a text field** (a track name, the tempo, the Library's search field, a chord name), keys type text instead. Press **Return** to finish typing or **Escape** to cancel. Clicking in the tracks area or an editor also ends typing, so the shortcuts work again straight away.
 - **They only work in the project window.** If a plug-in window or the Settings window is in front, click the project window first. Space won't start playback from a plug-in window.
 
-They're shown next to their commands in the menus, the same as ⌘ shortcuts: for example **Transport › Play** shows Space, and **View › Show Editor** shows E. Choosing the menu item does the same as pressing the key.
+You can change them in **Settings › Key Commands** ([Chapter 9](09-library-bounce-files-settings.md#key-commands)); this chapter lists Logic's keys, which are where they start. They're shown next to their commands in the menus, the same as ⌘ shortcuts: for example **Transport › Play** shows Space, and **View › Show Editor** shows E. Choosing the menu item does the same as pressing the key.
 
 **Shortcuts with ⌘** (⌘B, ⌘T, ⌘R…) are ordinary menu shortcuts. They're shown next to their menu items and work whenever a project window is in front.
 
@@ -21,6 +21,7 @@ They're shown next to their commands in the menus, the same as ⌘ shortcuts: fo
 - **⌘X**, **⌘C**, **⌘V**, **⌘A** and **⌘R** act on *notes* if you last clicked in the Piano Roll (with a MIDI region open in it). Otherwise they act on *regions*. The Edit menu even renames **Repeat Regions** to **Repeat Notes** to show which one you'll get.
 - **⌥←** and **⌥→** nudge the selected *notes* if you last clicked in the Piano Roll, and the selected *regions* if you last clicked in the tracks area.
 - **Q**, **⌥↑** and **⌥↓** only work in the Piano Roll, and only after you've clicked in it.
+- The **Functions** menu lists these keys (and **T** for the Tool menu), so you can also choose them there.
 - **T** opens the Tool menu for the area the pointer is over. If the pointer is over neither area, you get the menu for the one you clicked last.
 
 ## The keys you'll use most
@@ -35,6 +36,7 @@ They're shown next to their commands in the menus, the same as ⌘ shortcuts: fo
 | ⇧⌘Z | Redo | |
 | E | Show or hide the editor | Opens whichever editor suits the region. |
 | X | Show or hide the mixer | |
+| B | Show or hide Smart Controls | |
 
 ## File and project
 
@@ -48,6 +50,7 @@ They're shown next to their commands in the menus, the same as ⌘ shortcuts: fo
 | ⇧⌘I | **File › Import Audio Files…** | Also the **Import Audio** button in the control bar. |
 | (none) | **File › Import MIDI File…** | No shortcut. You can also drag MIDI files onto the tracks area. |
 | ⌘B | **File › Bounce…** | See [Chapter 9](09-library-bounce-files-settings.md). |
+| ⇧⌘E | **File › Export All Tracks as Audio Files…** | A file of each track. See [Chapter 9](09-library-bounce-files-settings.md#exporting-every-track-as-its-own-file). |
 | (none) | **File › Export Project as MIDI File…** | No shortcut. |
 | (none) | **File › Mastering…** | Opens Mastering on Stereo Out, adding it first if it isn't there. See [Chapter 8](08-instruments-effects-midi-fx.md#mastering). |
 | (none) | **File › Analyze Whole Song for Mastering** | Mastering listens to the whole song offline. See [Chapter 8](08-instruments-effects-midi-fx.md#analyze-whole-song). |
@@ -144,12 +147,14 @@ Click in the Piano Roll (or point at it) before pressing T.
 | (none) | **Track › New Drummer Track (Drum Machine)** | No shortcut. A drummer on the Ongaku Drum Machine. |
 | (none) | **Track › New Aux Track** | No shortcut. |
 | (none) | **Track › New Bass Player Track**, **New Keyboard Player Track** | No shortcut. See [Chapter 5](05-session-players.md). |
-| (none) | **Track › New Pattern Region** | No shortcut. On the selected instrument track, at the playhead's bar. |
+| (none) | **Edit › New MIDI / Pattern / Drummer / Player Region** | No shortcut. On the selected instrument track, at the playhead (a drummer region only on a drum track, a player region only on another instrument track), as the tracks' right-click menu makes them. |
 | ⌘D | **Track › Duplicate Track** | |
 | ⌘⌫ (⌘-Delete) | **Track › Delete Track** | Deletes every selected track (the menu says **Delete Tracks** when several are selected). A summing stack takes its subtracks with it. One ⌘Z brings them all back. |
 | ⇧⌘D | **Track › Create Summing Stack** | Groups the selected tracks into a stack. |
+| (none) | **Track › Create Folder Stack** | Gathers the selected tracks into a folder; they keep their outputs. |
 | (none) | **Track › Flatten Stack** | No shortcut. |
 | (none) | **Track › Freeze Tracks** / **Unfreeze Tracks** | No shortcut. |
+| ⌃B | **Track › Bounce in Place…** | The selected regions, or the selected track's. See [Chapter 7](07-mixing-and-automation.md#bounce-in-place). |
 | (none) | **Track › Add Arrangement Marker** | No shortcut. |
 | (none) | **Track › Detect Chords** | No shortcut. Fills the Chord track from the selected MIDI regions. |
 | G | **Track › Show Global Tracks** / **Hide Global Tracks** | |
@@ -159,13 +164,18 @@ Click in the Piano Roll (or point at it) before pressing T.
 | Shortcut | Command | Notes |
 | --- | --- | --- |
 | Y | Show / Hide Library | Also the **Library** button and **View › Show Library**. |
+| O | Show or hide the Loop Browser | |
 | I | Show / Hide Inspector | Also the **Inspector** button and **View › Show Inspector**. |
 | E | Show / Hide Editor | Also the **Editor** button and **View › Show Editor**. Opens the selected region in whichever editor suits it: Piano Roll, Step Editor, Step Sequencer, Drummer, Player, Takes or Flex Pitch. |
 | X | Show / Hide Mixer | Also the **Mixer** button and **View › Show Mixer**. The mixer and the editor share the bottom of the window, so showing one hides the other. |
+| B | Show / Hide Smart Controls | Also the **Smart Controls** button and **View › Show Smart Controls**. It shares the bottom of the window with the mixer and editor. See [Chapter 7](07-mixing-and-automation.md#smart-controls). |
 | A | Show / Hide Automation | Also the **Automation** button and **View › Show Automation**. |
 | G | Show / Hide Global Tracks | It's in the **Track** menu (**Track › Show Global Tracks**), not the View menu. There's no control bar button. |
 | ⌘= | Zoom In | Zooms the tracks area. Also the zoom buttons in the control bar. |
 | ⌘- | Zoom Out | |
+| ⌘↓ / ⌘↑ | Make the tracks taller / shorter (vertical zoom) | |
+| ⌃X | Strip Silence… | Selected audio regions. |
+| ⌃H | Hide the selected tracks (or show them, if they're all hidden) | **Track › Show Hidden Tracks** shows them all. |
 | ⌘M | Minimize window | Standard macOS. |
 
 ## Piano Roll
@@ -214,12 +224,12 @@ The mixer has no keys of its own apart from **X** to show and hide it. Its reset
 | Drag a region's left or right edge | Resize it | |
 | Drag the upper half of a region's right edge | Loop it | The pointer changes to show the loop handle. |
 | Drag across empty space | Select regions with a rubber band | Pointer only. Hold ⇧ to add to the selection. |
-| Double-click a region | Open it in the editor | |
+| Double-click a region | Open it in the editor | MIDI in the Piano Roll, audio in the Audio File Editor. Double-click its name in the title bar to rename it instead. |
 | Double-click an empty instrument lane | Create a MIDI region | The Pencil does this with a single click. |
 | Drag in the lower half of an audio region | Flex Time | When Flex is on. See [Chapter 6](06-flex-and-smart-tempo.md). |
 | Double-click a flex marker | Delete the flex marker | Only while the track's Flex mode is on. |
 | Fade Tool: drag where two audio regions meet or overlap | Crossfade them | See [Chapter 2](02-arranging-and-editing.md#making-a-crossfade). |
-| Right-click a region or lane | Region menu | Cut, Copy, Paste, Repeat, Split, Loop, New MIDI/Pattern/Drummer/Player Region, Take Folder and more. |
+| Right-click a region or lane | Region menu | Cut, Copy, Paste, Repeat, Split, Loop, **Rename…**, New MIDI/Pattern/Drummer/Player Region, Take Folder and more. |
 | Drag in the ruler's upper strip | Set the cycle range | Click the strip to turn cycle on or off. |
 | Click the ruler's lower part | Move the playhead | |
 
@@ -231,8 +241,9 @@ The mixer has no keys of its own apart from **X** to show and hide it. Its reset
 | ⇧-click | Select every track between this one and the last one clicked | |
 | ⌘-click | Add or remove one track from the selection | |
 | Double-click the track name | Rename | Return to confirm, Escape to cancel. |
-| Right-click | Track menu | Rename, stack, freeze, instrument, **Color** and **Delete Track**. On one of several selected tracks, it's **Delete Tracks** and deletes them all. |
+| Right-click | Track menu | **New Track** (added after this one), **Duplicate Track**, Rename, stack, freeze, instrument, **Color** and **Delete Track**. On one of several selected tracks, it's **Delete Tracks** and deletes them all. |
 | Right-click the snowflake | **Freeze Mode** | Choose **Pre Fader** or **Source Only** (not while the track is frozen). |
+| Right-click below the last track | **New Track** or import | Adds the track at the end, or imports audio or MIDI files. |
 | Double-click the divider between headers and lanes | Reset the header width | |
 
 ### Global tracks

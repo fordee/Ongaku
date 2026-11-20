@@ -165,16 +165,9 @@ extension ProjectWindowModel {
   func addPlayerTrack(_ instrument: PlayerPerformance.Instrument, style: PlayerPerformance.Style? = nil) {
     let style = style ?? (instrument == .bass ? .rootNotes : .pad)
     let baseName = instrument == .bass ? "Bass Player" : "Keyboard Player"
-    let existing = Set(project.tracks.map(\.name))
-    var name = baseName
-    var number = 2
-    while existing.contains(name) {
-      name = "\(baseName) \(number)"
-      number += 1
-    }
-    var track = makeTrack(name: name, kind: .softwareInstrument)
+    var track = makeTrack(name: project.uniqueTrackName(baseName), kind: .softwareInstrument)
     track.channel.instrument = Self.defaultSound(for: instrument)
-    let sections = drummerSections()
+    let sections = drummerSections(unnamed: "Player")
     // With no chords to follow, the song gets some (a player on one chord isn't much use).
     var withChords = project
     var chordCommands: [any EditCommand] = []
@@ -230,35 +223,5 @@ extension ProjectWindowModel {
   static func soundsLikeBass(_ track: Track) -> Bool {
     if case .generalMIDI(let program) = track.channel.instrument { return (32...39).contains(program) }
     return false
-  }
-}
-
-extension PianoRollModel {
-  var player: PlayerPerformance? { region?.player }
-
-  /// The player regions an edit changes: the open one, with the other selected player
-  /// regions of the same instrument.
-  var editedPlayerRegionIDs: Set<Region.ID> {
-    guard let region, let instrument = region.player?.instrument else { return [] }
-    let selected = window.selectedRegionIDs
-    guard selected.contains(region.id) else { return [region.id] }
-    return Set(selected.filter { window.project.region(withID: $0)?.player?.instrument == instrument })
-  }
-
-  func editPlayer(_ actionName: String, _ change: @escaping @Sendable (inout PlayerPerformance) -> Void) {
-    let regionIDs = editedPlayerRegionIDs
-    guard !regionIDs.isEmpty else { return }
-    window.perform(SetPlayerPerformance(for: regionIDs, actionName: actionName, change: change))
-  }
-
-  func newPlayerTake() {
-    editPlayer("New Take") { $0.seed = UInt64.random(in: 1...UInt64.max) }
-  }
-
-  func convertPlayerToNotes() {
-    let regionIDs = editedPlayerRegionIDs
-    guard !regionIDs.isEmpty else { return }
-    window.perform(ConvertPatternToNotes(regionIDs))
-    editorKind = .pianoRoll
   }
 }

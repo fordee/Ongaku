@@ -143,7 +143,7 @@ struct TakeFolderTests {
 
   @Test func takeFoldersAreFlattenedBeforeResizing() {
     var (project, region, _) = audioFolder()
-    #expect(throws: EditError.self) { try TrimRegion(region.id, start: .zero, length: bar).apply(to: &project) }
+    #expect(throws: EditError.self) { try ResizeRegion(region.id, start: .zero, length: bar).apply(to: &project) }
     #expect(throws: EditError.self) { try SplitRegion(region.id, at: bar).apply(to: &project) }
     // Moving is fine.
     #expect(throws: Never.self) { try MoveRegion(region.id, to: bar).apply(to: &project) }

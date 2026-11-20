@@ -137,6 +137,32 @@ To choose how audio is saved:
 
 Recordings are saved inside the project, at the output device's sample rate.
 
+## Capture as Recording
+
+### What it is
+
+Sometimes the best take is the one you played while you weren't recording. While the song plays (and isn't recording), Ongaku Studio remembers what you play on a MIDI keyboard. Choose **Transport › Capture as Recording** to turn it into a region, as if you had been recording, on the record-enabled instrument tracks (or, if none is record-enabled, the selected instrument track).
+
+- It works during playback, or after you stop: the last performance is kept until you play again.
+- With the cycle on, the last pass you played is captured.
+- Autopunch and Replace apply to a captured performance as they do to a recording.
+
+## Autopunch and Replace
+
+### What they are
+
+**Autopunch** records only part of what you play: you start playback (and recording) before the bit you want to fix, play along, and only what you played between the punch points is kept. **Replace** makes a recording replace what was on the track where it was recorded, instead of layering over it. Both are saved with the song, as in Logic.
+
+### Using Autopunch
+
+1. Set the locators around the part to re-record (drag in the top strip of the ruler).
+2. Choose **Transport › Set Autopunch to Locators**. A red line under the cycle strip shows the punch range. **Transport › Autopunch** turns it on and off, keeping the range.
+3. Start recording a few bars before the punch range and play along. When you stop, each take keeps only the part inside the range. MIDI played outside it isn't recorded at all; audio is trimmed to the range (the rest stays in the file, so you can extend the region later).
+
+### Using Replace
+
+Turn on **Transport › Replace**. When a recording finishes, regions it overlaps on its track are cut at its edges and the overlapped parts are removed. With Autopunch on as well, only the punch range is replaced. Take folders and flexed regions can't be cut, so a recording layers over them.
+
 ## The metronome and count-in
 
 ### What it is
@@ -211,6 +237,10 @@ Your keyboard plays:
 A small keyboard icon appears after the name of each track your keyboard plays, so you can always see where your playing will go. Hold the pointer over it to see why that track is playing (it's record-enabled, or it's selected).
 
 To play a different instrument, click its track (and disarm any armed instrument tracks). If a track has MIDI effects such as an arpeggiator, you hear them while you play, each track through its own effects (see [Chapter 8](08-instruments-effects-midi-fx.md)). When you record, Ongaku records the notes you actually played, before the MIDI effects change them.
+
+### One channel per track
+
+Each instrument track can listen to every MIDI channel (the default) or just one: choose it in the Inspector's **MIDI In**, under the track's name. With a keyboard split into zones on different channels, or two keyboards on different channels, arm several tracks and each plays and records only its own channel. It applies to Capture as Recording too.
 
 ### Turning inputs on and off
 
@@ -337,10 +367,8 @@ You can't pack regions from different tracks, or pack a take folder into another
 
 - **Input monitoring has a little latency** (about one or two buffers), and needs the input and output devices at the same sample rate. For no delay at all, use your audio interface's direct monitoring.
 - **Input device comes from macOS.** You choose the input device in System Settings › Sound, not in Ongaku.
-- **No punch-in or punch-out.** Recording starts at the playhead and stops when you stop it.
-- **New recordings layer on top** of existing regions. There's no "replace" mode.
+- **Autopunch doesn't trim cycle recordings.** With the cycle on, each pass becomes a take over the whole cycle, as before.
 - **A MIDI take folder's notes are edited one take at a time**: the take that starts the comp. To edit another take, make it play throughout first.
-- **MIDI is played and recorded identically on every armed instrument track.** There's no per-track MIDI input or channel filtering.
 - **MIDI clock, SysEx, program changes and MIDI 2.0 messages are ignored** when playing and recording.
 
 ## Quick reference

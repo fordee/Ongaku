@@ -153,7 +153,7 @@ To create one, do any of these on a software instrument track's lane:
 
 The lane's right-click menu also has **New Pattern Region** (for the Step Sequencer, [Chapter 4](04-midi-editing.md)), **New Drummer Region** and **New Player Region** ([Chapter 5](05-session-players.md)). **Track › New Pattern Region** makes a pattern region from the menu bar too: on the selected instrument track, in the bar containing the playhead.
 
-Double-clicking a MIDI region opens it in the editor. Double-clicking an ordinary audio region does nothing (unless its track uses Flex Pitch, [Chapter 6](06-flex-and-smart-tempo.md), or it's a take folder, [Chapter 3](03-recording-and-takes.md)). Selecting a region and pressing **E** opens the same editor.
+Double-clicking a region opens it in the editor: a MIDI region in the Piano Roll, an audio region in the [Audio File Editor](#the-audio-file-editor) (or Flex Pitch, if its track uses it, [Chapter 6](06-flex-and-smart-tempo.md)), and a take folder in Takes ([Chapter 3](03-recording-and-takes.md)). Selecting a region and pressing **E** opens the same editor.
 
 ## Splitting, joining and deleting
 
@@ -180,6 +180,44 @@ What happens to the contents:
 - **Drummer and player regions** stay drummer and player regions, each half playing for its own length with the same settings. A drummer's crash stays at the start of the left half and its fill at the end of the right half; a player's lead-in to the next section stays on the right half.
 - **Pattern regions** become ordinary MIDI regions, keeping the notes they were playing.
 
+### Strip Silence
+
+**Strip Silence** cuts audio regions into the parts that have sound in them and removes the silence between, as Logic's does: a vocal take becomes one region per phrase, a drum track one region per hit.
+
+![The Strip Silence dialog](images/strip-silence.png)
+
+1. Select one or more audio regions.
+2. Choose **Edit › Strip Silence…** (⌃X).
+3. Set:
+   - **Threshold**: quieter than this counts as silence.
+   - **Minimum Silence**: gaps shorter than this are kept, so a phrase isn't cut between words.
+   - **Pre-Attack**: how much is kept before each sound, so its start isn't clipped.
+   - **Post-Release**: how much is kept after each sound, so its tail rings out.
+4. Click **Strip Silence**. It's one step you can undo.
+
+Each piece plays the same part of the recording it did before; nothing moves. Flexed regions and take folders can't be stripped (remove the flex markers or flatten the folder first).
+
+### The Audio File Editor
+
+Everything else in this chapter changes how regions **play**. The **Audio File Editor** changes the **recording itself**, like Logic's: double-click an audio region (or select it and press **E**), and the editor shows the whole file it plays. The part the region uses is in the track's colour and the rest is grey, with seconds along the top.
+
+![The Audio File Editor showing the Vocal Take recording, with seconds along the top](images/audio-file-editor.png)
+
+1. Drag across the waveform to select part of the file, or click it to select all of it. The header shows what's selected; **Functions › Select Region** selects just the part the region plays.
+2. Choose a function from **Functions**:
+
+| Function | What it does |
+|---|---|
+| **Normalize** | Raises or lowers the selection so its loudest peak is at 0 dBFS. Stereo channels get the same gain |
+| **Change Gain** | Up or down by 1, 3 or 6 dB |
+| **Fade In** / **Fade Out** | A straight fade across the selection, from or to silence |
+| **Silence** | Makes the selection silent |
+| **Reverse** | Plays the selection backwards |
+| **Invert** | Turns the waveform upside down (flips its polarity), for fixing a microphone that's out of phase with another |
+| **Remove DC Offset** | Centres the waveform on zero, if it sits above or below |
+
+Because the file changes, **every region that plays it changes**, including copies and the takes in take folders. Each edit is one step you can undo. Ongaku writes the result as a new file in the project ("Vox Edit.caf", then "Vox Edit 2.caf") and keeps the original, so undoing gets it back exactly, even after saving. The file's length never changes, so regions stay where they are.
+
 ### Joining (glue)
 
 Joining turns several regions on a track into one, running from the start of the first to the end of the last, with the first one's name. It's useful for tidying up after lots of splitting.
@@ -191,7 +229,7 @@ To join regions:
 
 What can be joined:
 
-- **MIDI regions**: always. The joined region keeps the notes that were actually playing: notes hidden by trimming, and muted notes, are left out.
+- **MIDI regions**: always. The joined region keeps the notes that were actually playing: notes hidden by trimming, and muted notes, are left out. If the regions had different **Transpose, Velocity or Quantize** settings, each one's settings are written into its notes, so the joined region sounds the same.
 - **Drummer or player regions with the same settings** (for example the two halves of one you split): they join into one drummer or player region that plays over the whole length, with the first one's crash and the last one's fill or lead-in.
 - **Drummer or player regions with different settings, and pattern regions**: they're joined as ordinary MIDI regions holding the notes they were playing. The Edit menu then calls the step **Undo Join and Convert to MIDI**, so you can see that's what happened.
 - **Audio regions**: only when they play one unbroken stretch of the same audio file, such as the pieces of a recording you split. Joining different files would need a new audio file, which Ongaku doesn't make.
@@ -264,7 +302,7 @@ Right-click a region and choose **Repeat** to make several copies at once: **Onc
 
 **Track › Duplicate Track** (⌘D) makes a copy of the selected track just below it, with all its regions, its channel strip settings, plug-ins and automation. The copy gets a numbered name, such as "Bass 2", and becomes the selected track. It's a good way to try a variation of a part while keeping the original.
 
-Summing stacks can't be duplicated yet; duplicate the tracks inside them instead.
+Stacks can't be duplicated yet; duplicate the tracks inside them instead.
 
 ## Editing a section between the locators
 
@@ -284,7 +322,7 @@ To cut two bars out of a song:
 2. Press **C** if you don't want cycling on.
 3. Choose **Edit › Section Between Locators › Cut Section** (⌃⌘X).
 
-"Everything" means regions, automation, markers and Arrangement sections. Regions that cross a locator are split there first, so the cut is clean.
+"Everything" means regions, automation, markers, Arrangement sections, and the Chord, Signature and Tempo tracks' changes. Regions that cross a locator are split there first, so the cut is clean. What plays just after an edit keeps playing: if the music after a cut was in D major at 100 BPM on an F chord, it still is.
 
 Gotcha: if a region crossing a locator can't be split (a take folder, or a flexed region), the whole command is refused, with a message naming the region.
 
@@ -349,6 +387,16 @@ The fade appears as you drag. Clicking without dragging does nothing.
 
 You can also set fade lengths in the Region Inspector's **Fade In** and **Fade Out**: step them with **−** and **+**, or click the number and type a length such as "250 ms" or "1.5 s" (see [The Region Inspector](#the-region-inspector)). Changes there apply to every selected region at once.
 
+### Fade curves
+
+A region with a fade also has **Fade In Curve** and **Fade Out Curve** in the Region Inspector, from −100% to +100%:
+
+- **0%** is a straight line.
+- **Positive** values rise quickly and then level off, so the sound is near full level for most of the fade (good for fading in a note without losing its start).
+- **Negative** values start slowly and finish fast, so the sound stays quiet until late in the fade (good for a long fade-out at the end of a song).
+
+The line drawn on the region shows the curve.
+
 ### Making a crossfade
 
 There are two ways two audio regions on the same track can meet, and the Fade Tool crossfades both:
@@ -367,6 +415,8 @@ Gotchas:
 
 - For regions end to end, you need to start the drag within a few pixels of the border; if you start further in, you get an ordinary fade instead. Zooming in helps.
 - If there's a gap between the regions, there's nothing to crossfade. Move one of them until it snaps against the other, or overlaps it.
+
+Crossfades are **equal power**, as in Logic: both fades get a +50% curve, so the level stays steady through the crossfade instead of dipping in the middle. You can change either curve in the Region Inspector.
 
 ## Looping regions
 
@@ -449,11 +499,12 @@ Sections can't overlap.
 | Copy it, with everything in it | Right-click and choose **Duplicate**. The copy goes straight after it, and everything later moves along |
 | Delete it, with everything in it | Right-click and choose **Delete with Contents**. Everything later moves back to close the gap |
 
-How moving works: the sections are laid end to end again in their new order, starting where the first section started, and each section's contents move with it. A region belongs to the section it **starts** in.
+How moving, copying and deleting work: they're the same edits as the section commands above. The sections are laid end to end again in their new order, starting where the first section started, and each section's contents move with it, including its chords, tempo, time signature and key. Regions that cross a section's edge are split there first, so each part goes with its own section.
 
 Gotchas:
 
 - Gaps between sections close up when you move one.
+- If a region crossing a section's edge can't be split (a take folder, or a flexed region), the edit is refused, with a message naming the region.
 - Clicking a section selects its regions, so pressing **Delete** afterwards deletes those regions (not the section). Use **Delete with Contents** to remove a section.
 - To make a section that doesn't start after the last one, add it and then drag it into place, or resize its neighbours.
 
@@ -514,9 +565,10 @@ The **Tempo** track, at the bottom of the global tracks, draws the tempo as a li
 | Add a tempo change | Double-click the Tempo track: the change goes at that spot (snapped), at the tempo level where you clicked. Or click **+** beside **Tempo** to add one at the playhead |
 | Change a tempo | Drag its handle up (faster) or down (slower). Dragged tempos land on whole numbers |
 | Move a tempo change | Drag its handle left or right (the first one can't be moved) |
+| Ramp to the next tempo | Right-click its handle and choose **Ramp to Next Tempo**. The line slopes, and the tempo glides from this change's BPM to the next one's (choose it again to step) |
 | Delete a tempo change | Right-click its handle and choose **Delete** |
 
-Tempos can be from 5 to 990 BPM. Each change happens instantly at its position; there are no gradual speed-ups (ramps) yet.
+Tempos can be from 5 to 990 BPM. A change happens instantly at its position unless it ramps: then the tempo speeds up or slows down evenly, beat by beat, until the next change, and the LCD shows the tempo under the playhead as it glides. The last change has nothing to ramp to. A MIDI file can't hold a ramp, so exported MIDI files get a tempo on every beat of it instead, each lasting as long as that beat does in the ramp.
 
 Because regions are placed in bars and beats, they stay on the same bars when the tempo changes. MIDI regions simply play faster or slower. Audio isn't sped up or slowed down to match (use Smart Tempo for that, [Chapter 6](06-flex-and-smart-tempo.md)), so plan the tempo before recording or importing audio where you can.
 
@@ -562,6 +614,17 @@ When a stack is folded up, its row shows thin coloured strips where each subtrac
 
 Deleting the stack's main track (**Track › Delete Track**, ⌘⌫) deletes its subtracks too.
 
+### Folder stacks
+
+A **folder stack** gathers tracks under a main track without changing where their sound goes: each subtrack keeps its own output, sends and plug-ins. Use one to tidy a big song (all the vocals in one folder, all the guitars in another) and to turn a whole section up, down or off at once.
+
+Choose **Track › Create Folder Stack**, or right-click a header and choose **Create Folder Stack**. The main track is called "Folder" (then "Folder 2"…) and has a folder icon. It folds up, takes new tracks and flattens just like a summing stack, but:
+
+- It plays nothing itself, so its channel strip has no plug-ins, sends or output.
+- Its **fader** moves every subtrack's fader by the same number of dB (their volume automation too), keeping their balance. Its **mute** mutes them all and its **solo** solos them all.
+- Changing a subtrack's output doesn't take it out of the folder.
+- Tracks can't output or send to a folder.
+
 ## Importing audio files
 
 You can bring in audio files (for example WAV, AIFF, CAF or MP3, anything your Mac can play) to use as loops, samples or backing tracks.
@@ -598,9 +661,7 @@ If a file can't be read, Ongaku tells you which file and why, and imports the re
 
 - The song's length can't be set by hand. It grows by itself to 8 bars past the last region, marker or section, but never gets shorter by itself.
 - There's only one tool at a time (no Command-click tool).
-- Fades are straight lines; there's no control over their curve.
-- Tempo changes are instant steps; there are no tempo ramps.
-- Summing stacks can't be duplicated.
+- Stacks (summing or folder) can't be duplicated.
 - Audio regions can't be pasted between projects.
 
 ## Quick reference

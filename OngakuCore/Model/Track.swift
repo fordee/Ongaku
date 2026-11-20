@@ -86,7 +86,14 @@ public struct Track: Identifiable, Codable, Sendable, Equatable {
   /// An aux track that is a summing stack's main track, like Logic's: its subtracks output
   /// to it and are shown indented below it.
   public var isSummingStack: Bool
-  /// The summing stack this track is a subtrack of.
+  /// An aux track that is a folder stack's main track, like Logic's: its subtracks are
+  /// shown indented below it and keep their own outputs, and its fader, mute and solo act on
+  /// them all (see `Project.mixingFoldersAndVCAs`). It plays nothing itself.
+  public var isFolderStack: Bool
+  /// The knobs on the Smart Controls panel, in order (at most `SmartControl.count`). Empty,
+  /// the panel suggests some (see the app's Smart Controls).
+  public var smartControls: [SmartControl]
+  /// The stack (summing or folder) this track is a subtrack of.
   public var stackID: Track.ID?
   /// What freezing the track renders, like the Freeze Mode in Logic's track inspector.
   public var freezeMode: FreezeMode
@@ -98,6 +105,12 @@ public struct Track: Identifiable, Codable, Sendable, Equatable {
   /// Flex Time for an audio track: how its regions' flex markers are played, or `nil` when
   /// Flex is off (the markers are kept but the audio plays as recorded).
   public var flexMode: FlexMode?
+  /// Left out of the tracks area (it still plays), as Logic's Hide Track does, until the
+  /// window shows hidden tracks.
+  public var isHidden: Bool
+  /// For an instrument track: the MIDI channel (0–15) it plays and records from a keyboard,
+  /// or `nil` for every channel.
+  public var midiInputChannel: Int?
 
   public init(
     id: UUID = UUID(),
@@ -115,7 +128,8 @@ public struct Track: Identifiable, Codable, Sendable, Equatable {
     freezeFile: AudioFileReference? = nil,
     groupID: Int? = nil,
     flexMode: FlexMode? = nil,
-    isInputMonitored: Bool = false
+    isInputMonitored: Bool = false,
+    isHidden: Bool = false
   ) {
     self.id = id
     self.name = name
@@ -130,16 +144,20 @@ public struct Track: Identifiable, Codable, Sendable, Equatable {
     self.automation = automation
     self.automationMode = automationMode
     self.isSummingStack = isSummingStack
+    self.isFolderStack = false
+    self.smartControls = []
     self.stackID = stackID
     self.freezeMode = freezeMode
     self.freezeFile = freezeFile
     self.groupID = groupID
     self.flexMode = flexMode
+    self.isHidden = isHidden
+    self.midiInputChannel = nil
   }
 
   private enum CodingKeys: String, CodingKey {
-    case id, name, kind, color, channel, isRecordArmed, regions, automation, automationMode, isSummingStack, stackID,
-      freezeMode, freezeFile, groupID, flexMode, isInputMonitored
+    case id, name, kind, color, channel, isRecordArmed, regions, automation, automationMode, isSummingStack, isFolderStack,
+      smartControls, stackID, freezeMode, freezeFile, groupID, flexMode, isInputMonitored, isHidden, midiInputChannel
   }
 
   /// Automation was added in format version 3, summing stacks in 5, freezing in 6 and mixer
@@ -156,6 +174,10 @@ public struct Track: Identifiable, Codable, Sendable, Equatable {
     automation = try container.decodeIfPresent([AutomationLane].self, forKey: .automation) ?? []
     automationMode = try container.decodeIfPresent(AutomationMode.self, forKey: .automationMode) ?? .read
     isSummingStack = try container.decodeIfPresent(Bool.self, forKey: .isSummingStack) ?? false
+    // Folder stacks were added in format version 31.
+    isFolderStack = try container.decodeIfPresent(Bool.self, forKey: .isFolderStack) ?? false
+    // Smart Controls were added in format version 32.
+    smartControls = try container.decodeIfPresent([SmartControl].self, forKey: .smartControls) ?? []
     stackID = try container.decodeIfPresent(Track.ID.self, forKey: .stackID)
     freezeMode = try container.decodeIfPresent(FreezeMode.self, forKey: .freezeMode) ?? .preFader
     freezeFile = try container.decodeIfPresent(AudioFileReference.self, forKey: .freezeFile)
@@ -163,9 +185,22 @@ public struct Track: Identifiable, Codable, Sendable, Equatable {
     flexMode = try container.decodeIfPresent(FlexMode.self, forKey: .flexMode)
     // Input monitoring was added in format version 22.
     isInputMonitored = try container.decodeIfPresent(Bool.self, forKey: .isInputMonitored) ?? false
+    // Hiding tracks was added in format version 26; older tracks are shown.
+    isHidden = try container.decodeIfPresent(Bool.self, forKey: .isHidden) ?? false
+    // MIDI input channels were added in format version 29; older tracks take every channel.
+    midiInputChannel = try container.decodeIfPresent(Int.self, forKey: .midiInputChannel)
+  }
+
+  /// Whether a MIDI message from a keyboard is for this track: every channel, or its own.
+  public func acceptsMIDIInput(_ bytes: [UInt8]) -> Bool {
+    guard let midiInputChannel, let status = bytes.first, status < 0xF0 else { return true }
+    return Int(status & 0x0F) == midiInputChannel
   }
 
   public var isFrozen: Bool { freezeFile != nil }
+
+  /// Whether the track is a stack's main track, summing or folder.
+  public var isStack: Bool { isSummingStack || isFolderStack }
 
   /// Whether the track can be frozen: it plays regions (aux tracks only mix).
   public var canFreeze: Bool { kind.hasRegions }
@@ -212,6 +247,19 @@ public struct Track: Identifiable, Codable, Sendable, Equatable {
   }
 }
 
+/// One of an instrument's outputs beyond its first, which an aux track plays.
+public struct InstrumentOutput: Codable, Sendable, Hashable {
+  /// The instrument track.
+  public var trackID: Track.ID
+  /// The instrument's output bus: 1 is its second output (0 is the track's own).
+  public var bus: Int
+
+  public init(trackID: Track.ID, bus: Int) {
+    self.trackID = trackID
+    self.bus = bus
+  }
+}
+
 /// Mixer settings for a track.
 public struct ChannelStrip: Codable, Sendable, Equatable {
   /// Fader range in decibels (Logic's faders top out at +6 dB).
@@ -236,6 +284,11 @@ public struct ChannelStrip: Codable, Sendable, Equatable {
   public var audioInput: AudioInputSelection?
   /// Where the fader's output goes: Stereo Out, or an aux track (such as a summing stack).
   public var output: ChannelOutput
+  /// On an aux track: the instrument output it plays, for instruments with more than one
+  /// (a drum kit's drums on their own channel strips, as in Logic).
+  public var instrumentOutput: InstrumentOutput?
+  /// The VCA fader the channel strip is assigned to, if any (see `Project.vcas`).
+  public var vcaID: VCA.ID?
 
   /// The most insert slots a channel strip has.
   public static let maximumInserts = 8
@@ -250,7 +303,8 @@ public struct ChannelStrip: Codable, Sendable, Equatable {
     inserts: [PluginReference] = [],
     sends: [Send] = [],
     audioInput: AudioInputSelection? = nil,
-    output: ChannelOutput = .stereoOut
+    output: ChannelOutput = .stereoOut,
+    instrumentOutput: InstrumentOutput? = nil
   ) {
     self.volume = volume
     self.pan = pan
@@ -262,10 +316,11 @@ public struct ChannelStrip: Codable, Sendable, Equatable {
     self.sends = sends
     self.audioInput = audioInput
     self.output = output
+    self.instrumentOutput = instrumentOutput
   }
 
   private enum CodingKeys: String, CodingKey {
-    case volume, pan, isMuted, isSoloed, instrument, midiEffects, inserts, sends, audioInput, output
+    case volume, pan, isMuted, isSoloed, instrument, midiEffects, inserts, sends, audioInput, output, instrumentOutput, vcaID
   }
 
   /// Sends and inputs were added in format version 2, outputs in 5 and MIDI effects in 17;
@@ -282,6 +337,9 @@ public struct ChannelStrip: Codable, Sendable, Equatable {
     sends = try container.decodeIfPresent([Send].self, forKey: .sends) ?? []
     audioInput = try container.decodeIfPresent(AudioInputSelection.self, forKey: .audioInput)
     output = try container.decodeIfPresent(ChannelOutput.self, forKey: .output) ?? .stereoOut
+    instrumentOutput = try container.decodeIfPresent(InstrumentOutput.self, forKey: .instrumentOutput)
+    // VCAs were added in format version 31.
+    vcaID = try container.decodeIfPresent(VCA.ID.self, forKey: .vcaID)
   }
 
   /// Linear gain for the fader level (0 at the bottom of the fader).
@@ -400,6 +458,9 @@ public struct PluginReference: Identifiable, Codable, Sendable, Equatable {
   /// Only in a saved package's Project.json: a large state (a sampler's audio, say) is kept
   /// in this file in the package's "Plug-in Settings" folder instead (see `ProjectArchive`).
   public var stateFileName: String?
+  /// The track whose sound feeds the plug-in's side chain input (a compressor ducking under
+  /// the kick, say), taken before that track's fader and mute as in Logic.
+  public var sidechainSourceID: Track.ID?
 
   public init(
     id: UUID = UUID(),
@@ -488,7 +549,7 @@ public enum BuiltInEffect: String, CaseIterable, Sendable {
 
 /// Ongaku's own instruments, from the same Audio Unit extension as its effects.
 public enum OngakuInstrument: String, CaseIterable, Sendable {
-  case retroSynth, drumMachine, sampler, sessionDrummer
+  case retroSynth, drumMachine, sampler, sessionDrummer, electricPiano, organ
 
   private static let instrumentType: UInt32 = 0x6175_6D75  // 'aumu'
 
@@ -498,6 +559,8 @@ public enum OngakuInstrument: String, CaseIterable, Sendable {
     case .drumMachine: "Drum Machine"
     case .sampler: "Sampler"
     case .sessionDrummer: "Session Drummer"
+    case .electricPiano: "Electric Piano"
+    case .organ: "Organ"
     }
   }
 
@@ -505,6 +568,8 @@ public enum OngakuInstrument: String, CaseIterable, Sendable {
   public var subType: UInt32 {
     let code: String
     switch self {
+    case .electricPiano: code = "oepn"
+    case .organ: code = "oorg"
     case .retroSynth: code = "osyn"
     case .drumMachine: code = "odrm"
     case .sampler: code = "ospl"
@@ -523,6 +588,8 @@ public enum OngakuInstrument: String, CaseIterable, Sendable {
     case .drumMachine: CGSize(width: 980, height: 560)
     case .sampler: CGSize(width: 1180, height: 700)
     case .sessionDrummer: CGSize(width: 1180, height: 560)
+    case .electricPiano: CGSize(width: 980, height: 440)
+    case .organ: CGSize(width: 1080, height: 500)
     }
     return CGSize(width: size.width, height: size.height + OngakuEffect.headerHeight)
   }
@@ -547,6 +614,8 @@ public enum OngakuEffect: String, CaseIterable, Sendable {
   case channelEQ, compressor, reverb, delay
   case noiseGate, transientShaper, maximizer, deEsser, saturation, doubler, convolutionReverb, vocalStrip
   case mastering
+  case chorus, flanger, phaser, tremolo
+  case gain, tuner, multibandCompressor
 
   private static let effectType: UInt32 = 0x6175_6678  // 'aufx'
   public static let manufacturer: UInt32 = 0x4F6E_676B  // 'Ongk'
@@ -566,24 +635,33 @@ public enum OngakuEffect: String, CaseIterable, Sendable {
     case .convolutionReverb: "Convolution Reverb"
     case .vocalStrip: "Vocal Strip"
     case .mastering: "Mastering"
+    case .chorus: "Chorus"
+    case .flanger: "Flanger"
+    case .phaser: "Phaser"
+    case .tremolo: "Tremolo"
+    case .gain: "Gain"
+    case .tuner: "Tuner"
+    case .multibandCompressor: "Multiband Compressor"
     }
   }
 
   /// Where it's listed in the Add Insert menu, as Logic groups its plug-ins.
   public enum Category: String, CaseIterable, Sendable {
-    case eq = "EQ", dynamics = "Dynamics", reverbAndDelay = "Reverb & Delay", distortion = "Distortion",
-      imaging = "Imaging", vocal = "Vocal", mastering = "Mastering"
+    case eq = "EQ", dynamics = "Dynamics", reverbAndDelay = "Reverb & Delay", modulation = "Modulation",
+      distortion = "Distortion", imaging = "Imaging", utility = "Utility", vocal = "Vocal", mastering = "Mastering"
   }
 
   public var category: Category {
     switch self {
     case .channelEQ: .eq
-    case .compressor, .noiseGate, .transientShaper, .maximizer, .deEsser: .dynamics
+    case .compressor, .multibandCompressor, .noiseGate, .transientShaper, .maximizer, .deEsser: .dynamics
     case .reverb, .delay, .convolutionReverb: .reverbAndDelay
     case .saturation: .distortion
     case .doubler: .imaging
     case .vocalStrip: .vocal
     case .mastering: .mastering
+    case .chorus, .flanger, .phaser, .tremolo: .modulation
+    case .gain, .tuner: .utility
     }
   }
 
@@ -604,6 +682,13 @@ public enum OngakuEffect: String, CaseIterable, Sendable {
     case .convolutionReverb: code = "ocnv"
     case .vocalStrip: code = "ovox"
     case .mastering: code = "omst"
+    case .chorus: code = "ocho"
+    case .flanger: code = "oflg"
+    case .phaser: code = "ophs"
+    case .tremolo: code = "otrm"
+    case .gain: code = "ogin"
+    case .tuner: code = "otun"
+    case .multibandCompressor: code = "ombc"
     }
     return code.utf8.reduce(0) { $0 << 8 | UInt32($1) }
   }
@@ -630,6 +715,10 @@ public enum OngakuEffect: String, CaseIterable, Sendable {
     case .convolutionReverb: CGSize(width: 900, height: 380)
     case .vocalStrip: CGSize(width: 860, height: 360)
     case .mastering: CGSize(width: 960, height: 470)
+    case .chorus, .flanger, .phaser, .tremolo: CGSize(width: 720, height: 340)
+    case .gain: CGSize(width: 640, height: 320)
+    case .tuner: CGSize(width: 640, height: 360)
+    case .multibandCompressor: CGSize(width: 860, height: 480)
     }
     return CGSize(width: size.width, height: size.height + Self.headerHeight)
   }

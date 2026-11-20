@@ -36,6 +36,11 @@ struct MixerView: View {
               // measured before), and the strips stay level with each other.
               .frame(height: max(stripAreaHeight, smallestStripHeight))
             }
+            // VCA faders after the tracks, as in Logic.
+            ForEach(model.project.vcas) { vca in
+              VCAStripView(model: model, vca: vca)
+                .frame(height: max(stripAreaHeight, smallestStripHeight))
+            }
           }
           .background(Theme.separator)
         }
@@ -117,50 +122,27 @@ struct ChannelStripView: View, Equatable {
 
   var body: some View {
     VStack(spacing: 6) {
-      // As in Logic, MIDI effects sit above the instrument they play.
-      if track.kind == .softwareInstrument {
-        StripSection("MIDI FX") {
-          ForEach(track.channel.midiEffects) { effect in
-            MIDIEffectSlot(model: model, track: track, effect: effect)
-          }
-          .disabled(track.isFrozen)
-          if track.channel.midiEffects.count < MIDIEffect.maximumCount, !track.isFrozen {
-            AddMIDIEffectMenu(model: model, track: track)
-          }
-        }
+      if track.isFolderStack {
+        // A folder has no audio of its own: just its fader, mute and solo, on its subtracks.
+        Text("Folder stack: its fader, mute and solo act on its tracks")
+          .font(Theme.font(10))
+          .foregroundStyle(Theme.secondaryText)
+          .multilineTextAlignment(.center)
+          .frame(maxWidth: .infinity)
+          .padding(.top, 8)
+        Spacer(minLength: 0)
+      } else {
+        slots
       }
-      SourceSlot(model: model, track: track)
-
-      // A track frozen Pre Fader has its inserts rendered into the freeze file.
-      let insertsFrozen = track.isFrozen && track.freezesInserts
-      StripSection("Audio FX") {
-        ForEach(track.channel.inserts) { plugin in
-          InsertSlot(model: model, channelID: track.id, inserts: track.channel.inserts, plugin: plugin)
+      if !track.isFolderStack {
+        StripSection("VCA") {
+          VCASlot(model: model, track: track)
         }
-        .disabled(insertsFrozen)
-        if track.channel.inserts.count < ChannelStrip.maximumInserts, !insertsFrozen {
-          AddInsertMenu(model: model, channelID: track.id)
-        }
-      }
-
-      StripSection("Sends") {
-        ForEach(track.channel.sends) { send in
-          SendSlot(
-            model: model, track: track, send: send,
-            destinationName: auxes.first { $0.id == send.destinationTrackID }?.name ?? "Missing")
-        }
-        AddSendMenu(model: model, track: track, destinations: sendDestinations)
-      }
-
-      // As in Logic, extra height goes to the slot area; the fader section below keeps
-      // its size and sits at the bottom of the strip.
-      Spacer(minLength: 0)
-
-      StripSection("Output") {
-        OutputMenu(model: model, track: track, destinations: outputDestinations, auxes: auxes)
       }
       GroupSlot(model: model, track: track)
-      AutomationModeSlot(model: model, track: track)
+      if !track.isFolderStack {
+        AutomationModeSlot(model: model, track: track)
+      }
 
       StripControls(model: model, track: track)
         .equatable()
@@ -201,6 +183,57 @@ struct ChannelStripView: View, Equatable {
     .accessibilityElement(children: .contain)
     .accessibilityLabel("\(track.name) channel strip")
     .accessibilityIdentifier("channel-strip")
+  }
+
+  /// MIDI FX, the source, inserts, sends and the output: what a folder stack doesn't have.
+  @ViewBuilder private var slots: some View {
+      // As in Logic, MIDI effects sit above the instrument they play.
+      if track.kind == .softwareInstrument {
+        StripSection("MIDI FX") {
+          ForEach(track.channel.midiEffects) { effect in
+            MIDIEffectSlot(model: model, track: track, effect: effect)
+          }
+          .disabled(track.isFrozen)
+          if track.channel.midiEffects.count < MIDIEffect.maximumCount, !track.isFrozen {
+            AddMIDIEffectMenu(model: model, track: track)
+          }
+        }
+      }
+      SourceSlot(model: model, track: track)
+
+      // A track frozen Pre Fader has its inserts rendered into the freeze file.
+      let insertsFrozen = track.isFrozen && track.freezesInserts
+      StripSection("Audio FX") {
+        ForEach(track.channel.inserts) { plugin in
+          InsertSlot(model: model, channelID: track.id, inserts: track.channel.inserts, plugin: plugin)
+        }
+        .reorderable()
+        .disabled(insertsFrozen)
+        if track.channel.inserts.count < ChannelStrip.maximumInserts, !insertsFrozen {
+          AddInsertMenu(model: model, channelID: track.id)
+        }
+      }
+      // Drag an insert up or down to change the order, as in Logic.
+      .reorderContainer(for: PluginReference.self, isEnabled: !insertsFrozen) { difference in
+        model.moveInserts(difference, on: track.id)
+      }
+
+      StripSection("Sends") {
+        ForEach(track.channel.sends) { send in
+          SendSlot(
+            model: model, track: track, send: send,
+            destinationName: auxes.first { $0.id == send.destinationTrackID }?.name ?? "Missing")
+        }
+        AddSendMenu(model: model, track: track, destinations: sendDestinations)
+      }
+
+      // As in Logic, extra height goes to the slot area; the fader section below keeps
+      // its size and sits at the bottom of the strip.
+      Spacer(minLength: 0)
+
+      StripSection("Output") {
+        OutputMenu(model: model, track: track, destinations: outputDestinations, auxes: auxes)
+      }
   }
 }
 
@@ -295,9 +328,13 @@ struct MasterStripView: View {
         ForEach(model.project.stereoOutInserts) { plugin in
           InsertSlot(model: model, channelID: Project.stereoOutID, inserts: model.project.stereoOutInserts, plugin: plugin)
         }
+        .reorderable()
         if model.project.stereoOutInserts.count < ChannelStrip.maximumInserts {
           AddInsertMenu(model: model, channelID: Project.stereoOutID)
         }
+      }
+      .reorderContainer(for: PluginReference.self) { difference in
+        model.moveInserts(difference, on: Project.stereoOutID)
       }
       StripSection("Sends") { ThemeSlot { Text(" ") } }
       Spacer(minLength: 0)
@@ -462,6 +499,20 @@ private struct InsertSlot: View {
     Toggle("Bypass", isOn: Binding(
       get: { plugin.isBypassed },
       set: { model.perform(SetInsertBypassed(plugin.id, in: channelID, isBypassed: $0)) }))
+    if model.engine.hasSidechainInput(plugin.id, onTrack: channelID) {
+      // Another track's sound drives the plug-in (a compressor ducking under the kick).
+      Menu("Side Chain") {
+        Toggle("None", isOn: Binding(
+          get: { plugin.sidechainSourceID == nil },
+          set: { _ in model.perform(SetSidechain(nil, forPlugin: plugin.id, on: channelID)) }))
+        Divider()
+        ForEach(model.sidechainSources(for: channelID)) { track in
+          Toggle(track.name, isOn: Binding(
+            get: { plugin.sidechainSourceID == track.id },
+            set: { _ in model.perform(SetSidechain(track.id, forPlugin: plugin.id, on: channelID)) }))
+        }
+      }
+    }
     Divider()
     Button("Move Up") { model.perform(MoveInsert(plugin.id, in: channelID, to: index - 1)) }
       .disabled(index == 0)
@@ -487,7 +538,7 @@ private struct MIDIEffectSlot: View {
     } label: {
       SlotLabel(title: effect.name, isDimmed: effect.isBypassed)
     } primaryAction: {
-      isEditing = true
+      edit()
     }
     .menuStyle(.button)
     .buttonStyle(.plain)
@@ -501,9 +552,22 @@ private struct MIDIEffectSlot: View {
     .accessibilityIdentifier("midi-effect-slot")
   }
 
+  /// Ongaku's own effects edit in a popover; a plug-in opens its own window.
+  private func edit() {
+    if let plugin = effect.plugin {
+      model.showMIDIEffectWindow(plugin.id, on: track.id)
+    } else {
+      isEditing = true
+    }
+  }
+
   @ViewBuilder private var menuItems: some View {
-    let index = track.channel.midiEffects.firstIndex { $0.id == effect.id } ?? 0
-    Button("Edit \(effect.name)…") { isEditing = true }
+    let effects = track.channel.midiEffects
+    let index = effects.firstIndex { $0.id == effect.id } ?? 0
+    // Plug-ins come after Ongaku's own effects (see `MIDIEffect.ordered`), so neither
+    // moves past the other.
+    let isPlugin = effect.plugin != nil
+    Button("Edit \(effect.name)…") { edit() }
     Toggle("Bypass", isOn: Binding(
       get: { effect.isBypassed },
       set: { isBypassed in
@@ -513,11 +577,11 @@ private struct MIDIEffectSlot: View {
       }))
     Divider()
     Button("Move Up") { model.perform(MoveMIDIEffect(effect.id, in: track.id, to: index - 1)) }
-      .disabled(index == 0)
+      .disabled(index == 0 || (effects[index - 1].plugin != nil) != isPlugin)
     Button("Move Down") { model.perform(MoveMIDIEffect(effect.id, in: track.id, to: index + 1)) }
-      .disabled(index == track.channel.midiEffects.count - 1)
+      .disabled(index == effects.count - 1 || (effects[index + 1].plugin != nil) != isPlugin)
     Divider()
-    Button("Remove", role: .destructive) { model.perform(RemoveMIDIEffect(effect.id, from: track.id)) }
+    Button("Remove", role: .destructive) { model.removeMIDIEffect(effect, from: track.id) }
   }
 }
 
@@ -527,8 +591,15 @@ private struct AddMIDIEffectMenu: View {
 
   var body: some View {
     Menu {
-      ForEach(MIDIEffect.Settings.all, id: \.name) { settings in
-        Button(settings.name) { model.perform(AddMIDIEffect(MIDIEffect(settings), to: track.id)) }
+      Section("Ongaku") {
+        ForEach(MIDIEffect.Settings.all, id: \.name) { settings in
+          Button(settings.name) { model.perform(AddMIDIEffect(MIDIEffect(settings), to: track.id)) }
+        }
+      }
+      Menu("Audio Units") {
+        AudioUnitMenuItems(entries: model.audioUnitMIDIEffects, emptyMessage: "No Audio Unit MIDI effects are installed") { entry in
+          model.perform(AddMIDIEffect(MIDIEffect(.audioUnit(entry.makeReference())), to: track.id))
+        }
       }
     } label: {
       SlotLabel(title: "+", isEmpty: true)
@@ -570,12 +641,8 @@ private struct AddInsertMenu: View {
         }
       }
       Menu("Audio Units") {
-        let effects = model.audioUnitEffects
-        if effects.isEmpty {
-          Text("No Audio Unit effects are installed")
-        }
-        ForEach(effects) { entry in
-          Button("\(entry.manufacturer): \(entry.name)") { model.addInsert(entry.makeReference(), to: channelID) }
+        AudioUnitMenuItems(entries: model.audioUnitEffects, emptyMessage: "No Audio Unit effects are installed") { entry in
+          model.addInsert(entry.makeReference(), to: channelID)
         }
       }
     } label: {
@@ -742,12 +809,87 @@ private struct AutomationModeSlot: View {
 
 /// Logic's Group slot: which mixer group the track is in, and that group's settings. Reads
 /// the groups itself, so changing a group's settings updates it without redrawing the strip.
-private struct GroupSlot: View {
+/// Which VCA fader moves this strip's fader, as Logic's VCA slot.
+private struct VCASlot: View {
   let model: ProjectWindowModel
   let track: Track
 
-  @State private var renamingGroupID: Int?
-  @State private var name = ""
+  var body: some View {
+    let vca = track.channel.vcaID.flatMap(model.project.vca(withID:))
+    Menu {
+      Toggle("No VCA", isOn: Binding(get: { vca == nil }, set: { _ in model.assignVCA(nil, to: track.id) }))
+      ForEach(model.project.vcas) { candidate in
+        Toggle(candidate.name, isOn: Binding(get: { candidate.id == vca?.id }, set: { _ in model.assignVCA(candidate.id, to: track.id) }))
+      }
+      Divider()
+      Button("New VCA with Selected Tracks") {
+        model.addVCA(assigning: (model.selectedTrackIDs.contains(track.id) ? model.selectedTrackIDs : [track.id])
+          .filter { model.project.track(withID: $0)?.isFolderStack == false })
+      }
+    } label: {
+      Text(vca?.name ?? "VCA")
+        .font(Theme.font(10, weight: .medium))
+        .lineLimit(1)
+        .foregroundStyle(vca == nil ? Theme.tertiaryText : Theme.text)
+        .frame(width: ChannelStripView.width - 12, height: 17)
+        .background(vca == nil ? Color.black.opacity(0.28) : Theme.raised, in: .rect(cornerRadius: 3))
+        .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(vca == nil ? .clear : Theme.cycle.opacity(0.7)))
+    }
+    .menuStyle(.button)
+    .buttonStyle(.plain)
+    .menuIndicator(.hidden)
+    .help(vca.map { "\($0.name) moves this fader, keeping the balance with its other tracks" } ?? "VCA: a fader that moves several tracks' faders")
+    .accessibilityLabel("VCA")
+    .accessibilityValue(vca?.name ?? "None")
+  }
+}
+
+/// A VCA fader's strip: no audio, slots or meter, just the fader that moves its tracks' and
+/// a mute for them all.
+private struct VCAStripView: View {
+  let model: ProjectWindowModel
+  let vca: VCA
+
+  var body: some View {
+    let count = model.project.tracks.filter { $0.channel.vcaID == vca.id }.count
+    VStack(spacing: 6) {
+      Text(count == 1 ? "1 track" : "\(count) tracks")
+        .font(Theme.font(10))
+        .foregroundStyle(Theme.secondaryText)
+        .padding(.top, 8)
+      Spacer(minLength: 0)
+      Text(FaderScale.label(vca.volume))
+        .font(Theme.monospaced(10))
+        .foregroundStyle(Theme.text)
+        .frame(maxWidth: .infinity)
+        .frame(height: 17)
+        .background(Color.black.opacity(0.4), in: .rect(cornerRadius: 3))
+      FaderView(decibels: vca.volume) { value in
+        model.vcaVolumeChanged(vca.id, to: value)
+      } onCommit: { value in
+        model.setVCA(vca.id, actionName: "VCA Volume") { $0.volume = value }
+      }
+      .frame(minHeight: ChannelStripView.faderHeight.lowerBound, maxHeight: ChannelStripView.faderHeight.upperBound)
+      ChannelButton(label: "M", accessibilityName: "Mute", isOn: vca.isMuted, onColor: Theme.mute, size: CGSize(width: 24, height: 18)) {
+        model.setVCA(vca.id, actionName: "VCA Mute") { $0.isMuted.toggle() }
+      }
+      StripName(name: vca.name, color: Theme.cycle)
+    }
+    .padding(6)
+    .frame(width: ChannelStripView.width)
+    .background(Theme.panel)
+    .contextMenu {
+      Button("Delete \(vca.name)", role: .destructive) { model.perform(DeleteVCA(vca.id)) }
+    }
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("\(vca.name) VCA strip")
+    .accessibilityIdentifier("vca-strip")
+  }
+}
+
+private struct GroupSlot: View {
+  let model: ProjectWindowModel
+  let track: Track
 
   var body: some View {
     let group = track.groupID.flatMap(model.project.mixerGroup(withID:))
@@ -769,10 +911,7 @@ private struct GroupSlot: View {
           linkToggle("Mute", group, \.linksMute)
           linkToggle("Solo", group, \.linksSolo)
         }
-        Button("Rename Group \(group.id)…") {
-          name = group.name
-          renamingGroupID = group.id
-        }
+        Button("Rename Group \(group.id)…") { model.renameTarget = .group(group.id) }
         Button("Delete Group \(group.id)", role: .destructive) { model.perform(DeleteMixerGroup(group.id)) }
       }
     } label: {
@@ -790,14 +929,6 @@ private struct GroupSlot: View {
     .help(group.map { "Group \($0.id): grouped tracks move together" } ?? "Mixer group: grouped tracks move together")
     .accessibilityLabel("Group")
     .accessibilityValue(group.map { "Group \($0.id), \($0.name)" } ?? "None")
-    .alert("Rename Group", isPresented: Binding(get: { renamingGroupID != nil }, set: { if !$0 { renamingGroupID = nil } })) {
-      TextField("Name", text: $name)
-      Button("Rename") {
-        if let renamingGroupID { model.renameGroup(renamingGroupID, to: name) }
-        renamingGroupID = nil
-      }
-      Button("Cancel", role: .cancel) { renamingGroupID = nil }
-    }
   }
 
   private func linkToggle(_ title: String, _ group: MixerGroup, _ keyPath: WritableKeyPath<MixerGroup, Bool>) -> some View {

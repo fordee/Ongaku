@@ -25,7 +25,7 @@ struct TempoTrackTests {
     try UpdateTempoChange(at: .zero, to: bar * 2, bpm: 90).apply(to: &project)
     #expect(project.tempoMap.tempoChanges.map(\.position) == [.zero])
     #expect(project.tempoMap.tempo(at: .zero) == 90)
-    #expect(throws: EditError.self) { try RemoveTempoChange(at: .zero).apply(to: &project) }
+    #expect(throws: EditError.self) { try DeleteTempoChange(at: .zero).apply(to: &project) }
   }
 
   @Test func movingOntoAnotherChangeReplacesIt() throws {
@@ -39,7 +39,7 @@ struct TempoTrackTests {
   @Test func tempoChangesCanBeRemoved() throws {
     var project = Project()
     try SetTempo(140, at: bar * 4).apply(to: &project)
-    try RemoveTempoChange(at: bar * 4).apply(to: &project)
+    try DeleteTempoChange(at: bar * 4).apply(to: &project)
     #expect(project.tempoMap.tempoChanges.count == 1)
   }
 
@@ -51,9 +51,9 @@ struct TempoTrackTests {
     #expect(project.tempoMap.meterChanges.map(\.barIndex) == [0, 8])
     #expect(project.tempoMap.timeSignature(atBarIndex: 8) == waltz)
     #expect(throws: EditError.self) { try MoveTimeSignatureChange(fromBarIndex: 0, toBarIndex: 2).apply(to: &project) }
-    try RemoveTimeSignatureChange(atBarIndex: 8).apply(to: &project)
+    try DeleteTimeSignatureChange(atBarIndex: 8).apply(to: &project)
     #expect(project.tempoMap.meterChanges.count == 1)
-    #expect(throws: EditError.self) { try RemoveTimeSignatureChange(atBarIndex: 0).apply(to: &project) }
+    #expect(throws: EditError.self) { try DeleteTimeSignatureChange(atBarIndex: 0).apply(to: &project) }
   }
 
   @Test func notesAfterATempoChangePlayAtTheNewTempo() throws {

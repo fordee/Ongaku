@@ -1,5 +1,5 @@
 //
-//  GlueRegionsTests.swift
+//  JoinRegionsTests.swift
 //  OngakuCoreTests
 //
 
@@ -8,7 +8,7 @@ import Foundation
 import Testing
 
 /// Joining regions with the Glue tool or Edit › Join Regions.
-struct GlueRegionsTests {
+struct JoinRegionsTests {
   private func midiRegion(_ name: String, at start: Tick, length: Tick, notes: [MIDINote], isMuted: Bool = false) -> Region {
     Region(name: name, start: start, length: length, isMuted: isMuted, content: .midi(MIDISequence(notes: notes)))
   }
@@ -25,7 +25,7 @@ struct GlueRegionsTests {
     var track = Track(name: "Keys", kind: .softwareInstrument, regions: [a, b])
     track.channel.instrument = nil
     var project = Project(tracks: [track])
-    try GlueRegions([a.id, b.id]).apply(to: &project)
+    try JoinRegions([a.id, b.id]).apply(to: &project)
 
     let regions = project.tracks[0].regions
     #expect(regions.count == 1)
@@ -45,7 +45,7 @@ struct GlueRegionsTests {
       MIDINote(pitch: 64, start: .zero, length: .quarterNotes(1))
     ], isMuted: true)
     var project = Project(tracks: [Track(name: "Keys", kind: .softwareInstrument, regions: [a, b])])
-    try GlueRegions([a.id, b.id]).apply(to: &project)
+    try JoinRegions([a.id, b.id]).apply(to: &project)
     guard case .midi(let sequence) = project.tracks[0].regions[0].content else { Issue.record("Not MIDI"); return }
     #expect(sequence.notes.map(\.pitch) == [60])
     #expect(!project.tracks[0].regions[0].isMuted)
@@ -60,7 +60,7 @@ struct GlueRegionsTests {
       Track(name: "A", kind: .softwareInstrument, regions: [a1, a2]),
       Track(name: "B", kind: .softwareInstrument, regions: [b1, b2]),
     ])
-    try GlueRegions([a1.id, a2.id, b1.id, b2.id]).apply(to: &project)
+    try JoinRegions([a1.id, a2.id, b1.id, b2.id]).apply(to: &project)
     #expect(project.tracks.map(\.regions.count) == [1, 1])
     #expect(project.tracks[1].regions[0].length == .quarterNotes(12))
   }
@@ -68,7 +68,7 @@ struct GlueRegionsTests {
   @Test func oneRegionPerTrackIsNothingToJoin() {
     let a = midiRegion("A", at: .zero, length: .quarterNotes(4), notes: [])
     var project = Project(tracks: [Track(name: "Keys", kind: .softwareInstrument, regions: [a])])
-    #expect(throws: EditError.self) { try GlueRegions([a.id]).apply(to: &project) }
+    #expect(throws: EditError.self) { try JoinRegions([a.id]).apply(to: &project) }
   }
 
   // MARK: - Audio
@@ -83,7 +83,7 @@ struct GlueRegionsTests {
     var (project, id) = try audioProject()
     let split = SplitRegion(id, at: .quarterNotes(3))
     try split.apply(to: &project)
-    try GlueRegions([id, split.newRegionID]).apply(to: &project)
+    try JoinRegions([id, split.newRegionID]).apply(to: &project)
     #expect(project.tracks[0].regions.count == 1)
     #expect(project.tracks[0].regions[0].length == .quarterNotes(8))
     #expect(project.tracks[0].regions[0].content == .audio(AudioRegionContent(fileID: project.audioFiles[0].id)))
@@ -95,6 +95,6 @@ struct GlueRegionsTests {
     try split.apply(to: &project)
     // Moving the second piece means the two no longer play one stretch of the file.
     try MoveRegion(split.newRegionID, to: .quarterNotes(4)).apply(to: &project)
-    #expect(throws: EditError.self) { try GlueRegions([id, split.newRegionID]).apply(to: &project) }
+    #expect(throws: EditError.self) { try JoinRegions([id, split.newRegionID]).apply(to: &project) }
   }
 }

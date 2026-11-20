@@ -58,6 +58,20 @@ extension ProjectWindowModel {
     }
   }
 
+  /// Opens the interface of a MIDI effect plug-in in its own window.
+  func showMIDIEffectWindow(_ pluginID: PluginReference.ID, on trackID: Track.ID) {
+    guard let track = project.track(withID: trackID),
+      let plugin = track.channel.midiEffects.lazy.compactMap(\.plugin).first(where: { $0.id == pluginID })
+    else { return }
+    guard !engine.isLoadingMIDIEffect(pluginID, onTrack: trackID) else {
+      errorMessage = "“\(plugin.name)” is still loading."
+      return
+    }
+    showPluginWindow(for: plugin, channelID: trackID, channelName: track.name) { body in
+      engine.withMIDIEffectAudioUnit(pluginID, onTrack: trackID, body)
+    }
+  }
+
   /// Asks the plug-in for its view and shows it, or brings an open window to the front.
   /// `withAudioUnit` gives scoped access to the loaded plug-in.
   private func showPluginWindow(
@@ -74,7 +88,7 @@ extension ProjectWindowModel {
         DispatchQueue.main.async {
           self?.presentPluginWindow(
             viewController, title: title, size: OngakuEffect(plugin)?.windowSize ?? OngakuInstrument(plugin)?.windowSize,
-            pluginID: plugin.id, trackID: trackID, isMastering: OngakuEffect(plugin) == .mastering)
+            plugin: plugin, trackID: trackID)
         }
       }
     }
@@ -84,15 +98,23 @@ extension ProjectWindowModel {
   }
 
   private func presentPluginWindow(
-    _ viewController: NSViewController?, title: String, size: CGSize?, pluginID: PluginReference.ID, trackID: Track.ID,
-    isMastering: Bool
+    _ viewController: NSViewController?, title: String, size: CGSize?, plugin: PluginReference, trackID: Track.ID
   ) {
+    let pluginID = plugin.id
     guard let viewController else {
       errorMessage = "This plug-in doesn’t have its own interface."
       return
     }
-    // Mastering on Stereo Out can listen to the whole song offline, which only the host can do.
-    let accessory = isMastering && trackID == Project.stereoOutID ? AnalyzeSongButton(model: self).accessory() : nil
+    let accessory: NSTitlebarAccessoryViewController?
+    if OngakuEffect(plugin) == .mastering {
+      // Mastering on Stereo Out can listen to the whole song offline, which only the host can do.
+      accessory = trackID == Project.stereoOutID ? AnalyzeSongButton(model: self).accessory() : nil
+    } else if OngakuEffect(plugin) == nil, OngakuInstrument(plugin) == nil {
+      // Ongaku's own plug-ins have presets in their windows; others (Apple's too) get them here.
+      accessory = PluginPresetsMenu(presets: PluginPresets(plugin: plugin, trackID: trackID, model: self)).accessory()
+    } else {
+      accessory = nil
+    }
     let controller = PluginWindowController(
       title: title, contentViewController: viewController, size: size, trackID: trackID, accessory: accessory
     ) { [weak self] in
@@ -130,6 +152,11 @@ extension ProjectWindowModel {
     {
       current = instrument
       state = engine.instrumentState(forTrack: trackID)
+    } else if let effect = project.track(withID: trackID)?.channel.midiEffects.lazy.compactMap(\.plugin)
+      .first(where: { $0.id == pluginID })
+    {
+      current = effect
+      state = engine.midiEffectState(pluginID, onTrack: trackID)
     } else {
       current = project.track(withID: trackID)?.channel.inserts.first { $0.id == pluginID }
       state = engine.insertState(pluginID, onTrack: trackID)
@@ -151,6 +178,7 @@ extension ProjectWindowModel {
   /// and when those tracks change.
   func connectMIDIInput() {
     engine.connectMIDIInput(toTracks: liveMIDITrackIDs)
+    connectControllers()
   }
 
   // MARK: - MIDI regions and the editor
@@ -169,8 +197,8 @@ extension ProjectWindowModel {
     openEditor(for: region.id)
   }
 
-  /// Opens a MIDI region, a take folder (audio or MIDI), or an audio region on a Flex Pitch
-  /// track, in the editor pane.
+  /// Opens a region in the editor pane: MIDI in the Piano Roll, a take folder in Takes, and
+  /// audio in Flex Pitch (on a Flex Pitch track) or the Audio File Editor.
   func openEditor(for regionID: Region.ID) {
     guard let region = project.region(withID: regionID), opensInEditor(region) else { return }
     editorRegionID = regionID
@@ -178,10 +206,10 @@ extension ProjectWindowModel {
     bottomPane = .pianoRoll
   }
 
-  /// Whether a region has an editor: MIDI, take folders, and audio on a Flex Pitch track.
+  /// Whether a region has an editor: every MIDI and audio region does, except generated
+  /// audio (a frozen track's) that isn't on a track.
   private func opensInEditor(_ region: Region) -> Bool {
-    if case .midi = region.content { return true }
-    return region.takeFolder != nil || project.tracks.first { $0.regions.contains { $0.id == region.id } }?.flexMode == .pitch
+    project.tracks.contains { $0.regions.contains { $0.id == region.id } }
   }
 
   /// Take folders open in the Takes editor, so a MIDI one isn't edited in the Piano Roll
@@ -193,7 +221,7 @@ extension ProjectWindowModel {
   /// Shows or hides the editor, opening the selected region if it has one (see
   /// `opensInEditor`), as double-clicking it does.
   func toggleEditor() {
-    // Audio take folders open in the Takes editor, audio on a Flex Pitch track in Flex Pitch.
+    // Audio take folders open in the Takes editor, other audio in Flex Pitch or the Audio File Editor.
     if !isEditorVisible, let selected = selectedRegionIDs.first(where: { id in
       project.region(withID: id).map(opensInEditor) ?? false
     }) {
@@ -206,6 +234,12 @@ extension ProjectWindowModel {
   /// Shows or hides the mixer, like Logic's X key.
   func toggleMixer() {
     bottomPane = bottomPane == .mixer ? nil : .mixer
+  }
+
+  /// Shows or hides Smart Controls, like Logic's B key.
+  func toggleSmartControls() {
+    if bottomPane == .smartControls { cancelMIDILearn() }
+    bottomPane = bottomPane == .smartControls ? nil : .smartControls
   }
 
   func toggleLibrary() {
@@ -275,26 +309,5 @@ final class PluginWindowController: NSObject, NSWindowDelegate {
 
   func windowWillClose(_ notification: Notification) {
     onClose()
-  }
-}
-
-/// Analyze Whole Song, in Mastering's title bar.
-private struct AnalyzeSongButton: View {
-  let model: ProjectWindowModel
-
-  var body: some View {
-    Button("Analyze Whole Song") { model.analyzeSongForMastering() }
-      .controlSize(.small)
-      .disabled(model.songAnalysis != nil)
-      .help("Mastering listens to the whole song, faster than it plays, instead of while you play it, then sets itself up for it")
-      .padding(.horizontal, 10)
-  }
-
-  func accessory() -> NSTitlebarAccessoryViewController {
-    let accessory = NSTitlebarAccessoryViewController()
-    accessory.view = NSHostingView(rootView: self)
-    accessory.view.frame.size = accessory.view.fittingSize
-    accessory.layoutAttribute = .trailing
-    return accessory
   }
 }

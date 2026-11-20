@@ -20,8 +20,10 @@ final class ProjectWindowModel {
     static let defaultHeaderWidth: CGFloat = 230
     static let headerWidthRange: ClosedRange<CGFloat> = 190...520
     static let rulerHeight: CGFloat = 34
-    /// A track's lane, where its regions are.
+    /// A track's lane, where its regions are, until the tracks are zoomed vertically.
     static let trackHeight: CGFloat = 64
+    /// How tall vertical zoom makes the lanes (⌘↑ and ⌘↓, as in Logic).
+    static let trackHeightRange: ClosedRange<CGFloat> = 40...160
     /// The strip under each track's lane where its automation is drawn and edited, while
     /// automation is shown.
     static let automationHeight: CGFloat = 56
@@ -141,6 +143,17 @@ final class ProjectWindowModel {
   var isShowingMIDIExporter = false
   /// The Bounce dialog, while it's open.
   var bounce: BounceModel?
+  /// Whether File › Save as Template… is asking for a name.
+  var isShowingSaveTemplate = false
+  /// The Bounce in Place dialog, while it's open.
+  var bounceInPlace: BounceInPlaceModel?
+  /// The control MIDI Learn is waiting to assign the next MIDI controller moved to.
+  var midiLearnTarget: SmartControlTarget?
+  /// Controls a MIDI controller moved, waiting to be stored once it stops (see
+  /// ProjectWindowModel+SmartControls.swift).
+  @ObservationIgnored var controllerCommits: [SmartControlTarget: Task<Void, Never>] = [:]
+  /// The assignments last given to the MIDI router, so undoing one updates it.
+  @ObservationIgnored var connectedControllerAssignments: [ControllerAssignment]?
   /// Mastering's Analyze Whole Song, while it runs.
   var songAnalysis: SongAnalysis?
   /// Tracks being frozen, with how far each render has got (0 to 1).
@@ -151,7 +164,7 @@ final class ProjectWindowModel {
 
   /// What the area under the tracks shows, like Logic's editor and mixer buttons.
   enum BottomPane: String, CaseIterable {
-    case pianoRoll, mixer
+    case pianoRoll, mixer, smartControls
 
     /// The shortest the pane can be dragged: room for its header and a little of its
     /// contents (the mixer's strips scroll when they don't fit).
@@ -208,8 +221,29 @@ final class ProjectWindowModel {
   /// How far apart tracks are: the lane, plus the automation strip while it's shown. Every
   /// row is the same height, so a row is found from y by division.
   var rowHeight: CGFloat {
-    Layout.trackHeight + (isAutomationVisible ? Layout.automationHeight : 0)
+    trackHeight + (isAutomationVisible ? Layout.automationHeight : 0)
   }
+  /// How tall each track's lane is (vertical zoom).
+  var trackHeight: CGFloat = Layout.trackHeight {
+    didSet { scroll.rowHeight = rowHeight }
+  }
+
+  /// Vertical zoom: taller or shorter lanes for every track, within `Layout.trackHeightRange`.
+  func zoomTracksVertically(by factor: CGFloat) {
+    let range = Layout.trackHeightRange
+    trackHeight = min(max((trackHeight * factor).rounded(), range.lowerBound), range.upperBound)
+  }
+  /// Whether Strip Silence's dialog is open.
+  var isShowingStripSilence = false
+  /// How far Quantize Audio moves hits towards the grid (1 is all the way), as the Piano
+  /// Roll's quantize strength.
+  var audioQuantizeStrength = 1.0
+  /// Whether hidden tracks are shown (dimmed, with their H button lit), as Logic's global
+  /// Hide button does.
+  var showsHiddenTracks = false
+  /// While a track header is dragged: the track, and the row it would land above (the
+  /// row count for below the last).
+  var trackDrag: (trackID: Track.ID, row: Int)?
   /// Logic's Inspector down the left: the selected track's channel strip and Stereo Out (I).
   var isInspectorVisible = true
   /// How wide the track headers are, from `Layout.headerWidthRange`.
@@ -265,6 +299,8 @@ final class ProjectWindowModel {
   private var audioUnitListsVersion = 0
   /// The lists, looked up when first needed (see `refreshAudioUnitInstruments`).
   @ObservationIgnored private var cachedAudioUnitLists: AudioUnitLists?
+  /// The Plug-in Manager's revision the cached lists were made for.
+  @ObservationIgnored private var cachedAudioUnitListsRevision = 0
 
   init(document: OngakuDocument) {
     self.document = document
@@ -318,9 +354,11 @@ final class ProjectWindowModel {
 
   private var audioUnitLists: AudioUnitLists {
     _ = audioUnitListsVersion
-    if let cachedAudioUnitLists { return cachedAudioUnitLists }
-    let lists = AudioUnitLists(instruments: InstrumentLibrary.audioUnitInstruments())
+    let revision = PluginManager.shared.revision
+    if let cachedAudioUnitLists, cachedAudioUnitListsRevision == revision { return cachedAudioUnitLists }
+    let lists = AudioUnitLists(instruments: PluginManager.shared.offered(InstrumentLibrary.audioUnitInstruments()))
     cachedAudioUnitLists = lists
+    cachedAudioUnitListsRevision = revision
     return lists
   }
 
@@ -343,7 +381,7 @@ final class ProjectWindowModel {
   /// is open appears. Views only update if the list changed.
   func refreshAudioUnitInstruments() {
     guard let cached = cachedAudioUnitLists else { return }
-    let instruments = InstrumentLibrary.audioUnitInstruments()
+    let instruments = PluginManager.shared.offered(InstrumentLibrary.audioUnitInstruments())
     guard instruments != cached.instruments else { return }
     cachedAudioUnitLists = AudioUnitLists(instruments: instruments)
     audioUnitListsVersion += 1
@@ -377,6 +415,9 @@ final class ProjectWindowModel {
   func projectDidChange() {
     refreshFlexRenders()
     engine.update(project: playedProject)
+    if let connected = connectedControllerAssignments, connected != project.controllerAssignments {
+      connectControllers()
+    }
     let regionIDs = Set(project.tracks.flatMap(\.regions).map(\.id))
     selectedRegionIDs.formIntersection(regionIDs)
     if let selectedChordID, !project.chords.contains(where: { $0.id == selectedChordID }) { self.selectedChordID = nil }
@@ -384,7 +425,7 @@ final class ProjectWindowModel {
       self.selectedTrackID = project.tracks.first?.id
     }
     let pluginIDs = Set(project.tracks.flatMap { track -> [PluginReference.ID] in
-      var ids = track.channel.inserts.map(\.id)
+      var ids = track.channel.inserts.map(\.id) + track.channel.midiEffects.compactMap(\.plugin?.id)
       if case .audioUnit(let instrument) = track.channel.instrument { ids.append(instrument.id) }
       return ids
     } + project.stereoOutInserts.map(\.id))
@@ -532,6 +573,24 @@ final class ProjectWindowModel {
     perform(SetCycle(cycle))
   }
 
+  /// Logic's Autopunch: on or off, keeping its range.
+  func toggleAutopunch() {
+    var punch = project.punch
+    punch.isEnabled.toggle()
+    perform(SetPunch(punch))
+  }
+
+  /// Sets the Autopunch range to the locators (the cycle range) and turns it on.
+  func setPunchToLocators() {
+    guard let range = locatorRange else { return }
+    perform(SetPunch(CycleRange(isEnabled: true, start: range.lowerBound, end: range.upperBound)))
+  }
+
+  /// Logic's Replace: recordings replace what's on their tracks instead of layering.
+  func toggleReplaceRecording() {
+    perform(SetReplaceRecording(!project.isReplaceRecording))
+  }
+
   func toggleMetronome() {
     perform(SetMetronome(!project.isMetronomeEnabled))
   }
@@ -548,9 +607,9 @@ final class ProjectWindowModel {
   func addTrack(_ kind: TrackKind) {
     var track = makeTrack(name: project.nextTrackName(for: kind), kind: kind)
     // Like Logic, a track added while a stack or one of its subtracks is selected joins it.
-    if let selected = selectedTrack, let stackID = selected.isSummingStack ? selected.id : selected.stackID {
+    if let selected = selectedTrack, let stackID = selected.isStack ? selected.id : selected.stackID {
       track.stackID = stackID
-      track.channel.output = .track(stackID)
+      if project.track(withID: stackID)?.isSummingStack == true { track.channel.output = .track(stackID) }
       collapsedStackIDs.remove(stackID)
     }
     let index = selectedTrackID.flatMap(project.trackIndex(for:)).map { $0 + 1 }

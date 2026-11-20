@@ -38,7 +38,7 @@ extension ProjectWindowModel {
   }
 
   func removeTempoChange(at position: Tick) {
-    perform(RemoveTempoChange(at: position))
+    perform(DeleteTempoChange(at: position))
   }
 
   /// Tempos dragged on the Tempo track land on whole BPM, within the allowed range.
@@ -79,7 +79,7 @@ extension ProjectWindowModel {
   }
 
   func removeTimeSignature(atBarIndex barIndex: Int) {
-    perform(RemoveTimeSignatureChange(atBarIndex: barIndex))
+    perform(DeleteTimeSignatureChange(atBarIndex: barIndex))
   }
 
   // MARK: - Key changes
@@ -118,6 +118,6 @@ extension ProjectWindowModel {
   }
 
   func removeKeyChange(_ changeID: KeyChange.ID) {
-    perform(RemoveKeyChanges([changeID]))
+    perform(DeleteKeyChanges([changeID]))
   }
 }

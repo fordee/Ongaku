@@ -713,9 +713,10 @@ private struct SignatureLabel: View {
 
 // MARK: - Tempo
 
-/// The tempo as a line, stepping at each tempo change, with a handle on each change: drag
-/// it up or down to change the tempo, sideways to move it. Double-click an empty spot to
-/// add a change there at the tempo under the pointer.
+/// The tempo as a line, stepping at each tempo change (or sloping, where a change ramps to
+/// the next), with a handle on each change: drag it up or down to change the tempo,
+/// sideways to move it. Double-click an empty spot to add a change there at the tempo under
+/// the pointer.
 private struct TempoLane: View {
   let model: ProjectWindowModel
 
@@ -751,7 +752,9 @@ private struct TempoLane: View {
           } else {
             line.addLine(to: CGPoint(x: x, y: y))
           }
-          line.addLine(to: CGPoint(x: endX, y: y))
+          // A ramp slopes to the next tempo; otherwise the tempo holds and steps.
+          let endY = change.rampsToNext && index + 1 < changes.count ? self.y(for: changes[index + 1].bpm, in: range) : y
+          line.addLine(to: CGPoint(x: endX, y: endY))
         }
         context.stroke(line, with: .color(Theme.accent), lineWidth: 1.5)
       }
@@ -764,7 +767,7 @@ private struct TempoLane: View {
       .offset(x: render.lowerBound)
       ForEach(changes, id: \.position) { change in
         TempoHandle(
-          model: model, change: change, y: y(for: change.bpm, in: range),
+          model: model, change: change, y: y(for: change.bpm, in: range), isLast: change.position == changes.last?.position,
           bpmPerPoint: (range.upperBound - range.lowerBound) / Double(height - Self.inset * 2))
       }
     }
@@ -779,6 +782,7 @@ private struct TempoHandle: View {
   let model: ProjectWindowModel
   let change: TempoMap.TempoChange
   let y: CGFloat
+  let isLast: Bool
   let bpmPerPoint: Double
 
   @State private var drag: CGSize = .zero
@@ -809,13 +813,18 @@ private struct TempoHandle: View {
         }
     )
     .contextMenu {
+      Toggle("Ramp to Next Tempo", isOn: Binding(
+        get: { change.rampsToNext },
+        set: { model.perform(SetTempoRamp(at: change.position, ramps: $0)) }))
+        .disabled(isLast)
       if !isFirst {
         Button("Delete", role: .destructive) { model.removeTempoChange(at: change.position) }
       }
     }
     .help(isFirst ? "Drag up or down to change the tempo" : "Drag to change the tempo or move it; right-click to delete")
     .accessibilityElement()
-    .accessibilityLabel("Tempo \(Int(change.bpm)) at bar \(model.project.tempoMap.musicalPosition(at: change.position).bar)")
+    .accessibilityLabel(
+      "Tempo \(Int(change.bpm)) at bar \(model.project.tempoMap.musicalPosition(at: change.position).bar)\(change.rampsToNext ? ", ramping" : "")")
     .accessibilityIdentifier("tempo-change")
   }
 }
@@ -823,39 +832,6 @@ private struct TempoHandle: View {
 /// Where the pointer last was over a lane. A plain reference so updating it doesn't redraw.
 private final class HoverPosition {
   var x: CGFloat = 0
-}
-
-/// Renames the marker or section in `model.renameTarget`.
-struct RenameModifier: ViewModifier {
-  let model: ProjectWindowModel
-  @State private var name = ""
-
-  func body(content: Content) -> some View {
-    content
-      .alert(title, isPresented: Binding(get: { model.renameTarget != nil }, set: { if !$0 { model.renameTarget = nil } })) {
-        TextField("Name", text: $name)
-        Button("Rename") {
-          switch model.renameTarget {
-          case .marker(let id): model.renameMarker(id, to: name)
-          case .section(let id): model.renameSection(id, to: name)
-          case nil: break
-          }
-          model.renameTarget = nil
-        }
-        Button("Cancel", role: .cancel) { model.renameTarget = nil }
-      }
-      .onChange(of: model.renameTarget) { _, target in
-        switch target {
-        case .marker(let id): name = model.project.markers.first { $0.id == id }?.name ?? ""
-        case .section(let id): name = model.project.arrangement.first { $0.id == id }?.name ?? ""
-        case nil: break
-        }
-      }
-  }
-
-  private var title: String {
-    if case .section = model.renameTarget { "Rename Arrangement Marker" } else { "Rename Marker" }
-  }
 }
 
 #Preview {
@@ -869,6 +845,7 @@ struct RenameModifier: ViewModifier {
   project.markers = [Marker(name: "Vocals in", position: bar * 4), Marker(name: "Key change", position: bar * 14)]
   try? project.tempoMap.setTempo(132, at: bar * 4)
   try? project.tempoMap.setTempo(110, at: bar * 6)
+  project.tempoMap.setRamp(true, at: bar * 4)
   try? project.tempoMap.setTimeSignature(TimeSignature(beatsPerBar: 3, beatUnit: 4), atBarIndex: 5)
   // A key change up a tone for the second verse, and another on its own.
   project.keyChanges = [KeyChange(position: bar * 5, key: KeySignature(tonic: 2, mode: .major)), KeyChange(position: bar * 7, key: KeySignature(tonic: 9, mode: .minor))]

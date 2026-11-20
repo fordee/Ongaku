@@ -85,6 +85,7 @@ private struct EditingArea: View {
           switch pane {
           case .pianoRoll: PianoRollView(model: model.pianoRoll)
           case .mixer: MixerView(model: model)
+          case .smartControls: SmartControlsView(model: model)
           }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -95,7 +96,7 @@ private struct EditingArea: View {
     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { availableHeight = $0 }
     .overlay(alignment: .topLeading) {
       if let proposedHeight, let pane = model.bottomPane {
-        ResizeGuide(title: pane == .mixer ? "Mixer" : "Editor", height: proposedHeight)
+        ResizeGuide(title: pane == .mixer ? "Mixer" : pane == .smartControls ? "Smart Controls" : "Editor", height: proposedHeight)
           .offset(y: availableHeight - proposedHeight - PaneDivider.thickness - ResizeGuide.lineThickness / 2)
           .allowsHitTesting(false)
       }
@@ -106,6 +107,7 @@ private struct EditingArea: View {
     switch pane {
     case .mixer: model.mixerIdealHeight ?? Self.fallbackMixerHeight
     case .pianoRoll: availableHeight / 2
+    case .smartControls: SmartControlsView.idealHeight
     }
   }
 
@@ -146,15 +148,15 @@ private struct ResizeGuide: View {
   var body: some View {
     ZStack(alignment: .leading) {
       Rectangle()
-        .fill(Color.accentColor)
+        .fill(Theme.accent)
         .frame(height: Self.lineThickness)
         .shadow(color: .black.opacity(0.5), radius: 2)
       Text("\(title) height \(Int(height.rounded())) pt")
-        .font(.system(size: 10, weight: .semibold).monospacedDigit())
+        .font(Theme.monospaced(10, weight: .semibold))
         .foregroundStyle(.white)
         .padding(.horizontal, 6)
         .padding(.vertical, 2)
-        .background(Capsule().fill(Color.accentColor))
+        .background(Capsule().fill(Theme.accent))
         .offset(x: 12, y: -12)
     }
   }
@@ -253,6 +255,10 @@ struct ProjectWindow: View {
     .onChange(of: model.engine.lastError) { _, error in
       if let error { model.errorMessage = error }
     }
+    // A plug-in whose process quit is started again; its window shows the one that quit.
+    .onChange(of: model.engine.pluginQuitCount) {
+      if let pluginID = model.engine.lastQuitPluginID { model.pluginWindows[pluginID]?.close() }
+    }
     .fileImporter(
       isPresented: Binding(get: { model.activeImporter != nil }, set: { if !$0 { model.activeImporter = nil } }),
       allowedContentTypes: model.importerKind.allowedContentTypes,
@@ -283,6 +289,17 @@ struct ProjectWindow: View {
       if let bounce = model.bounce {
         BounceView(model: model, bounce: bounce)
       }
+    }
+    .sheet(isPresented: Binding(get: { model.bounceInPlace != nil }, set: { if !$0 { model.closeBounceInPlace() } })) {
+      if let dialog = model.bounceInPlace {
+        BounceInPlaceView(model: model, dialog: dialog)
+      }
+    }
+    .sheet(isPresented: Binding(get: { model.isShowingSaveTemplate }, set: { model.isShowingSaveTemplate = $0 })) {
+      SaveTemplateView(model: model)
+    }
+    .sheet(isPresented: Binding(get: { model.isShowingStripSilence }, set: { model.isShowingStripSilence = $0 })) {
+      StripSilenceView(model: model)
     }
     .sheet(isPresented: Binding(get: { model.songAnalysis != nil }, set: { if !$0 { model.songAnalysis?.cancel() } })) {
       if let analysis = model.songAnalysis {

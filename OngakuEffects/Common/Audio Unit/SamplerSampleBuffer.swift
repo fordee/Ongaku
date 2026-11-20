@@ -19,6 +19,10 @@ final class SamplerSampleBuffer: @unchecked Sendable {
   /// When a file was cut to fit, what was left out ("Only the first 60 s is used."), for
   /// the window to say.
   let notice: String?
+  /// The loudest level in each of 900 stretches, for drawing it (see `overview(count:)`).
+  let preview: [Float]
+  /// The loudest level in it.
+  let peak: Float
 
   /// Samples are kept to a minute, so songs stay a sensible size.
   static let maximumSeconds = 60.0
@@ -37,6 +41,8 @@ final class SamplerSampleBuffer: @unchecked Sendable {
     kernelSample = .allocate(capacity: 1)
     kernelSample.initialize(to: SamplerSample(
       left: channels[0], right: channels.count > 1 ? channels[1] : nil, frames: Int64(frameCount), sampleRate: sampleRate))
+    preview = Self.overview(of: channels, frameCount: frameCount, count: 900)
+    peak = preview.max() ?? 0
   }
 
   deinit {
@@ -115,6 +121,10 @@ final class SamplerSampleBuffer: @unchecked Sendable {
 
   /// The loudest level in each of `count` stretches of the sample, for drawing it.
   func overview(count: Int) -> [Float] {
+    count == preview.count ? preview : Self.overview(of: channels, frameCount: frameCount, count: count)
+  }
+
+  private static func overview(of channels: [UnsafeMutablePointer<Float>], frameCount: Int, count: Int) -> [Float] {
     guard frameCount > 0, count > 0 else { return [] }
     return (0..<count).map { index in
       let from = index * frameCount / count
@@ -202,10 +212,15 @@ final class SamplerSampleBuffer: @unchecked Sendable {
   }
 }
 
-/// What the Sampler's window shows about its sample.
+/// What the Sampler's window shows about its sample (the selected zone's), and its zones.
+/// (The Convolution Reverb's window uses it for its impulse response too.)
 @MainActor
 @Observable
 final class SamplerDisplay {
+  var zones: [SamplerZoneInfo] = []
+  var selectedZoneID: UUID?
+  /// Whether the window shows the zones rather than the selected zone's waveform.
+  var showsZones = false
   var name: String?
   var duration: Double = 0
   var channelCount = 0

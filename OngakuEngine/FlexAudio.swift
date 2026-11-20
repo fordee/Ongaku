@@ -3,6 +3,7 @@
 //  OngakuEngine
 //
 
+import Accelerate
 import AVFAudio
 import Foundation
 import OngakuCore
@@ -45,6 +46,21 @@ public enum FlexAudio {
     return TransientDetector.detect(mono, sampleRate: format.sampleRate)
   }
 
+  /// The stretches of a file with sound in them (for Strip Silence), in seconds from the
+  /// stretch's start.
+  @concurrent
+  public static func sounds(
+    in source: URL, from startFrame: Int64, frames: Int64, settings: SilenceDetector.Settings
+  ) async throws -> [Range<Double>] {
+    let (channels, format) = try read(source, from: startFrame, frames: frames)
+    // The loudest channel at each moment decides, so a sound in one channel counts.
+    var loudest = [Float](repeating: 0, count: channels.first?.count ?? 0)
+    for channel in channels {
+      loudest = vDSP.maximum(loudest, vDSP.absolute(channel))
+    }
+    return SilenceDetector.sounds(in: loudest, sampleRate: format.sampleRate, settings: settings)
+  }
+
   /// The notes in a stretch of a file (for Flex Pitch), with times from its start.
   @concurrent
   public static func notes(in source: URL, from startFrame: Int64, frames: Int64) async throws -> [DetectedNote] {
@@ -68,6 +84,20 @@ public enum FlexAudio {
     return TempoDetector.detect(mono, sampleRate: format.sampleRate)
   }
 
+  /// The Audio File Editor's edits: the whole of `source` with `edit` applied to `frames`,
+  /// written to `destination` as a 32-bit float CAF of the same length.
+  @concurrent
+  public static func edit(
+    _ source: URL, _ edit: AudioFileEdit, frames: Range<Int64>, to destination: URL
+  ) async throws -> AudioFileReference {
+    let length = try AVAudioFile(forReading: source).length
+    var (channels, format) = try read(source, from: 0, frames: length)
+    edit.apply(to: &channels, frames: Int(frames.lowerBound)..<Int(frames.upperBound))
+    try write(channels, sampleRate: format.sampleRate, to: destination)
+    return AudioFileReference(
+      fileName: destination.lastPathComponent, sampleRate: format.sampleRate, channelCount: channels.count, frameCount: length)
+  }
+
   /// `frames` frames of a file from `startFrame` (which may be before its start or run past
   /// its end; those parts are silent), as one array per channel.
   static func read(_ url: URL, from startFrame: Int64, frames: Int64) throws -> ([[Float]], AVAudioFormat) {
@@ -83,11 +113,18 @@ public enum FlexAudio {
       let data = buffer.floatChannelData
     else { throw FlexError.unreadable }
     file.framePosition = readStart
-    try file.read(into: buffer, frameCount: AVAudioFrameCount(available))
-    for channel in 0..<channelCount {
-      for index in 0..<Int(buffer.frameLength) {
-        channels[channel][skipped + index] = data[channel][index]
+    // A read can stop short of what was asked for, so read until it's all in.
+    var done = 0
+    while done < Int(available) {
+      try file.read(into: buffer, frameCount: AVAudioFrameCount(Int(available) - done))
+      let count = Int(buffer.frameLength)
+      guard count > 0 else { break }
+      for channel in 0..<channelCount {
+        for index in 0..<count {
+          channels[channel][skipped + done + index] = data[channel][index]
+        }
       }
+      done += count
     }
     return (channels, format)
   }
@@ -104,6 +141,8 @@ public enum FlexAudio {
     }
     try? FileManager.default.removeItem(at: url)
     let file = try AVAudioFile(forWriting: url, settings: format.settings, commonFormat: .pcmFormatFloat32, interleaved: false)
+    // Closed now, not whenever it's freed, so the file is complete for whoever reads it next.
+    defer { file.close() }
     try file.write(from: buffer)
   }
 }

@@ -27,6 +27,15 @@ typedef NS_ENUM(int, OngakuEffectKind) {
   OngakuEffectKindVocalStrip = 14,
   OngakuEffectKindSessionDrummer = 15,
   OngakuEffectKindMastering = 16,
+  OngakuEffectKindChorus = 17,
+  OngakuEffectKindFlanger = 18,
+  OngakuEffectKindPhaser = 19,
+  OngakuEffectKindTremolo = 20,
+  OngakuEffectKindGain = 21,
+  OngakuEffectKindTuner = 22,
+  OngakuEffectKindMultibandCompressor = 23,
+  OngakuEffectKindElectricPiano = 24,
+  OngakuEffectKindOrgan = 25,
 };
 
 /// Every effect's parameters, each effect in its own range of a hundred addresses.
@@ -292,6 +301,114 @@ typedef NS_ENUM(AUParameterAddress, OngakuEffectsParameterAddress) {
   /// On while Mastering listens to the song; turned off, it sets the song's settings from
   /// what it heard (see MasteringListening.swift). Reads as off once listening has stopped.
   mstListen = 1650,
+
+  // Chorus (1700–1799): two voices a side, each a delay swept by a slow wave.
+  chrRate = 1700,
+  chrDepth = 1701,
+  chrDelay = 1702,
+  chrWidth = 1703,
+  chrMix = 1704,
+
+  // Flanger (1800–1899): a very short delay swept up and down, fed back.
+  flgRate = 1800,
+  flgDepth = 1801,
+  flgDelay = 1802,
+  /// −95–95 %: negative feedback gives the hollow sound.
+  flgFeedback = 1803,
+  flgWidth = 1804,
+  flgMix = 1805,
+
+  // Phaser (1900–1999): all-pass stages swept around a centre frequency.
+  phsRate = 1900,
+  phsDepth = 1901,
+  /// 0–4: 2, 4, 6, 8 or 12 stages.
+  phsStages = 1902,
+  phsCenter = 1903,
+  phsFeedback = 1904,
+  phsWidth = 1905,
+  phsMix = 1906,
+
+  // Tremolo (2000–2099): the level rising and falling; with the sides out of phase, an
+  // auto-pan.
+  /// 1 for a rate in notes at the song's tempo (the Delay's notes), 0 for hertz.
+  trmSync = 2000,
+  trmRate = 2001,
+  trmNote = 2002,
+  trmDepth = 2003,
+  /// 0 sine, 1 triangle, 2 square.
+  trmShape = 2004,
+  /// 0–180°: how far apart left and right are; 180° pans.
+  trmStereo = 2005,
+
+  // Gain (2100–2199): Logic's Gain utility.
+  ginGain = 2100,
+  ginInvertLeft = 2101,
+  ginInvertRight = 2102,
+  /// Left and right change places.
+  ginSwap = 2103,
+  /// Both sides the same (their sum), after the swap.
+  ginMono = 2104,
+  /// 0–200 %: 0 mono, 100 as it is, 200 the side doubled.
+  ginWidth = 2105,
+  /// −100 (left) to 100 (right).
+  ginBalance = 2106,
+
+  // Tuner (2200–2299).
+  /// The A above middle C, in hertz.
+  tunReference = 2200,
+  /// Read only: the pitch heard, in hertz (0 when there's no clear note).
+  tunFrequency = 2201,
+  /// 1 silences the output while tuning, as Logic's Tuner can.
+  tunMute = 2202,
+
+  // Multiband Compressor (2300–2399): three bands split at two crossovers, each with its
+  // own threshold, ratio and make-up (at 2310 + 10 × band + field, band 0 low to 2 high).
+  mbcLowCrossover = 2300,
+  mbcHighCrossover = 2301,
+  mbcAttack = 2302,
+  mbcRelease = 2303,
+  mbcOutput = 2304,
+  mbcFirstBand = 2310,
+  mbcLastBand = 2332,
+
+  // Electric Piano (2400–2499): FM tines, like a Rhodes.
+  /// How bright the tines are (the FM index).
+  epTone = 2400,
+  /// The bell-like ping at the start of a hard note.
+  epBell = 2401,
+  /// How long notes ring while held (100 % natural).
+  epDecay = 2402,
+  /// How much how hard you play changes the level and tone.
+  epVelocity = 2403,
+  /// The Suitcase's stereo tremolo.
+  epTremoloRate = 2404,
+  epTremoloDepth = 2405,
+  epDrive = 2406,
+  epVolume = 2407,
+
+  // Organ (2500–2599): a tonewheel organ with drawbars, like a B3.
+  /// The nine drawbars, 0–8: 16', 5⅓', 8', 4', 2⅔', 2', 1⅗', 1⅓', 1'.
+  orgFirstDrawbar = 2500,
+  orgLastDrawbar = 2508,
+  orgPercussion = 2510,
+  /// 0 second harmonic (4'), 1 third (2⅔').
+  orgPercussionHarmonic = 2511,
+  /// 0 fast, 1 slow.
+  orgPercussionDecay = 2512,
+  orgClick = 2513,
+  /// 0 off, 1–3 vibrato V1–V3, 4–6 chorus C1–C3.
+  orgVibrato = 2514,
+  /// The rotary speaker: 0 off, 1 slow (chorale), 2 fast (tremolo).
+  orgRotary = 2515,
+  orgDrive = 2516,
+  orgVolume = 2517,
+};
+
+/// The Multiband Compressor's per-band fields (2310 + 10 × band + field).
+typedef NS_ENUM(int, OngakuBandField) {
+  OngakuBandFieldThreshold = 0,
+  OngakuBandFieldRatio = 1,
+  OngakuBandFieldMakeUp = 2,
 };
 
 /// The drum machine's pads: kick, snare, clap, rim, closed hat, open hat, low, mid and high
@@ -343,6 +460,16 @@ typedef NS_ENUM(int, OngakuMeter) {
   OngakuMeterOutputLoudness = 5,
   OngakuMeterLimiting = 6,
   OngakuMeterMakeUp = 8,
+  /// The modulation effects: where their wave is (0–1 of a cycle); the Tremolo's left and
+  /// right levels (0–1) are in the next two.
+  OngakuMeterLFO = 4,
+  OngakuMeterTremoloLeft = 5,
+  OngakuMeterTremoloRight = 6,
+  /// The Tuner: the pitch heard (Hz, 0 for none) and how clearly (0–1).
+  OngakuMeterTunerFrequency = 4,
+  OngakuMeterTunerClarity = 5,
+  /// The Multiband Compressor: each band's gain reduction (dB, low to high).
+  OngakuMeterFirstBandReduction = 4,
   OngakuMeterCount = 16,
 };
 

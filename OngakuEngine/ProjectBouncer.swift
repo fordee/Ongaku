@@ -65,9 +65,10 @@ public final class ProjectBouncer {
   private let project: Project
   private let locateAudioFile: AudioFileLocator
 
-  /// Frozen tracks play their freeze files, as they do live.
+  /// Frozen tracks play their freeze files, and folder stacks and VCAs move their faders, as
+  /// they do live.
   public init(project: Project, locateAudioFile: @escaping AudioFileLocator) {
-    self.project = project.playingFreezeFiles { PlaybackEngine.exists($0, locateAudioFile) }
+    self.project = project.playingFreezeFiles { PlaybackEngine.exists($0, locateAudioFile) }.mixingFoldersAndVCAs()
     self.locateAudioFile = locateAudioFile
   }
 
@@ -89,6 +90,7 @@ public final class ProjectBouncer {
     guard end > .zero else { throw BounceError.nothingToFreeze }
 
     track.freezeFile = nil
+    track.automation = track.automationInFreezeFile
     track.channel.volume = 0
     track.channel.pan = 0
     track.channel.isMuted = false
@@ -98,7 +100,6 @@ public final class ProjectBouncer {
     if !track.freezesInserts {
       track.channel.inserts = []
     }
-    track.automation = []
     track.stackID = nil
     track.isRecordArmed = false
     var alone = project
@@ -108,6 +109,19 @@ public final class ProjectBouncer {
 
     let bouncer = ProjectBouncer(project: alone, locateAudioFile: locateAudioFile)
     let mix = try await bouncer.renderMix(.zero..<end, sampleRate: sampleRate, includeTail: true, to: url, progress: progress)
+    return AudioFileReference(
+      fileName: url.lastPathComponent, sampleRate: sampleRate, channelCount: 2, frameCount: Int64(mix.frameCount))
+  }
+
+  /// Bounce in Place's render: a project with one track playing (see `Project.isolating`),
+  /// over `range` and on until it has faded out, written to `url` as 32-bit float CAF.
+  public static func renderInPlace(
+    _ project: Project, range: Range<Tick>, sampleRate: Double, to url: URL,
+    locateAudioFile: @escaping AudioFileLocator, progress: ProgressHandler = { _ in }
+  ) async throws -> AudioFileReference {
+    guard !range.isEmpty else { throw BounceError.nothingToBounce }
+    let bouncer = ProjectBouncer(project: project, locateAudioFile: locateAudioFile)
+    let mix = try await bouncer.renderMix(range, sampleRate: sampleRate, includeTail: true, to: url, progress: progress)
     return AudioFileReference(
       fileName: url.lastPathComponent, sampleRate: sampleRate, channelCount: 2, frameCount: Int64(mix.frameCount))
   }
@@ -224,6 +238,9 @@ public final class ProjectBouncer {
       throw BounceError.renderFailed
     }
     let graph = try await buildGraph(for: played, format: format, startPosition: range.lowerBound)
+    // The song plays once through, so plug-ins with their own patterns play along.
+    graph.musicalContext.setSampleRate(sampleRate)
+    graph.musicalContext.setTransport(isPlaying: true, in: played.tempoMap)
     graph.musicalContext.update(at: range.lowerBound, in: played.tempoMap)
     prepare(graph)
     let engine = graph.engine
@@ -248,8 +265,8 @@ public final class ProjectBouncer {
     var instrumentStarts: [Track.ID: Int64] = [:]
     for (trackID, instrument) in graph.instruments {
       let offset: Int64
-      if let last = instrument.instrument?.lastRenderTime, last.isSampleTimeValid {
-        offset = last.sampleTime - (musicStart - AVAudioFramePosition(Self.preroll))
+      if let last = instrument.lastRenderSampleTime {
+        offset = last - (musicStart - AVAudioFramePosition(Self.preroll))
       } else {
         offset = 0
       }
@@ -295,6 +312,9 @@ public final class ProjectBouncer {
       let seconds = Double(rendered) / sampleRate
       if rendered < musicFrames {
         graph.musicalContext.update(at: plan.timelinePosition(atPlaybackTime: seconds), in: played.tempoMap)
+      } else {
+        // The song has ended; only tails are left.
+        graph.musicalContext.setTransport(isPlaying: false, in: played.tempoMap)
       }
       if rendered < musicFrames, scheduledUntil - seconds < Self.lookAhead / 2 {
         try schedule(plan, window: scheduledUntil..<(scheduledUntil + Self.lookAhead), in: graph, sampleRate: sampleRate,
@@ -392,8 +412,15 @@ public final class ProjectBouncer {
           _ = try players.player(for: file.processingFormat)
         }
       case .softwareInstrument:
-        let instrument = InstrumentChannel(engine: engine, destination: channel.input)
+        let instrument = InstrumentChannel(engine: engine, destination: channel.input, musicalContext: graph.musicalContext)
         graph.instruments[track.id] = instrument
+        channel.sourcePlugin = { [weak instrument] in instrument?.pluginNode($0) }
+        let trackName = track.name
+        instrument.setMIDIEffects(
+          track.channel.midiEffects.pluginChain, format: format, maximumFrames: engine.manualRenderingMaximumFrameCount
+        ) { plugin, error in
+          failure = failure ?? "“\(plugin.name)” on “\(trackName)” couldn’t be loaded: \(error.localizedDescription)"
+        } onInstalled: {}
         guard let source = track.channel.instrument else { continue }
         do {
           if InstrumentChannel.loadsAsynchronously(source) {
@@ -411,6 +438,16 @@ public final class ProjectBouncer {
     for channel in graph.channels.values {
       await channel.waitForPendingInserts()
     }
+    for instrument in graph.instruments.values {
+      await instrument.waitForPendingMIDIEffects()
+    }
+    // Aux tracks playing an instrument's other outputs.
+    for track in project.tracks where track.kind == .aux {
+      guard let output = track.channel.instrumentOutput, let channel = graph.channels[track.id],
+        let unit = graph.instruments[output.trackID]?.instrument
+      else { continue }
+      _ = PlaybackEngine.connect(output, of: unit, to: channel.input, in: engine, sampleRate: format.sampleRate)
+    }
     await stereoOut.waitForPendingInserts()
     if let failure {
       throw BounceError.pluginFailed(failure)
@@ -426,10 +463,15 @@ public final class ProjectBouncer {
     graph.compensation = DelayCompensation(project: project, latencies: latencies)
     graph.compensation.stereoOutLatency = stereoOut.insertLatency
 
-    let auxInputs = graph.channels.filter { id, _ in project.track(withID: id)?.kind == .aux }.mapValues(\.input)
+    var auxInputs = graph.channels.filter { id, _ in project.track(withID: id)?.kind == .aux }.mapValues(\.input)
+    // Side chain inputs are fed like auxes.
+    for channel in Array(graph.channels.values) + [stereoOut] {
+      auxInputs.merge(channel.sidechainInputs) { aux, _ in aux }
+    }
     for track in project.tracks {
       let routing = ChannelNodes.Routing(
-        sends: track.channel.sends, output: track.channel.output, automatedSends: track.automatedSends)
+        sends: track.channel.sends, output: track.channel.output, automatedSends: track.automatedSends,
+        sidechains: project.sidechains(from: track.id).filter { auxInputs[$0] != nil })
       guard let channel = graph.channels[track.id] else { continue }
       try channel.applyRouting(routing.compensated(by: graph.compensation, for: track.id), auxInputs: auxInputs)
       // Automated parameters start where the bounce does; their nodes exist now.
