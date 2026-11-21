@@ -19,7 +19,7 @@ To choose a track's instrument:
 
 | Menu section | What's in it |
 |---|---|
-| **Ongaku** | Ongaku's own instruments: **Retro Synth**, **Drum Machine**, **Sampler** and **Session Drummer**. See [Chapter 8](08-instruments-effects-midi-fx.md). |
+| **Ongaku** | Ongaku's own instruments: **Retro Synth**, **Drum Machine**, **Sampler**, **Electric Piano** and **Organ**. See [Chapter 8](08-instruments-effects-midi-fx.md). |
 | **General MIDI** | The 128 General MIDI sounds, grouped into families: **Piano**, **Chromatic Percussion**, **Organ**, **Guitar**, **Bass**, **Strings**, **Ensemble**, **Brass**, **Reed**, **Pipe**, **Synth Lead**, **Synth Pad**, **Synth Effects**, **Ethnic**, **Percussive** and **Sound Effects**. |
 | **Drum Kits** | **Standard Kit**, **Power Kit**, **Electronic Kit**, **TR-808 Kit**, **Brush Kit**, **Orchestra Kit** and **Sound Effects Kit**. |
 | **Audio Units** | Instrument plug-ins installed on your Mac, shown as "Maker: Name". If there are none, the menu says so. |

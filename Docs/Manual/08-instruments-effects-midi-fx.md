@@ -9,7 +9,7 @@ Ongaku's effects and instruments are **Audio Units**, the standard plug-in forma
 In Ongaku Studio you'll find them here:
 
 - **Effects:** on a channel strip, click **+** under **Audio FX** and look in the **Ongaku** section of the menu. They're grouped as **EQ**, **Dynamics**, **Reverb & Delay**, **Modulation**, **Distortion**, **Imaging**, **Utility**, **Vocal** and **Mastering**. See [Chapter 7](07-mixing-and-automation.md) for inserts in general.
-- **Instruments:** click a software instrument track's instrument name (on the track header or the channel strip) and look in the **Ongaku** section: **Retro Synth**, **Drum Machine**, **Sampler**, **Electric Piano**, **Organ** and **Session Drummer**. They're also in the Library (see [Chapter 9](09-library-bounce-files-settings.md)).
+- **Instruments:** click a software instrument track's instrument name (on the track header or the channel strip) and look in the **Ongaku** section: **Retro Synth**, **Drum Machine**, **Sampler**, **Electric Piano** and **Organ**. They're also in the Library (see [Chapter 9](09-library-bounce-files-settings.md)).
 - **MIDI FX:** click **+** under **MIDI FX** on a software instrument track's channel strip and look in the **Ongaku** section. Ongaku's MIDI FX are part of Ongaku Studio itself rather than plug-ins, so they only work inside Ongaku Studio. MIDI effect plug-ins from other makers are in the same menu's **Audio Units** submenu (see [MIDI effect plug-ins](#midi-effect-plug-ins)).
 
 To open a plug-in's window, click its insert slot, or for an instrument click the instrument name and choose **Show Instrument Window…**.
@@ -799,7 +799,7 @@ Every other control applies to all the zones: the markers, loop and mode, transp
 
 ### Session Drummer
 
-**What it is.** The plug-in version of Ongaku Studio's Drummer (see [Chapter 5](05-session-players.md)). It plays a drum part that follows the host app's tempo and position, section by section. Other apps don't tell plug-ins about their song sections, so the Session Drummer keeps its own list, laid out from bar 1 of the host's timeline. It's mainly for using Ongaku's drummer in other apps. It works inside Ongaku Studio too, playing along when you press play, but there a Drummer track does the same job with your real arrangement markers.
+**What it is.** The plug-in version of Ongaku Studio's Drummer (see [Chapter 5](05-session-players.md)). It plays a drum part that follows the host app's tempo and position, section by section. Other apps don't tell plug-ins about their song sections, so the Session Drummer keeps its own list, laid out from bar 1 of the host's timeline. It's for using Ongaku's drummer in other apps, so it isn't in Ongaku Studio's own instrument menu or Library: there, a Drummer track does the same job with your real arrangement markers.
 
 A new Session Drummer starts with a Rock **Verse** and **Chorus** of 8 bars each, repeating.
 

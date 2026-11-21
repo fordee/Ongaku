@@ -615,7 +615,7 @@ extension OngakuEffectsTests {
   }
 
   @Test func everyPadSoundsOnItsNote() async throws {
-    #expect(InstrumentLibrary.ongakuInstruments().map(\.name) == ["Retro Synth", "Drum Machine", "Sampler", "Session Drummer", "Electric Piano", "Organ"])
+    #expect(InstrumentLibrary.ongakuInstruments().map(\.name) == ["Retro Synth", "Drum Machine", "Sampler", "Electric Piano", "Organ"])
     let unit = try await loadInstrument(.drumMachine)
     for note in drumNotes {
       let samples = try playMIDI(unit, seconds: 0.2, events: [noteOn(note)])

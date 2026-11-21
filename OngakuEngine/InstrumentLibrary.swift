@@ -85,9 +85,10 @@ public enum InstrumentLibrary {
       + audioUnitEffects() + audioUnitMIDIEffects().filter { $0.componentManufacturer != kAudioUnitManufacturer_Apple }
   }
 
-  /// Ongaku's own instruments, from the extension inside the app.
+  /// Ongaku's own instruments, from the extension inside the app. The Session Drummer is
+  /// left out: it's a plug-in for other apps, and Ongaku has Drummer tracks instead.
   public static func ongakuInstruments() -> [Entry] {
-    OngakuInstrument.allCases.map { instrument in
+    OngakuInstrument.allCases.filter { $0 != .sessionDrummer }.map { instrument in
       Entry(
         manufacturer: "Ongaku", name: instrument.name, componentType: instrument.componentType,
         componentSubType: instrument.subType, componentManufacturer: OngakuEffect.manufacturer)

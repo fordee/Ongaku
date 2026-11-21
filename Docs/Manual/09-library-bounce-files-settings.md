@@ -36,7 +36,7 @@ The categories always appear in this order:
 
 | Category | What it holds |
 | --- | --- |
-| **Ongaku Instruments** | Ongaku's own instruments: **Retro Synth**, **Drum Machine**, **Sampler**, **Electric Piano**, **Organ** and **Session Drummer** (see [Chapter 8](08-instruments-effects-midi-fx.md)). |
+| **Ongaku Instruments** | Ongaku's own instruments: **Retro Synth**, **Drum Machine**, **Sampler**, **Electric Piano** and **Organ** (see [Chapter 8](08-instruments-effects-midi-fx.md)). |
 | General MIDI families | The 128 standard General MIDI sounds from the Mac's built-in sound set, in 16 families: **Piano**, **Chromatic Percussion**, **Organ**, **Guitar**, **Bass**, **Strings**, **Ensemble**, **Brass**, **Reed**, **Pipe**, **Synth Lead**, **Synth Pad**, **Synth Effects**, **Ethnic**, **Percussive** and **Sound Effects**. |
 | **Drum Kits** | Seven General MIDI drum kits: **Standard Kit**, **Power Kit**, **Electronic Kit**, **TR-808 Kit**, **Brush Kit**, **Orchestra Kit** and **Sound Effects Kit**. |
 | One category per maker | Any other Audio Unit instruments installed on your Mac, grouped under their manufacturer's name. An instrument you install while Ongaku Studio is open appears here (and in the instrument menus) by itself, without opening a new window. Instruments turned off in **Settings › Plug-ins**, or that failed their check there, aren't listed. |
