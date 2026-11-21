@@ -199,12 +199,20 @@ struct HistoryGraph: View {
 
 /// Input and output meters side by side.
 struct InOutMeters: View {
-  let meters: EffectMeters?
+  // The levels, not the meters object: it's the same object every frame, so SwiftUI
+  // would never redraw this.
+  let input: Float
+  let output: Float
+
+  init(meters: EffectMeters?) {
+    input = meters?.input ?? -120
+    output = meters?.output ?? -120
+  }
 
   var body: some View {
     HStack(spacing: 8) {
-      LevelMeter(title: "In", level: meters?.input ?? -120)
-      LevelMeter(title: "Out", level: meters?.output ?? -120)
+      LevelMeter(title: "In", level: input)
+      LevelMeter(title: "Out", level: output)
     }
   }
 }

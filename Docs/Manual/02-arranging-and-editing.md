@@ -209,7 +209,7 @@ The **Stem Splitter** separates a recording of a whole song, or of a band, into 
 Use it to remix a song, practise along with one part removed, sample a drum break, or turn a part down in a recording you can't re-record.
 
 1. Select one audio region.
-2. Choose **Edit › Split into Stems…**.
+2. Choose **Track › Split into Stems…**.
 3. Leave **Mute the original region** on (so the stems play instead), or turn it off. Then click **Split**.
 4. A progress bar shows how far it has got; **Cancel** stops it. A three-minute song takes a minute or two.
 
@@ -710,7 +710,7 @@ If a file can't be read, Ongaku tells you which file and why, and imports the re
 | Crossfade | Fade Tool: drag where two audio regions meet or overlap |
 | Type a fade length | Click the **Fade In** or **Fade Out** number in the Region Inspector |
 | Split at playhead | ⌘T |
-| Split a recording into stems | Edit › Split into Stems… (one audio region selected) |
+| Split a recording into stems | Track › Split into Stems… (one audio region selected) |
 | Join regions | ⌘J |
 | Delete the selected regions | Delete |
 | Choose what regions snap to | The **Snap** button above the track headers |

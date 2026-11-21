@@ -34,7 +34,7 @@ extension ProjectWindowModel {
   /// The model the Stem Splitter runs, bundled with the app.
   static var stemModelURL: URL? { Bundle.main.url(forResource: "htdemucs", withExtension: "th") }
 
-  /// Edit › Split into Stems…: opens its dialog for the selected audio region.
+  /// Track › Split into Stems…: opens its dialog for the selected audio region.
   func showStemSplit() {
     guard let region = stemSplitTarget else {
       errorMessage = "Select one audio region to split into stems."

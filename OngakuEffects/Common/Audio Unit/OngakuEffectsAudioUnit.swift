@@ -56,6 +56,9 @@ public class OngakuEffectsAudioUnit: AUAudioUnit, @unchecked Sendable {
     kernel.pointee.setAnalyserTap(analyserSamples, UInt32(Self.analyserCapacity), analyserWritten)
     meters = .allocate(capacity: Int(OngakuMeter.count.rawValue))
     meters.initialize(repeating: 0, count: Int(OngakuMeter.count.rawValue))
+    // Silence until it plays, not 0 dB.
+    meters[Int(OngakuMeter.inputPeak.rawValue)] = -120
+    meters[Int(OngakuMeter.outputPeak.rawValue)] = -120
     kernel.pointee.setMeters(meters)
 
     try super.init(componentDescription: componentDescription, options: options)
