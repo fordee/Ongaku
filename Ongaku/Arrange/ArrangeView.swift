@@ -28,6 +28,10 @@ struct ArrangeView: View {
     let topHeight = model.topHeight
     let minimumLanesHeight = max(0, viewportHeight - topHeight)
     let lanesHeight = max(tracksHeight + Layout.trailingSpace, minimumLanesHeight)
+    // When every track fits, the lanes are stretched to the window and there's nothing to
+    // scroll up or down; macOS would still show a full-height vertical scroll bar (and
+    // bounce) whenever you scroll sideways.
+    let tracksFit = tracksHeight + Layout.trailingSpace <= minimumLanesHeight
     let contentSize = CGSize(
       width: model.headerWidth + model.contentWidth,
       height: topHeight + lanesHeight)
@@ -68,6 +72,8 @@ struct ArrangeView: View {
       .frame(width: contentSize.width, height: contentSize.height, alignment: .topLeading)
     }
     .scrollPosition($scrollPosition)
+    .scrollIndicators(tracksFit ? .never : .automatic, axes: .vertical)
+    .scrollBounceBehavior(.basedOnSize, axes: .vertical)
     .onGeometryChange(for: CGFloat.self) { proxy in
       proxy.size.height
     } action: { height in
