@@ -58,7 +58,7 @@ The control bar replaces the normal window title bar. You can drag any empty par
 3. **The project's name**, with whether it's saved underneath: **Not saved** for a new project that hasn't been saved yet (its name is **Untitled**), **Edited** while there are changes you haven't saved, and **Saved** otherwise. Hold the pointer over it to see the folder the project is saved in.
 4. **The LCD**, the display in the middle (see [The LCD display](#the-lcd-display) below).
 5. **Cycle**, **Metronome**, **Count-in** and **Automation** buttons. These light up in their own colours while they are on.
-6. **Smart Controls**, **Mixer** and **Editor** buttons, which show that pane below the tracks, and **Loops**, which shows the Loop Browser ([Chapter 9](09-library-bounce-files-settings.md#the-loop-browser)).
+6. **Smart Controls**, **Mixer** and **Editor** buttons, which show that pane below the tracks, **Loops**, which shows the Loop Browser ([Chapter 9](09-library-bounce-files-settings.md#the-loop-browser)), and **Assistant** (the sparkles), which shows the Assistant ([Chapter 11](11-ai-agents.md#the-assistant)).
 7. **Zoom Out**, **Zoom In** and **Import Audio**.
 
 Hold the pointer over any button to see its name and keyboard shortcut. The shortcuts are also shown next to the matching commands in the **Transport** and **View** menus.

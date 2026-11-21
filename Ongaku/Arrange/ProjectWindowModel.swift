@@ -147,6 +147,8 @@ final class ProjectWindowModel {
   var isShowingSaveTemplate = false
   /// The Bounce in Place dialog, while it's open.
   var bounceInPlace: BounceInPlaceModel?
+  /// The Stem Splitter's dialog, while it's open (see `StemSplitView`).
+  var stemSplit: StemSplitModel?
   /// The control MIDI Learn is waiting to assign the next MIDI controller moved to.
   var midiLearnTarget: SmartControlTarget?
   /// Controls a MIDI controller moved, waiting to be stored once it stops (see
@@ -214,6 +216,10 @@ final class ProjectWindowModel {
   var isLoopBrowserVisible = false {
     didSet { if !isLoopBrowserVisible { LoopPreviewer.shared.stop() } }
   }
+  /// The on-device assistant's conversation, kept while its panel is hidden.
+  let assistant = AssistantModel()
+  /// The Assistant down the right of the window (⌃⌘A).
+  var isAssistantVisible = false
   /// Automation curves drawn over the track lanes (A).
   var isAutomationVisible = false {
     didSet { scroll.rowHeight = rowHeight }
@@ -235,6 +241,10 @@ final class ProjectWindowModel {
   }
   /// Whether Strip Silence's dialog is open.
   var isShowingStripSilence = false
+  /// What a DAWproject import or export couldn't carry over, once it's done.
+  var interchangeReport: InterchangeReport?
+  /// Whether a DAWproject export is being written.
+  var isExportingDAWProject = false
   /// How far Quantize Audio moves hits towards the grid (1 is all the way), as the Piano
   /// Roll's quantize strength.
   var audioQuantizeStrength = 1.0

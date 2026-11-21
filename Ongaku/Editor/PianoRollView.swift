@@ -22,6 +22,7 @@ struct PianoRollView: View {
       if let region = model.region, model.track != nil {
         switch model.shownEditor {
         case .pianoRoll: PianoRollGrid(model: model, region: region)
+        case .score: ScoreView(model: model, region: region)
         case .stepEditor: StepEditorView(model: model, region: region)
         case .eventList: EventListView(model: model, region: region)
         case .stepSequencer: StepSequencerView(model: model, region: region)
@@ -123,7 +124,11 @@ private struct PianoRollHeader: View {
         AudioFileEditorFunctions(model: model, region: region)
       }
 
-      if ![.stepSequencer, .drummer, .player, .pitch, .eventList, .audioFile].contains(model.shownEditor) {
+      if model.shownEditor == .score {
+        ScoreControls(model: model)
+      }
+
+      if ![.score, .stepSequencer, .drummer, .player, .pitch, .eventList, .audioFile].contains(model.shownEditor) {
         Picker("Grid", selection: Binding(get: { model.gridSetting }, set: { model.gridSetting = $0 })) {
           Text(PianoRollModel.GridSetting.automatic.title).tag(PianoRollModel.GridSetting.automatic)
           Divider()

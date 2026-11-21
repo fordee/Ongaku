@@ -8,13 +8,14 @@ import Foundation
 extension PianoRollModel {
   /// Which editor the pane shows, like the tabs over Logic's editors.
   enum EditorKind: String, CaseIterable, Identifiable {
-    case pianoRoll, stepEditor, eventList, stepSequencer, drummer, player, takes, pitch, audioFile
+    case pianoRoll, score, stepEditor, eventList, stepSequencer, drummer, player, takes, pitch, audioFile
 
     var id: Self { self }
 
     var title: String {
       switch self {
       case .pianoRoll: "Piano Roll"
+      case .score: "Score"
       case .stepEditor: "Step Editor"
       case .eventList: "Event List"
       case .stepSequencer: "Step Sequencer"

@@ -31,7 +31,7 @@ public enum AgentToolbox {
     guide.replacingOccurrences(of: "{pitchNames}", with: pitchNames(pitchNaming))
   }
 
-  private static func pitchNames(_ naming: PitchNaming) -> String {
+  static func pitchNames(_ naming: PitchNaming) -> String {
     switch naming {
     case .logic:
       "names with middle C (60) as C3, as in Ongaku's Piano Roll and Logic, such as \"F#2\" or \"Bb1\""

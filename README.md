@@ -22,6 +22,7 @@ The [user manual](Docs/Manual/README.md) explains every feature, step by step.
 ![The Piano Roll, with notes coloured by velocity and the velocity lane below](Docs/Manual/images/piano-roll.png)
 
 - Piano Roll with quantize (including triplet and mixed grids), velocity and note functions
+- Score editor: regions as notation (grand and drum staves, triplets, chord symbols) with Pencil and Eraser, printing, PDF and MusicXML export
 - Step Editor, Event List, Step Sequencer pattern regions and MIDI Draw lanes for controllers, pitch bend and aftertouch
 - MIDI FX: Arpeggiator, Chord Trigger, Scale Quantize, Note Repeater, Transposer and more
 
@@ -44,8 +45,12 @@ The [user manual](Docs/Manual/README.md) explains every feature, step by step.
 **Sounds and interchange**
 - Sound libraries from any folder (Logic Pro's or GarageBand's, sample packs, SoundFonts): a Loop Browser whose loops follow the song's tempo and key, and EXS, SoundFont, DLS and SFZ sampler instruments
 - Standard MIDI files in and out
+- Stem Splitter: any audio region split into drums, bass, other and vocals on this Mac (Meta's HTDemucs, run in Swift)
+- DAWproject in and out: whole songs (audio, mixer, Audio Unit plug-ins, automation) to and from Bitwig, Studio One, Cubase, Reaper and others
+- MusicXML and PDF export of the Score editor's notation
 
 **AI agents**
+- The Assistant: ask for a change in plain words and Apple Intelligence makes it in the open song, on this Mac, with the same tools MCP agents use. Every change can be undone.
 - An optional MCP server, off by default, that lets agents such as Claude Code compose, arrange, mix, master and bounce in the open song, one undoable step at a time. See [Chapter 11 of the manual](Docs/Manual/11-ai-agents.md).
 
 ## Requirements
@@ -57,7 +62,8 @@ The [user manual](Docs/Manual/README.md) explains every feature, step by step.
 
 1. Clone the repository and open `Ongaku.xcodeproj`.
 2. Choose your own team under Signing & Capabilities for each target (the app, OngakuCore, OngakuEngine and OngakuEffects), or build with "Sign to Run Locally".
-3. Build and run the **Ongaku** scheme.
+3. For the Stem Splitter, run `Scripts/fetch-stem-model.sh` once. It downloads Meta's HTDemucs model (84 MB, MIT licence) into `Ongaku/StemModel` and checks it, and the build bundles it with the app. It isn't kept in git; without it, the app builds and runs, but Split into Stems says the model isn't installed.
+4. Build and run the **Ongaku** scheme.
 
 The Ongaku plug-ins register with the system once the app has run. You can check them with `auval -a | grep Ongk`.
 
@@ -100,3 +106,9 @@ Swift packages, fetched by Xcode when you build:
 | [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) | MIT and Apache 2.0 |
 | [SwiftNIO](https://github.com/apple/swift-nio), [Swift Log](https://github.com/apple/swift-log), [Swift System](https://github.com/apple/swift-system), [Swift Collections](https://github.com/apple/swift-collections), [Swift Atomics](https://github.com/apple/swift-atomics) | Apache 2.0 |
 | [EventSource](https://github.com/mattt/eventsource) | MIT |
+
+Bundled with the app:
+
+| Component | Licence |
+| --- | --- |
+| [HTDemucs](https://github.com/facebookresearch/demucs) (Hybrid Transformer Demucs) model weights, used by the Stem Splitter; run by Ongaku's own Swift code | MIT (Meta Platforms), included as `Ongaku/StemModel/Demucs-LICENSE.txt` |

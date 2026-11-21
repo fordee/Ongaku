@@ -161,7 +161,7 @@ extension ProjectWindowModel {
   /// Whether the open region's notes are what keys edit: the Piano Roll or the Event List
   /// is showing and was clicked last.
   var isPianoRollEditing: Bool {
-    activeEditingArea == .pianoRoll && isEditorVisible && [.pianoRoll, .eventList].contains(pianoRoll.shownEditor)
+    activeEditingArea == .pianoRoll && isEditorVisible && [.pianoRoll, .score, .eventList].contains(pianoRoll.shownEditor)
       && pianoRoll.region != nil
   }
 

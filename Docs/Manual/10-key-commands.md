@@ -50,6 +50,7 @@ You can change them in **Settings › Key Commands** ([Chapter 9](09-library-bou
 | ⇧⌘I | **File › Import Audio Files…** | Also the **Import Audio** button in the control bar. |
 | (none) | **File › Import MIDI File…** | No shortcut. You can also drag MIDI files onto the tracks area. |
 | ⌘B | **File › Bounce…** | See [Chapter 9](09-library-bounce-files-settings.md). |
+| ⌘P | **File › Print Score…** | The region open in the editor, as notation. See [Chapter 4](04-midi-editing.md#printing-and-exporting). |
 | ⇧⌘E | **File › Export All Tracks as Audio Files…** | A file of each track. See [Chapter 9](09-library-bounce-files-settings.md#exporting-every-track-as-its-own-file). |
 | (none) | **File › Export Project as MIDI File…** | No shortcut. |
 | (none) | **File › Mastering…** | Opens Mastering on Stereo Out, adding it first if it isn't there. See [Chapter 8](08-instruments-effects-midi-fx.md#mastering). |
@@ -165,6 +166,7 @@ Click in the Piano Roll (or point at it) before pressing T.
 | --- | --- | --- |
 | Y | Show / Hide Library | Also the **Library** button and **View › Show Library**. |
 | O | Show or hide the Loop Browser | |
+| ⌃⌘A | Show / Hide Assistant | Also the **Assistant** button and **View › Show Assistant**. See [Chapter 11](11-ai-agents.md#the-assistant). |
 | I | Show / Hide Inspector | Also the **Inspector** button and **View › Show Inspector**. |
 | E | Show / Hide Editor | Also the **Editor** button and **View › Show Editor**. Opens the selected region in whichever editor suits it: Piano Roll, Step Editor, Step Sequencer, Drummer, Player, Takes or Flex Pitch. |
 | X | Show / Hide Mixer | Also the **Mixer** button and **View › Show Mixer**. The mixer and the editor share the bottom of the window, so showing one hides the other. |
@@ -175,6 +177,7 @@ Click in the Piano Roll (or point at it) before pressing T.
 | ⌘- | Zoom Out | |
 | ⌘↓ / ⌘↑ | Make the tracks taller / shorter (vertical zoom) | |
 | ⌃X | Strip Silence… | Selected audio regions. |
+| — | Split into Stems… | One selected audio region. |
 | ⌃H | Hide the selected tracks (or show them, if they're all hidden) | **Track › Show Hidden Tracks** shows them all. |
 | ⌘M | Minimize window | Standard macOS. |
 

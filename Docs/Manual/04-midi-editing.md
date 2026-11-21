@@ -39,9 +39,9 @@ Either way you get a one-bar region at that bar, and it opens in the Piano Roll.
 
 ### Opening the editors
 
-To open a region in the editor, double-click it, or select it and press **E**. You can also click the **Editor** button in the control bar, or choose **View › Show Editor**. Either way, the pane opens whichever editor suits the region: the Piano Roll, Step Editor, Step Sequencer, Drummer, Player, Takes or Flex Pitch editor. Press **E** again (or choose **View › Hide Editor**) to hide the editor, or click the **×** at the right of the editor's header.
+To open a region in the editor, double-click it, or select it and press **E**. You can also click the **Editor** button in the control bar, or choose **View › Show Editor**. Either way, the pane opens whichever editor suits the region: the Piano Roll, Score, Step Editor, Event List, Step Sequencer, Drummer, Player, Takes or Flex Pitch editor. Press **E** again (or choose **View › Hide Editor**) to hide the editor, or click the **×** at the right of the editor's header.
 
-The editor pane holds several editors. When a region suits more than one, a switch at the top left of the editor's header lets you choose: **Piano Roll** or **Step Editor** for a MIDI region. A MIDI take folder offers **Takes**, **Piano Roll** and **Step Editor**, and opens in **Takes** first ([Chapter 3](03-recording-and-takes.md#the-takes-editor)). Pattern regions open in the **Step Sequencer**, and Drummer and session player regions open in their own editors (see [Chapter 5](05-session-players.md)).
+The editor pane holds several editors. When a region suits more than one, a switch at the top left of the editor's header lets you choose: **Piano Roll**, **Score**, **Step Editor** or **Event List** for a MIDI region. A MIDI take folder offers **Takes**, **Piano Roll** and **Step Editor**, and opens in **Takes** first ([Chapter 3](03-recording-and-takes.md#the-takes-editor)). Pattern regions open in the **Step Sequencer**, and Drummer and session player regions open in their own editors (see [Chapter 5](05-session-players.md)).
 
 ## The Piano Roll
 
@@ -316,6 +316,52 @@ The **Event List** shows everything in a MIDI region as a list, one line per eve
 
 A controller's number can't be changed in the list: draw the new controller in MIDI Draw instead.
 
+## The Score editor
+
+### What it is
+
+The **Score** editor shows a MIDI region as written music, as Logic's Score editor does: notes and rests in bars, with clefs, key and time signatures, beams, ties, triplets and accidentals. Use it to read a part, write one in notation, print it for a player, or send it to a notation app. Choose **Score** at the top of the editor.
+
+The score is drawn from the region's notes as they play (with the region's transpose), tidied up for reading. The notes themselves aren't changed by how they're shown:
+
+- **Display quantize.** Notes are shown on the nearest 1/16 (or the value you choose), so a part played by hand reads cleanly. A note a little early still shows on the beat.
+- **Triplets.** Beats played in thirds are written as triplets with a 3 over them. Turn **Triplets** off in the header to force everything onto the straight grid.
+- **Note values.** Notes are split and tied so the beats stay visible: a note from beat 2 of a 4/4 bar to the end is written as a quarter tied to a half, and notes are tied across bar lines. In 6/8 and other compound meters, notes are grouped in dotted quarters.
+- **Spelling.** Notes are spelled for the song's key at that point. In E major a black key is D♯, in F major it's E♭. Accidentals are shown once per bar, with naturals to cancel them.
+- **Staves.** A part that stays above middle C gets a treble staff, one that stays below gets a bass staff, and one that covers both gets a piano grand staff split at middle C. Drum tracks get a drum staff, with cymbals as crosses.
+- **Chord symbols** from the Chord track appear over the staff ([Chapter 5](05-session-players.md)).
+
+The score wraps into lines that fit the editor, and the playhead moves through it as the song plays. The zoom buttons in the editor header make the music bigger or smaller.
+
+![The Score editor showing a melody and bass on a grand staff, with chord symbols](images/score.png)
+
+### Editing in the score
+
+Choose a tool with the buttons in the editor header:
+
+| Tool | What it does |
+|---|---|
+| **Pointer** | Click a note to select it (⇧-click adds to the selection). Drag it up or down to move it to the next note of the key's scale, or sideways to move it in steps of the display quantize. Click empty space to deselect. |
+| **Pencil** | Click on a staff to write a note there. Choose its value (whole to sixteenth) in the **Note Value** menu that appears. The note is the key's note on that line or space; use **⌥↑** or **⌥↓** to sharpen or flatten it. |
+| **Eraser** | Click a note to delete it. |
+
+The selection is shared with the Piano Roll and Event List, so you can select in one and switch to another. **Delete**, **Q** and the **⌥-arrow** keys work on the selected notes as they do in the Piano Roll, and every edit can be undone.
+
+The header also has:
+
+- **Quantize**: the display quantize, 1/4 to 1/32.
+- **Triplets**: write notes played in thirds as triplets.
+- **Staff**: Automatic, Treble, Bass or Piano (Grand Staff). Drum tracks always use a drum staff.
+- **Chord Symbols**: show the Chord track's chords.
+
+### Printing and exporting
+
+- **File › Print Score…** (⌘P) prints the open region's score: the song's name as a title, the track's name, and as many lines as fit on each page, black on white.
+- **File › Export Score as PDF…** saves the same pages as a PDF.
+- **File › Export Score as MusicXML…** saves a MusicXML file for notation apps such as Sibelius, Dorico, Finale or MuseScore, or Logic's own Score. It has the notes, rests, ties, triplets, beams, clefs, key and time signatures and chord symbols just as the Score editor shows them.
+
+All three use the score settings in the editor header.
+
 ## The Step Sequencer
 
 ### What it is
@@ -473,7 +519,8 @@ How the editors handle them:
 
 ## Limitations
 
-- Keyboard shortcuts for notes (**Q**, **⌥**-arrows, **Delete**) work only in the Piano Roll, not in the Step Editor.
+- Keyboard shortcuts for notes (**Q**, **⌥**-arrows, **Delete**) work in the Piano Roll, Score and Event List, not in the Step Editor.
+- The Score editor writes each staff as a single voice: notes that start together are shown as a chord, and a note held under a moving part is shortened in the score (not in what plays). There are no lyrics, dynamics or articulations, and no whole-song score with every track yet; score one region at a time.
 - The Piano Roll's **Snap** setting isn't saved: each project window starts with snapping on.
 - The Step Editor names drum lanes only for General MIDI drum kits and the Drum Machine.
 - A pattern region can't be edited in the Piano Roll until it's converted, and only Undo turns a converted region back into a pattern.
@@ -508,5 +555,9 @@ How the editors handle them:
 | Step Editor: set / remove a step | Click / double-click |
 | Step Sequencer: change edit mode | **Edit** switch in the pattern bar |
 | Convert a pattern | **Convert to MIDI Region** (pattern bar, or right-click the region) |
+| Show a region as notation | **Score** at the top of the editor |
+| Write a note in the score | Pencil tool, choose a **Note Value**, click on the staff |
+| Print the score | **File › Print Score…** (⌘P) |
+| Export the score | **File › Export Score as PDF…** or **as MusicXML…** |
 | Show MIDI Draw | **MIDI Draw** button in the Piano Roll header |
 | Zoom the editor | Zoom buttons in the editor header |

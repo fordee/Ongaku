@@ -47,6 +47,7 @@ struct ControlBar: View {
         // It opens whichever editor suits the region: Piano Roll, Step Sequencer, Drummer…
         ViewToggle(title: "Editor", symbol: "pianokeys", shortcut: "E", isOn: model.isEditorVisible, action: model.toggleEditor)
         ViewToggle(title: "Loops", symbol: "infinity", shortcut: "O", isOn: model.isLoopBrowserVisible, action: model.toggleLoopBrowser)
+        ViewToggle(title: "Assistant", symbol: "sparkles", shortcut: "⌃⌘A", isOn: model.isAssistantVisible, action: model.toggleAssistant)
       }
 
       HStack(spacing: 4) {

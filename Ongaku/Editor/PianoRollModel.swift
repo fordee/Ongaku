@@ -120,6 +120,12 @@ final class PianoRollModel {
   var newNoteVelocity = 100
   /// The Piano Roll or the Step Editor (see PianoRollModel+StepEditor.swift).
   var editorKind = EditorKind.pianoRoll
+  /// How the Score editor lays out and edits notes (see `PianoRollModel+Score.swift`).
+  var scoreOptions = ScoreOptions()
+  var scoreTool = ScoreTool.pointer
+  var scoreNoteValue = NoteValue.Base.quarter
+  /// How big the score is drawn: points between two staff lines.
+  var scoreSpace: CGFloat = 8
   /// The frames of the open audio file selected in the Audio File Editor; `nil` for all of it.
   var audioFileSelection: Range<Int64>?
 
@@ -237,6 +243,11 @@ final class PianoRollModel {
   }
 
   func zoom(by factor: Double) {
+    // The score zooms by its size; the other editors by time.
+    if shownEditor == .score {
+      scoreSpace = min(max(scoreSpace * CGFloat(factor.squareRoot()), 5), 16)
+      return
+    }
     pointsPerQuarterNote = min(max(pointsPerQuarterNote * factor, Self.zoomRange.lowerBound), Self.zoomRange.upperBound)
   }
 

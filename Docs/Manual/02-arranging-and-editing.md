@@ -197,6 +197,30 @@ What happens to the contents:
 
 Each piece plays the same part of the recording it did before; nothing moves. Flexed regions and take folders can't be stripped (remove the flex markers or flatten the folder first).
 
+### Splitting a recording into stems
+
+The **Stem Splitter** separates a recording of a whole song, or of a band, into four parts:
+
+- **Drums**: the drum kit and other percussion.
+- **Bass**: the bass instrument.
+- **Vocals**: singing and speech.
+- **Other**: everything else, such as guitars, keys and synths.
+
+Use it to remix a song, practise along with one part removed, sample a drum break, or turn a part down in a recording you can't re-record.
+
+1. Select one audio region.
+2. Choose **Edit › Split into Stems…**.
+3. Leave **Mute the original region** on (so the stems play instead), or turn it off. Then click **Split**.
+4. A progress bar shows how far it has got; **Cancel** stops it. A three-minute song takes a minute or two.
+
+When it's done, a folder stack named after the region appears below its track. It holds four new audio tracks, one per stem, each with a region where the original was. Undo removes them all in one step. Each stem is a full-quality audio file in the song, so you can edit, mix, process and bounce it like any recording.
+
+The separation runs entirely on your Mac, using Meta's open HTDemucs model (included with the app). Nothing is sent anywhere.
+
+> Note: Separation is very good but not perfect. Expect a little of the other parts in each stem, especially on dense mixes. Reverb and effects are usually split along with the instrument they're on.
+
+![The Stem Splitter dialog](images/stem-split.png)
+
 ### The Audio File Editor
 
 Everything else in this chapter changes how regions **play**. The **Audio File Editor** changes the **recording itself**, like Logic's: double-click an audio region (or select it and press **E**), and the editor shows the whole file it plays. The part the region uses is in the track's colour and the rest is grey, with seconds along the top.
@@ -686,6 +710,7 @@ If a file can't be read, Ongaku tells you which file and why, and imports the re
 | Crossfade | Fade Tool: drag where two audio regions meet or overlap |
 | Type a fade length | Click the **Fade In** or **Fade Out** number in the Region Inspector |
 | Split at playhead | ⌘T |
+| Split a recording into stems | Edit › Split into Stems… (one audio region selected) |
 | Join regions | ⌘J |
 | Delete the selected regions | Delete |
 | Choose what regions snap to | The **Snap** button above the track headers |

@@ -71,3 +71,44 @@ struct BounceInPlaceTests {
     #expect(deleted.tracks[0].regions.map(\.name) == ["B"])
   }
 }
+
+/// Split into Stems: each stem on its own track in a folder stack below, the original muted.
+struct SplitIntoStemsTests {
+  private func stems() -> (stems: [SplitIntoStems.Stem], tracks: [Track]) {
+    let names = ["Drums", "Bass", "Other", "Vocals"]
+    let stems = names.map { SplitIntoStems.Stem(name: $0, file: AudioFileReference(fileName: "\($0).wav", sampleRate: 44_100, channelCount: 2, frameCount: 44_100)) }
+    return (stems, names.map { Track(name: $0, kind: .audio) })
+  }
+
+  @Test func stemsGoInAFolderBelowTheTrackWithTheOriginalMuted() throws {
+    let file = AudioFileReference(fileName: "Song.wav", sampleRate: 44_100, channelCount: 2, frameCount: 441_000)
+    let region = Region(name: "Song", start: Tick(3840), length: Tick(7680), content: .audio(AudioRegionContent(fileID: file.id)))
+    var project = Project(tracks: [Track(name: "Mix", kind: .audio, regions: [region]), Track(name: "After", kind: .audio)], audioFiles: [file])
+    let (stems, tracks) = stems()
+    let folder = Track(name: "Song Stems", kind: .aux)
+    try SplitIntoStems(region.id, stems: stems, into: tracks, stack: folder).apply(to: &project)
+    #expect(project.tracks.map(\.name) == ["Mix", "Song Stems", "Drums", "Bass", "Other", "Vocals", "After"])
+    #expect(project.tracks[1].isFolderStack)
+    #expect(project.tracks[2...5].allSatisfy { $0.stackID == folder.id })
+    #expect(project.tracks[2].regions.first?.start == Tick(3840) && project.tracks[2].regions.first?.length == Tick(7680))
+    #expect(project.tracks[5].regions.first?.name == "Song – Vocals")
+    #expect(project.tracks[0].regions[0].isMuted)
+    #expect(project.audioFiles.count == 5)
+  }
+
+  @Test func inAStackTheStemsJoinIt() throws {
+    let file = AudioFileReference(fileName: "Song.wav", sampleRate: 44_100, channelCount: 2, frameCount: 441_000)
+    let region = Region(name: "Song", start: .zero, length: Tick(3840), content: .audio(AudioRegionContent(fileID: file.id)))
+    var stack = Track(name: "Band", kind: .aux)
+    stack.isSummingStack = true
+    var mix = Track(name: "Mix", kind: .audio, regions: [region])
+    mix.stackID = stack.id
+    mix.channel.output = .track(stack.id)
+    var project = Project(tracks: [stack, mix], audioFiles: [file])
+    let (stems, tracks) = stems()
+    try SplitIntoStems(region.id, stems: stems, into: tracks, stack: Track(name: "x", kind: .aux), mutesOriginal: false).apply(to: &project)
+    #expect(project.tracks.count == 6)
+    #expect(project.tracks[2...].allSatisfy { $0.stackID == stack.id && $0.channel.output == .track(stack.id) })
+    #expect(!project.tracks[1].regions[0].isMuted)
+  }
+}

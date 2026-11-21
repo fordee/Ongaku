@@ -220,6 +220,36 @@ What gets written:
 - Tracks playing an Ongaku instrument or another plug-in get no program change, so the receiving app picks its own default sound.
 - MIDI effects aren't applied: the file has the notes you played, not what an arpeggiator (say) makes of them.
 
+## DAWproject: songs to and from other apps
+
+### What it is
+
+**DAWproject** is an open file format for moving a whole song between music apps: Bitwig Studio, Studio One, Cubase, Reaper and others read and write it. Unlike a MIDI file, it keeps the audio, the mixer and the arrangement as well as the notes. A DAWproject is one file ending in **.dawproject**.
+
+### Opening a DAWproject
+
+1. Choose **File › Open DAWproject…** and pick the file.
+2. It opens as a new song in its own window. Its audio is copied into the song, as when you import audio, so the song doesn't need the original file afterwards.
+3. A message then lists anything that didn't carry over. Save the song as usual (⌘S).
+
+### Exporting a DAWproject
+
+Choose **File › Export Project as DAWproject…** and pick where to save it. The file includes the song's audio and the current settings of its plug-ins. When it's done, a message lists anything the other app won't get.
+
+### What carries over
+
+| Carries over | Doesn't |
+|---|---|
+| Tracks: instrument, audio and aux tracks, and stacks (as group tracks) | General MIDI sounds and library instruments (choose an instrument in the other app) |
+| Each track's fader, pan, mute, solo, sends and output | Ongaku MIDI FX, and MIDI effect plug-ins on import |
+| Audio Unit plug-ins (instruments and effects) with their settings, on the Mac | VST3, CLAP and other apps' built-in devices (named in the message) |
+| MIDI regions with their notes, and audio regions with their offset, fades, loops and mutes | Region gain, Flex Time and Pitch, and Smart Tempo stretching (audio is exported as recorded) |
+| Tempo, tempo ramps and time signature changes | Warped audio from other apps (it plays at its recorded speed) |
+| Markers and arrangement sections (as markers) | Plug-in automation, and master volume automation on import |
+| Volume, pan and send automation | Clip launcher scenes |
+
+> Tip: When moving a song to another app, freeze or bounce in place any track whose sound depends on something that doesn't carry over (a General MIDI sound, MIDI FX or Flex), so its audio goes across instead. See [Chapter 7](07-mixing-and-automation.md#bounce-in-place).
+
 ## Importing audio files
 
 You can bring in recordings, loops and samples with **File › Import Audio Files…** (**⇧⌘I**), the **Import Audio** button at the right of the control bar, or by dragging files from the Finder onto the tracks area.
@@ -359,6 +389,8 @@ Choose **Ongaku Studio › About Ongaku Studio** to see which version you have. 
 | Import a MIDI file | **File › Import MIDI File…**, or drag it onto the tracks area |
 | Keep a MIDI file's tempo | Import it into a project with no regions yet |
 | Export notes as a MIDI file | **File › Export Project as MIDI File…** |
+| Open a song from another app | **File › Open DAWproject…** |
+| Send a song to another app | **File › Export Project as DAWproject…** |
 | Import audio | **File › Import Audio Files…** (**⇧⌘I**), or drag files in |
 | Open Settings | **Ongaku Studio › Settings…** (**⌘,**) |
 | Fix crackles | **Settings › Audio › I/O buffer size**: choose a larger buffer |

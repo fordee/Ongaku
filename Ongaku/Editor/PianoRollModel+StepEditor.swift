@@ -29,7 +29,7 @@ extension PianoRollModel {
   /// first (in a MIDI one the MIDI editors edit the take that starts the comp; in an audio
   /// one the Audio File Editor edits its file).
   var availableEditors: [EditorKind] {
-    guard let region else { return [.pianoRoll, .stepEditor, .eventList] }
+    guard let region else { return [.pianoRoll, .score, .stepEditor, .eventList] }
     // A pattern region is edited in the Step Sequencer (convert it to edit its notes).
     if region.pattern != nil { return [.stepSequencer] }
     // So is a drummer region in the Drummer editor.
@@ -38,7 +38,7 @@ extension PianoRollModel {
     if region.player != nil { return [.player] }
     let isMIDI = if case .midi = region.content { true } else { false }
     let isFlexPitch = !isMIDI && track?.flexMode == .pitch && region.takeFolder == nil
-    return (region.takeFolder != nil ? [.takes] : []) + (isMIDI ? [.pianoRoll, .stepEditor, .eventList] : [])
+    return (region.takeFolder != nil ? [.takes] : []) + (isMIDI ? [.pianoRoll, .score, .stepEditor, .eventList] : [])
       + (isFlexPitch ? [.pitch] : []) + (isMIDI ? [] : [.audioFile])
   }
 

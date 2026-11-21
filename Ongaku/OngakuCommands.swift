@@ -115,6 +115,8 @@ struct OngakuCommands: Commands {
       Button("Strip Silence…") { window?.showStripSilence() }
         .keyboardShortcut("x", modifiers: .control)
         .disabled(window?.selectedAudioRegionIDs.isEmpty != false)
+      Button("Split into Stems…") { window?.showStemSplit() }
+        .disabled(window?.stemSplitTarget == nil)
       Divider()
       // At the playhead on the selected track, as the tracks' right-click menu makes them.
       ForEach(ProjectWindowModel.NewRegionKind.allCases, id: \.self) { kind in
@@ -170,6 +172,9 @@ struct OngakuCommands: Commands {
           Text("No templates yet: use Save as Template…")
         }
       }
+      Button("Open DAWproject…") {
+        DAWProjectOpener.choose { newDocument(contentType: .ongakuProject) }
+      }
       Button("Save as Template…") { window?.isShowingSaveTemplate = true }
         .disabled(window == nil)
       Menu("Revert to Backup") {
@@ -184,6 +189,12 @@ struct OngakuCommands: Commands {
       .disabled(window == nil)
     }
 
+    CommandGroup(replacing: .printItem) {
+      Button("Print Score…") { window?.printScore() }
+        .keyboardShortcut("p", modifiers: .command)
+        .disabled(window?.scoreRegion == nil)
+    }
+
     CommandGroup(replacing: .importExport) {
       Group {
         Button("Import Audio Files…") { window?.activeImporter = .audio }
@@ -195,6 +206,12 @@ struct OngakuCommands: Commands {
         Button("Export All Tracks as Audio Files…") { window?.showExportAllTracks() }
           .keyboardShortcut("e", modifiers: [.command, .shift])
         Button("Export Project as MIDI File…") { window?.isShowingMIDIExporter = true }
+        Button("Export Project as DAWproject…") { window?.exportDAWProject() }
+          .disabled(window?.isExportingDAWProject == true)
+        Button("Export Score as PDF…") { window?.exportScorePDF() }
+          .disabled(window?.scoreRegion == nil)
+        Button("Export Score as MusicXML…") { window?.exportScoreMusicXML() }
+          .disabled(window?.scoreRegion == nil)
         Divider()
         Button("Mastering…") { window?.showMastering() }
         Button("Analyze Whole Song for Mastering") { window?.analyzeSongForMastering() }
@@ -278,6 +295,9 @@ struct OngakuCommands: Commands {
         .disabled(window == nil)
       Button(window?.isLoopBrowserVisible == true ? "Hide Loop Browser" : "Show Loop Browser") { singleKey { window?.toggleLoopBrowser() } }
         .keyboardShortcut(bindings.shortcut(for: .loopBrowser))
+        .disabled(window == nil)
+      Button(window?.isAssistantVisible == true ? "Hide Assistant" : "Show Assistant") { window?.toggleAssistant() }
+        .keyboardShortcut("a", modifiers: [.command, .control])
         .disabled(window == nil)
       Button(window?.isInspectorVisible == true ? "Hide Inspector" : "Show Inspector") { singleKey { window?.toggleInspector() } }
         .keyboardShortcut(bindings.shortcut(for: .inspector))

@@ -13,3 +13,6 @@ build/
 
 # Python
 __pycache__/
+
+# The Stem Splitter model (84 MB): fetched by Scripts/fetch-stem-model.sh, bundled at build time.
+Ongaku/StemModel/*.th

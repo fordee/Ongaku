@@ -30,6 +30,10 @@ struct ContentView: View {
     .onAppear {
       if model == nil {
         model = ProjectWindowModel(document: document)
+        // A DAWproject chosen in File › Open DAWproject… opens in this new window.
+        if let (imported, name) = DAWProjectOpener.take(), let model {
+          Task { await model.loadImported(imported, named: name) }
+        }
         #if DEBUG
         // The manual's screenshots: the demo song, set up for one scene.
         if let scene = ManualDemo.scene, let model {
@@ -212,6 +216,10 @@ struct ProjectWindow: View {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("loop-browser")
         }
+        if model.isAssistantVisible {
+          PanelSeparator()
+          AssistantView(model: model)
+        }
       }
     }
     .background(Theme.window)
@@ -306,6 +314,7 @@ struct ProjectWindow: View {
         SongAnalysisView(model: model, analysis: analysis)
       }
     }
+    .modifier(InterchangeAndStemSheets(model: model))
     .alert(
       "Something went wrong",
       isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })
@@ -386,5 +395,28 @@ private struct KeyFocusOutline: ViewModifier {
           .allowsHitTesting(false)
       }
     }
+  }
+}
+
+/// The Stem Splitter's dialog and the DAWproject report, kept apart from the window's other
+/// sheets so the compiler can type-check them.
+private struct InterchangeAndStemSheets: ViewModifier {
+  let model: ProjectWindowModel
+
+  func body(content: Content) -> some View {
+    content
+      .sheet(isPresented: Binding(get: { model.stemSplit != nil }, set: { if !$0 { model.closeStemSplit() } })) {
+        if let dialog = model.stemSplit {
+          StemSplitView(model: model, dialog: dialog)
+        }
+      }
+      .alert(
+        model.interchangeReport?.title ?? "",
+        isPresented: Binding(get: { model.interchangeReport != nil }, set: { if !$0 { model.interchangeReport = nil } })
+      ) {
+        Button("OK") { model.interchangeReport = nil }
+      } message: {
+        Text(model.interchangeReport?.message ?? "")
+      }
   }
 }

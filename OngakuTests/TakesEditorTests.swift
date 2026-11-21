@@ -39,7 +39,7 @@ struct TakesEditorTests {
     let (window, region) = window(audio: false)
     window.pianoRoll.editorKind = .pianoRoll
     window.openEditor(for: region.id)
-    #expect(window.pianoRoll.availableEditors == [.takes, .pianoRoll, .stepEditor, .eventList])
+    #expect(window.pianoRoll.availableEditors == [.takes, .pianoRoll, .score, .stepEditor, .eventList])
     #expect(window.pianoRoll.shownEditor == .takes)
     window.pianoRoll.editorKind = .pianoRoll
     #expect(window.pianoRoll.shownEditor == .pianoRoll)

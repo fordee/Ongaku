@@ -2,7 +2,42 @@
 
 Ongaku Studio can let an AI agent, such as Claude, work in your song with you. You describe what you want in plain words ("a 16-bar lo-fi groove in D minor with a walking bass", "make the chorus lift more", "mix this and bounce it"), and the agent builds it in the open project window while you watch: tracks appear, sections and chords fill in, the drummer starts playing, effects go on. You can play it, change anything by hand, or undo what the agent did, exactly as if you'd done it yourself.
 
-This chapter explains what an agent can do, how to connect one, and how to work with it.
+There are two ways to do this:
+
+- **The Assistant** is built in. It uses Apple Intelligence on this Mac: nothing to set up, and nothing leaves your Mac. It's best at one clear change at a time.
+- **An agent over MCP**, such as Claude Code, connects from outside. It takes a few minutes to set up and uses a much larger model, so it can build and mix a whole song from one request.
+
+This chapter covers the Assistant first, then explains what an MCP agent can do, how to connect one, and how to work with it.
+
+## The Assistant
+
+![The Assistant panel](images/assistant.png)
+
+Choose **View › Show Assistant** (⌃⌘A), or click the **Assistant** button (the sparkles) in the control bar. The panel opens down the right of the window.
+
+Type what you want and press Return, for example:
+
+- "Set the tempo to 96 and the key to A minor"
+- "Lay out Intro, Verse, Chorus, Verse, Chorus, Outro"
+- "Add a Drummer that plays every section"
+- "Put a reverb on the Piano track"
+
+The Assistant works in the song in front of you with the same tools an MCP agent uses. While it works, the panel shows what it's doing ("Add Drummer…"). Under each reply it lists what it changed. Every change is one step called **Agent: …** in the Edit menu, so ⌘Z takes it back. Click the stop button to stop a request, and the **New Conversation** button to start again.
+
+It remembers your last request and its reply, so a follow-up such as "make it louder" knows what "it" is. It doesn't remember further back.
+
+**What you need:** a Mac with Apple Intelligence turned on in **System Settings › Apple Intelligence & Siri**. If it isn't available, the panel says why. Apple Intelligence downloads its model in the background after you turn it on, so it may take a while before the Assistant works.
+
+**Privacy:** the Assistant runs entirely on this Mac. Your song, your requests and its replies aren't sent anywhere.
+
+**Good to know:**
+
+- **One thing at a time works best.** The on-device model is small and holds only a little at once. For each request it first picks the two or three tools it needs, then uses them. Ask for one clear change, or a couple of closely related ones, rather than a whole song in one go.
+- **Check what it did.** The list under a reply shows the changes it actually made. If every attempt failed, the reply says **Nothing changed** and why. A small model can misunderstand, so look and listen, and undo if it isn't right.
+- **Name things as you see them.** Use track names, section names and bar numbers ("bar 9", "the Chorus") as they appear in the window.
+- For bigger jobs (writing parts note by note, mixing a whole song, mastering and bouncing it), connect an agent over MCP as described below.
+
+## What it is
 
 ## What it is
 
