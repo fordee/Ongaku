@@ -393,6 +393,33 @@ struct BounceRenderTests {
     }
   }
 
+  /// MeldaProduction's MCompressor (when installed) put out silence when its side chain was
+  /// keyed from a track that had been deleted, silencing its whole track. Such side chains
+  /// are left out now, so the track plays as if there were none.
+  @Test(.enabled(if: Self.mCompressorIsInstalled), arguments: [false, true])
+  func aSideChainFromADeletedTrackDoesntSilenceItsTrack(dangling: Bool) async throws {
+    var compressor = PluginReference(description: Self.mCompressor, name: "MCompressor")
+    compressor.sidechainSourceID = dangling ? UUID() : nil
+    var bass = Track(name: "Bass", kind: .softwareInstrument)
+    bass.channel.instrument = .audioUnit(OngakuInstrument.organ.makeReference())
+    bass.channel.inserts = [compressor]
+    let notes = (0..<4).map { MIDINote(pitch: 48 + $0, velocity: 100, start: .quarterNotes(Double($0)), length: .quarterNotes(0.75)) }
+    bass.regions = [Region(name: "Bass", start: .zero, length: .quarterNotes(4), content: .midi(MIDISequence(notes: notes)))]
+    let (_, output) = try await bounce(
+      Project(tracks: [bass]), settings: BounceSettings(bitDepth: .thirtyTwoFloat, includeTail: false), named: "Side Chain \(dangling)")
+    let peak = try samples(of: output).samples.map(abs).max() ?? 0
+    #expect(peak > 0.01, "The bass is heard (\(peak))")
+  }
+
+  private nonisolated static let mCompressor = AudioComponentDescription(
+    componentType: kAudioUnitType_MusicEffect, componentSubType: 0x4D41_6531,  // 'MAe1'
+    componentManufacturer: 0x4D65_6C64,  // 'Meld'
+    componentFlags: 0, componentFlagsMask: 0)
+
+  private nonisolated static var mCompressorIsInstalled: Bool {
+    !AVAudioUnitComponentManager.shared().components(matching: mCompressor).isEmpty
+  }
+
   /// An instrument's second output plays through the aux track that takes it; the
   /// instrument's own track only hears its first.
   @Test(arguments: [false, true])

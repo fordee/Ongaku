@@ -98,6 +98,8 @@ public struct DeleteTracks: EditCommand {
         project.tracks[index].channel.output = .stereoOut
       }
     }
+    // Side chains a deleted track fed are switched off.
+    project = project.droppingMissingSidechains()
   }
 }
 

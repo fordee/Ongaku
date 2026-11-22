@@ -196,6 +196,27 @@ public struct Project: Codable, Sendable, Equatable {
     (tracks.flatMap(\.channel.inserts) + stereoOutInserts).filter { $0.sidechainSourceID == trackID }.map(\.id)
   }
 
+  /// The project with side chains whose source track is gone taken off. A side chain input
+  /// with nothing feeding it made some plug-ins (MeldaProduction's MCompressor) put out
+  /// silence, muting their whole track; playback and bounces mix this. Songs saved before
+  /// deleting a track cleared its side chains can still have them.
+  public func droppingMissingSidechains() -> Project {
+    let trackIDs = Set(tracks.map(\.id))
+    func drop(_ inserts: inout [PluginReference]) {
+      for index in inserts.indices {
+        if let source = inserts[index].sidechainSourceID, !trackIDs.contains(source) {
+          inserts[index].sidechainSourceID = nil
+        }
+      }
+    }
+    var project = self
+    for index in project.tracks.indices {
+      drop(&project.tracks[index].channel.inserts)
+    }
+    drop(&project.stereoOutInserts)
+    return project
+  }
+
   /// The tracks with a plug-in whose side chain `trackID` feeds.
   private func sidechainHosts(of trackID: Track.ID) -> [Track.ID] {
     tracks.filter { track in track.channel.inserts.contains { $0.sidechainSourceID == trackID } }.map(\.id)

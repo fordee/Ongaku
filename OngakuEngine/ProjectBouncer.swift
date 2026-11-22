@@ -68,7 +68,7 @@ public final class ProjectBouncer {
   /// Frozen tracks play their freeze files, and folder stacks and VCAs move their faders, as
   /// they do live.
   public init(project: Project, locateAudioFile: @escaping AudioFileLocator) {
-    self.project = project.playingFreezeFiles { PlaybackEngine.exists($0, locateAudioFile) }.mixingFoldersAndVCAs()
+    self.project = project.playingFreezeFiles { PlaybackEngine.exists($0, locateAudioFile) }.mixingFoldersAndVCAs().droppingMissingSidechains()
     self.locateAudioFile = locateAudioFile
   }
 

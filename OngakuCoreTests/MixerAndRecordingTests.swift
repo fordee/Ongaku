@@ -74,6 +74,37 @@ struct MixerAndRecordingTests {
     #expect(project.track(withID: keys)?.channel.sends.isEmpty == true)
   }
 
+  /// A side chain keyed from a deleted track is switched off with it (left in place, it
+  /// silenced some plug-ins, and so their whole track).
+  @Test func deletingATrackSwitchesOffSideChainsItFed() throws {
+    var (project, keys, _, _) = makeProject()
+    let drums = Track(name: "Drums", kind: .softwareInstrument)
+    project.tracks.append(drums)
+    var compressor = PluginReference(componentType: 1, componentSubType: 2, componentManufacturer: 3, name: "Compressor")
+    compressor.sidechainSourceID = drums.id
+    var limiter = PluginReference(componentType: 1, componentSubType: 4, componentManufacturer: 3, name: "Limiter")
+    limiter.sidechainSourceID = drums.id
+    project.tracks[0].channel.inserts = [compressor]
+    project.stereoOutInserts = [limiter]
+
+    try DeleteTracks([drums.id]).apply(to: &project)
+    #expect(project.track(withID: keys)?.channel.inserts.first?.sidechainSourceID == nil)
+    #expect(project.stereoOutInserts.first?.sidechainSourceID == nil)
+  }
+
+  /// Songs saved with such a side chain still play: playback and bounces leave it out.
+  @Test func playbackLeavesOutSideChainsFromMissingTracks() {
+    var (project, keys, aux, _) = makeProject()
+    var stray = PluginReference(componentType: 1, componentSubType: 2, componentManufacturer: 3, name: "Compressor")
+    stray.sidechainSourceID = UUID()
+    var kept = PluginReference(componentType: 1, componentSubType: 4, componentManufacturer: 3, name: "Gate")
+    kept.sidechainSourceID = aux
+    project.tracks[0].channel.inserts = [stray, kept]
+
+    let playing = project.droppingMissingSidechains()
+    #expect(playing.track(withID: keys)?.channel.inserts.map(\.sidechainSourceID) == [nil, aux])
+  }
+
   @Test func soloingATrackKeepsTheAuxItFeeds() throws {
     var (project, keys, aux, aux2) = makeProject()
     let drums = Track(name: "Drums", kind: .softwareInstrument)

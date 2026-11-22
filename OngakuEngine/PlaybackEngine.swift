@@ -146,7 +146,7 @@ public final class PlaybackEngine {
   }
 
   public init(project: Project, locateAudioFile: @escaping AudioFileLocator) {
-    self.project = project.playingFreezeFiles { Self.exists($0, locateAudioFile) }.mixingFoldersAndVCAs()
+    self.project = project.playingFreezeFiles { Self.exists($0, locateAudioFile) }.mixingFoldersAndVCAs().droppingMissingSidechains()
     volumeOffsets = project.mixOffsets
     ownVolumes = Dictionary(uniqueKeysWithValues: project.tracks.map { ($0.id, $0.channel.volume) })
     self.locateAudioFile = locateAudioFile
@@ -309,7 +309,7 @@ public final class PlaybackEngine {
   /// Frozen tracks play their freeze files (see `Project.playingFreezeFiles`), and folder
   /// stacks and VCAs move their faders (`Project.mixingFoldersAndVCAs`).
   public func update(project edited: Project) {
-    let newProject = edited.playingFreezeFiles { Self.exists($0, locateAudioFile) }.mixingFoldersAndVCAs()
+    let newProject = edited.playingFreezeFiles { Self.exists($0, locateAudioFile) }.mixingFoldersAndVCAs().droppingMissingSidechains()
     volumeOffsets = edited.mixOffsets
     ownVolumes = Dictionary(uniqueKeysWithValues: edited.tracks.map { ($0.id, $0.channel.volume) })
     let arrangementChanged = Arrangement(newProject) != Arrangement(project)
