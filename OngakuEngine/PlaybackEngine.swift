@@ -51,6 +51,11 @@ public final class PlaybackEngine {
   @ObservationIgnored public internal(set) var outputSettings = AudioOutputSettings()
   /// The most recent problem, for the UI to show.
   public private(set) var lastError: String?
+  /// Counts plug-ins (inserts and instruments) that have finished loading. Other makers'
+  /// plug-ins load in the background, and what the interface offers for one (a Side Chain
+  /// menu, an aux for each output) depends on the loaded plug-in, which isn't observed; the
+  /// questions below read this so the interface asks again once a plug-in is ready.
+  private var loadedPluginCount = 0
 
   /// How far ahead of the playhead audio is scheduled, in seconds.
   private static let lookAhead = 2.0
@@ -89,6 +94,9 @@ public final class PlaybackEngine {
   /// connected below the main mixer's direct inputs stay uninitialized (a player then fails
   /// with error -10867) until the engine restarts, so a growing graph triggers a restart.
   @ObservationIgnored private var attachedNodeCount = 0
+  /// How many Audio Units (plug-ins, instruments, compensating delays) were attached after
+  /// the last graph check (see `initializeNewNodes`).
+  @ObservationIgnored private var audioUnitCount = 0
   /// Peak levels for the mixer's meters.
   @ObservationIgnored public let meters = LevelMeters()
   @ObservationIgnored private(set) var instruments: [Track.ID: InstrumentChannel] = [:]
@@ -201,6 +209,12 @@ public final class PlaybackEngine {
     engine.stop()
     whileStopped()
     startEngineIfNeeded()
+    reloadSoundBanks()
+  }
+
+  /// Loads every sampler's General MIDI or library sound again, after the engine made them
+  /// forget it.
+  private func reloadSoundBanks() {
     for (trackID, instrument) in instruments {
       do {
         try instrument.reloadSoundBank()
@@ -392,6 +406,7 @@ public final class PlaybackEngine {
           // The plug-in's latency is known now.
           self?.latencyMayHaveChanged()
           self?.initializeNewNodes()
+          self?.loadedPluginCount += 1
         }
         syncSource(of: track, into: channel)
       } catch {
@@ -404,6 +419,7 @@ public final class PlaybackEngine {
     } onInstalled: { [weak self] in
       self?.latencyMayHaveChanged()
       self?.initializeNewNodes()
+      self?.loadedPluginCount += 1
     }
 
     musicalContext.setSampleRate(instrumentFormat.sampleRate)
@@ -533,9 +549,21 @@ public final class PlaybackEngine {
   /// as soon as the graph changes (rather than when Play is pressed) so instruments have
   /// valid render times again before any MIDI is scheduled. If the transport was running,
   /// playback resumes from the same place a moment later.
+  ///
+  /// Detaching an Audio Unit from the running engine (removing a Maximizer, or the
+  /// compensating delay another track no longer needs once it's bypassed) can make the
+  /// samplers forget their sounds just as a restart does, so drum kits fell back to the
+  /// sampler's default tone and sounded muffled. They're loaded again then.
   private func initializeNewNodes() {
     let count = engine.attachedNodes.count
-    defer { attachedNodeCount = engine.attachedNodes.count }
+    let units = attachedAudioUnits()
+    defer {
+      attachedNodeCount = engine.attachedNodes.count
+      audioUnitCount = attachedAudioUnits()
+    }
+    if units < audioUnitCount, engine.isRunning {
+      reloadSoundBanks()
+    }
     guard count > attachedNodeCount, engine.isRunning, attachedNodeCount > 0 else { return }
     let resumePosition = isPlaying && !isRecording ? playheadPosition : nil
     if resumePosition != nil {
@@ -548,6 +576,10 @@ public final class PlaybackEngine {
         self?.startPlayback(from: resumePosition)
       }
     }
+  }
+
+  private func attachedAudioUnits() -> Int {
+    engine.attachedNodes.count { $0 is AVAudioUnit }
   }
 
   /// Sets up what feeds a channel: a sample source for audio tracks, the instrument for
@@ -722,7 +754,8 @@ public final class PlaybackEngine {
 
   /// Whether a loaded insert has a side chain input (a second input bus).
   public func hasSidechainInput(_ pluginID: PluginReference.ID, onTrack trackID: Track.ID) -> Bool {
-    channel(for: trackID)?.hasSidechainInput(pluginID) ?? false
+    _ = loadedPluginCount
+    return channel(for: trackID)?.hasSidechainInput(pluginID) ?? false
   }
 
   public func isLoadingInsert(_ pluginID: PluginReference.ID, onTrack trackID: Track.ID) -> Bool {
@@ -763,6 +796,7 @@ public final class PlaybackEngine {
         try await instrument.load(source, format: format)
         guard let self, !Task.isCancelled else { return }
         self.instrumentLoads[trackID] = nil
+        self.loadedPluginCount += 1
         self.refreshMIDIInput()
         self.connectInstrumentOutputs()
         // The instrument's latency is known now.
@@ -1195,6 +1229,7 @@ public final class PlaybackEngine {
   /// The names of a track's instrument's outputs after its first (as the instrument names
   /// them, or "Output 2"…), for adding an aux track for each.
   public func extraInstrumentOutputNames(forTrack trackID: Track.ID) -> [String] {
+    _ = loadedPluginCount
     guard let unit = instruments[trackID]?.instrument, unit.numberOfOutputs > 1 else { return [] }
     let names = unit.withAUAudioUnit { audioUnit in
       (0..<audioUnit.outputBusses.count).map { audioUnit.outputBusses[$0].name }

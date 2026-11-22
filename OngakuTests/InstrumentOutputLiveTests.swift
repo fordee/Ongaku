@@ -5,6 +5,7 @@
 
 import AVFAudio
 import Foundation
+import Observation
 import OngakuCore
 @testable import OngakuEngine
 import Testing
@@ -40,4 +41,59 @@ struct InstrumentOutputLiveTests {
     #expect(peak > -10, "The rim output is heard on its aux (\(peak) dB)")
     #expect(engine.meters.level(for: kit.id).peakDecibels <= -59, "Not on the instrument's own track")
   }
+}
+
+/// What the interface offers for another maker's plug-in depends on the plug-in, which loads
+/// in the background: a view that asked before it loaded is told to ask again.
+@MainActor
+@Suite(.serialized)
+struct PluginLoadObservationTests {
+  init() {
+    TestMIDIPlugins.register
+  }
+
+  @Test func aSideChainMenuAppearsOnceItsPluginLoads() async throws {
+    let listener = PluginReference(description: TestMIDIPlugins.sidechainListener, name: "Listener")
+    var bass = Track(name: "Bass", kind: .audio)
+    bass.channel.inserts = [listener]
+    let engine = PlaybackEngine(project: Project(tracks: [bass])) { _ in nil }
+    defer { engine.shutDown() }
+
+    let changed = ObservationFlag()
+    let before = withObservationTracking {
+      engine.hasSidechainInput(listener.id, onTrack: bass.id)
+    } onChange: {
+      changed.isSet = true
+    }
+    #expect(!before, "Still loading")
+    for _ in 0..<100 where !changed.isSet {
+      try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(changed.isSet, "The view is told to ask again")
+    #expect(engine.hasSidechainInput(listener.id, onTrack: bass.id))
+  }
+
+  @Test func anInstrumentsOutputsAreOfferedOnceItLoads() async throws {
+    var kit = Track(name: "Kit", kind: .softwareInstrument)
+    kit.channel.instrument = .audioUnit(PluginReference(description: TestMIDIPlugins.twoOutputInstrument, name: "Two Outputs"))
+    let engine = PlaybackEngine(project: Project(tracks: [kit])) { _ in nil }
+    defer { engine.shutDown() }
+
+    let changed = ObservationFlag()
+    let before = withObservationTracking {
+      engine.extraInstrumentOutputNames(forTrack: kit.id)
+    } onChange: {
+      changed.isSet = true
+    }
+    #expect(before.isEmpty, "Still loading")
+    for _ in 0..<100 where !changed.isSet {
+      try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(changed.isSet, "The view is told to ask again")
+    #expect(engine.extraInstrumentOutputNames(forTrack: kit.id) == ["Rim"])
+  }
+}
+
+private final class ObservationFlag: @unchecked Sendable {
+  var isSet = false
 }

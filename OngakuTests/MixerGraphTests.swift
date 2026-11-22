@@ -389,4 +389,100 @@ struct MixerGraphTests {
     engine.update(project: project)
     #expect(dryWet() == 20, "The project's settings were applied")
   }
+
+  /// Removing an out-of-process plug-in from a running engine made Apple's sampler forget
+  /// its drum kit, so the drums played on its default tone and sounded muffled
+  /// ("underwater"). Measured by how much the sound changes from sample to sample: sharp
+  /// drum hits change a lot, the muffled tone barely at all.
+  @Test func drumsKeepTheirSoundWhenAPluginIsRemoved() async throws {
+    var project = Project(tracks: [drumTrack()])
+    let engine = PlaybackEngine(project: project) { _ in nil }
+    defer { engine.shutDown() }
+    try await Task.sleep(for: .milliseconds(500))
+    let before = brightness(of: try await record(engine, seconds: 2))
+
+    project.tracks[0].channel.inserts = [OngakuEffect.maximizer.makeReference()]
+    engine.update(project: project)
+    for _ in 0..<100 where engine.compensation.mixLatency == 0 {
+      try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(engine.compensation.mixLatency > 0, "The Maximizer loaded")
+    project.tracks[0].channel.inserts = []
+    engine.update(project: project)
+    try await Task.sleep(for: .milliseconds(300))
+    let after = brightness(of: try await record(engine, seconds: 2))
+
+    #expect(before > 0.05, "Drum hits are sharp (\(before))")
+    #expect(abs(after - before) < before * 0.2, "Still the drum kit after removing it (\(before) → \(after))")
+  }
+
+  /// Bypassing a delaying plug-in on one of two drum tracks takes away the other track's
+  /// compensating delay while both play: that track's drums used to turn muffled too.
+  @Test func drumsKeepTheirSoundWhenAnotherTracksPluginIsBypassed() async throws {
+    var project = Project(tracks: [drumTrack(), drumTrack()])
+    let engine = PlaybackEngine(project: project) { _ in nil }
+    defer { engine.shutDown() }
+    try await Task.sleep(for: .milliseconds(500))
+    let before = brightness(of: try await record(engine, seconds: 2))
+
+    project.tracks[0].channel.inserts = [OngakuEffect.maximizer.makeReference()]
+    engine.update(project: project)
+    for _ in 0..<100 where engine.compensation.mixLatency == 0 {
+      try await Task.sleep(for: .milliseconds(20))
+    }
+    #expect(engine.compensation.mixLatency > 0, "The Maximizer loaded")
+    engine.locate(to: .zero)
+    engine.play()
+    try await Task.sleep(for: .milliseconds(500))
+    project.tracks[0].channel.inserts[0].isBypassed = true
+    engine.update(project: project)
+    try await Task.sleep(for: .milliseconds(500))
+    engine.stop()
+    let after = brightness(of: try await record(engine, seconds: 2))
+
+    #expect(before > 0.05, "Drum hits are sharp (\(before))")
+    #expect(abs(after - before) < before * 0.2, "Still the drum kits after bypassing (\(before) → \(after))")
+  }
+
+  /// A General MIDI drum track playing a side stick on every beat for two bars.
+  private func drumTrack() -> Track {
+    var drums = Track(name: "Drums", kind: .softwareInstrument)
+    drums.channel.instrument = .generalMIDIPercussion(kit: 0)
+    let hits = (0..<8).map { beat in
+      MIDINote(pitch: 37, velocity: 120, start: .quarterNotes(Double(beat)), length: .quarterNotes(0.25))
+    }
+    drums.regions = [Region(name: "Beat", start: .zero, length: .quarterNotes(8), content: .midi(MIDISequence(notes: hits)))]
+    return drums
+  }
+
+  /// What Stereo Out plays in the first `seconds` of the song.
+  private func record(_ engine: PlaybackEngine, seconds: Double) async throws -> [Float] {
+    engine.locate(to: .zero)
+    let mixer = engine.engine.mainMixerNode
+    let recording = Recording()
+    mixer.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, _ in
+      guard let data = buffer.floatChannelData else { return }
+      recording.append(Array(UnsafeBufferPointer(start: data[0], count: Int(buffer.frameLength))))
+    }
+    engine.play()
+    try await Task.sleep(for: .seconds(seconds))
+    engine.stop()
+    mixer.removeTap(onBus: 0)
+    return recording.samples
+  }
+
+  /// The energy of the sample-to-sample change, relative to the sound's own energy.
+  private func brightness(of samples: [Float]) -> Float {
+    let energy = samples.reduce(0) { $0 + $1 * $1 }
+    let change = zip(samples.dropFirst(), samples).reduce(0) { $0 + ($1.0 - $1.1) * ($1.0 - $1.1) }
+    return energy > 0 ? change / energy : 0
+  }
+}
+
+/// Samples gathered on the audio thread by a tap.
+private final class Recording: @unchecked Sendable {
+  private let lock = NSLock()
+  private var gathered: [Float] = []
+  var samples: [Float] { lock.withLock { gathered } }
+  func append(_ more: [Float]) { lock.withLock { gathered += more } }
 }
