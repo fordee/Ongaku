@@ -766,7 +766,7 @@ final class ChannelNodes {
 
   /// Takes out the insert `matches` finds (its process quit), so the next `setInserts` loads
   /// it again. Returns it, if it's on this channel.
-  func removeQuitPlugin(where matches: (AVAudioUnit) -> Bool) -> PluginReference? {
+  func removeQuitPlugin(where matches: (AVAudioUnit) -> Bool) -> (PluginReference, AVAudioUnit)? {
     guard let index = inserts.firstIndex(where: { matches($0.unit) }) else { return nil }
     let removed = inserts.remove(at: index)
     if let mixer = sidechainInputs.removeValue(forKey: removed.reference.id) {
@@ -775,7 +775,7 @@ final class ChannelNodes {
     engine.detach(removed.unit)
     connectedChain = []
     rebuildChain()
-    return removed.reference
+    return (removed.reference, removed.unit)
   }
 
   /// Scoped access to a loaded insert, for its interface and saved settings.

@@ -68,4 +68,28 @@ struct PluginQuitTests {
     #expect(instrument() == nil, "Not started again")
     #expect(midiEffect() != nil && insert() != nil, "The others carry on")
   }
+
+  /// Out-of-process instances of one component share a process, so when it quits they all
+  /// do, though the system may name only one. Reconnecting the engine around the others
+  /// crashed the app; they're all started again.
+  @Test func otherInstancesOfAPlugInThatQuitAreStartedAgainToo() async throws {
+    var keys = Track(name: "Keys", kind: .softwareInstrument)
+    keys.channel.instrument = .audioUnit(PluginReference(description: TestMIDIPlugins.recorder, name: "Recorder"))
+    var pads = Track(name: "Pads", kind: .softwareInstrument)
+    pads.channel.instrument = .audioUnit(PluginReference(description: TestMIDIPlugins.recorder, name: "Recorder"))
+    let engine = PlaybackEngine(project: Project(tracks: [keys, pads])) { _ in nil }
+    defer { engine.shutDown() }
+
+    func instrument(_ track: Track) -> AUAudioUnit? { engine.withInstrumentAudioUnit(forTrack: track.id) { copy $0 } }
+    #expect(try await eventually { instrument(keys) != nil && instrument(pads) != nil }, "Both load")
+    let keysBefore = try #require(instrument(keys))
+    let padsBefore = try #require(instrument(pads))
+
+    quit(keysBefore)
+    #expect(try await eventually {
+      instrument(keys).map { $0 !== keysBefore } == true && instrument(pads).map { $0 !== padsBefore } == true
+    }, "Both are started again")
+    #expect(engine.lastQuitPluginIDs.count == 2)
+    #expect(engine.lastError?.contains("quit unexpectedly and was started again") == true, "\(String(describing: engine.lastError))")
+  }
 }

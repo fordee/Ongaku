@@ -449,16 +449,16 @@ final class InstrumentChannel {
 
   /// Takes out the plug-in `matches` finds (its process quit), the instrument or a MIDI
   /// effect, so the next load puts it back. Returns it, if it's on this track.
-  func removeQuitPlugin(where matches: (AVAudioUnit) -> Bool) -> PluginReference? {
-    if let instrument, matches(instrument), case .audioUnit(let plugin) = source {
+  func removeQuitPlugin(where matches: (AVAudioUnit) -> Bool) -> (PluginReference, AVAudioUnit)? {
+    if let instrument, case .audioUnit(let plugin) = source, matches(instrument) {
       invalidate()
-      return plugin
+      return (plugin, instrument)
     }
     guard let index = midiEffects.firstIndex(where: { matches($0.renderer.unit) }) else { return nil }
     let removed = midiEffects.remove(at: index)
     connectMIDIEffects()
     Self.retire([removed.renderer])
-    return removed.reference
+    return (removed.reference, removed.renderer.unit)
   }
 
   /// The node of a plug-in in the instrument's chain: the instrument itself, if it's that

@@ -265,7 +265,7 @@ struct ProjectWindow: View {
     }
     // A plug-in whose process quit is started again; its window shows the one that quit.
     .onChange(of: model.engine.pluginQuitCount) {
-      if let pluginID = model.engine.lastQuitPluginID { model.pluginWindows[pluginID]?.close() }
+      for pluginID in model.engine.lastQuitPluginIDs { model.pluginWindows[pluginID]?.close() }
     }
     .fileImporter(
       isPresented: Binding(get: { model.activeImporter != nil }, set: { if !$0 { model.activeImporter = nil } }),

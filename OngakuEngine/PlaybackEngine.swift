@@ -1246,9 +1246,9 @@ public final class PlaybackEngine {
   /// often each one has quit.
   @ObservationIgnored public private(set) var stoppedPluginIDs: Set<PluginReference.ID> = []
   @ObservationIgnored private var pluginQuitCounts: [PluginReference.ID: Int] = [:]
-  /// The plug-in that quit most recently, so its window (showing the old one) can close,
-  /// and how many have quit (it changes even when the same one quits again).
-  public private(set) var lastQuitPluginID: PluginReference.ID?
+  /// The plug-ins that quit most recently, so their windows (showing the old ones) can
+  /// close, and how often plug-ins have quit (it changes even when the same one quits again).
+  public private(set) var lastQuitPluginIDs: [PluginReference.ID] = []
   public private(set) var pluginQuitCount = 0
   /// After quitting this often, a plug-in isn't started again.
   static let pluginRestartLimit = 3
@@ -1268,40 +1268,76 @@ public final class PlaybackEngine {
   }
 
   /// Takes out the plug-in whose process quit and loads it again, unless it keeps quitting.
+  /// Out-of-process instances of one component share its process, so they all quit together.
+  /// The engine stops while every one is taken out: changing a running graph that still
+  /// holds a dead one throws (error 4099, the connection is invalid) and crashes the app.
   func pluginProcessQuit(_ audioUnit: AUAudioUnit?, instance: UnsafeMutableRawPointer? = nil) {
-    let matches: (AVAudioUnit) -> Bool = { unit in
+    var component: AudioComponentDescription?
+    var stoppedEngine = false
+    let isQuitUnit: (AVAudioUnit) -> Bool = { unit in
+      if let component {
+        let other = unit.audioComponentDescription
+        return other.componentType == component.componentType && other.componentSubType == component.componentSubType
+          && other.componentManufacturer == component.componentManufacturer
+      }
       if let audioUnit, unit.withAUAudioUnit({ $0 === audioUnit }) { return true }
       guard let instance else { return false }
       return unit.withAudioUnit { (unit: borrowing AudioUnit) in UnsafeMutableRawPointer(unit) == instance }
     }
-    var quit: (plugin: PluginReference, channelName: String)?
-    for (trackID, instrument) in instruments {
-      if let plugin = instrument.removeQuitPlugin(where: matches) {
-        quit = (plugin, project.track(withID: trackID)?.name ?? "a track")
-        instrumentLoads[trackID]?.cancel()
-        instrumentLoads[trackID] = nil
-        break
+    let matches: (AVAudioUnit) -> Bool = { [engine] unit in
+      guard isQuitUnit(unit) else { return false }
+      // Stopped before the first one comes out, so nothing reconnects around the others.
+      if !stoppedEngine {
+        stoppedEngine = true
+        engine.stop()
       }
+      return true
     }
-    if quit == nil {
-      for (trackID, channel) in mixerChannels {
-        if let plugin = channel.removeQuitPlugin(where: matches) {
-          quit = (plugin, project.track(withID: trackID)?.name ?? "a track")
-          break
+    var quits: [(plugin: PluginReference, channelName: String)] = []
+    // The first pass finds the plug-in that quit; the rest find others of its component.
+    var removedAny = true
+    while removedAny {
+      removedAny = false
+      for (trackID, instrument) in instruments {
+        while let (plugin, unit) = instrument.removeQuitPlugin(where: matches) {
+          component = component ?? unit.audioComponentDescription
+          quits.append((plugin, project.track(withID: trackID)?.name ?? "a track"))
+          instrumentLoads[trackID]?.cancel()
+          instrumentLoads[trackID] = nil
+          removedAny = true
         }
       }
+      for (trackID, channel) in mixerChannels {
+        while let (plugin, unit) = channel.removeQuitPlugin(where: matches) {
+          component = component ?? unit.audioComponentDescription
+          quits.append((plugin, project.track(withID: trackID)?.name ?? "a track"))
+          removedAny = true
+        }
+      }
+      while let (plugin, unit) = stereoOut?.removeQuitPlugin(where: matches) {
+        component = component ?? unit.audioComponentDescription
+        quits.append((plugin, "Stereo Out"))
+        removedAny = true
+      }
+      // Without a component (a plug-in not found), there's nothing else to look for.
+      if component == nil { break }
     }
-    if quit == nil, let plugin = stereoOut?.removeQuitPlugin(where: matches) {
-      quit = (plugin, "Stereo Out")
+    if stoppedEngine {
+      startEngineIfNeeded()
+      reloadSoundBanks()
     }
-    guard let quit else { return }
+    guard let quit = quits.first else { return }
 
-    lastQuitPluginID = quit.plugin.id
+    lastQuitPluginIDs = quits.map(\.plugin.id)
     pluginQuitCount += 1
-    let count = (pluginQuitCounts[quit.plugin.id] ?? 0) + 1
-    pluginQuitCounts[quit.plugin.id] = count
-    if count >= Self.pluginRestartLimit {
-      stoppedPluginIDs.insert(quit.plugin.id)
+    var count = 0
+    for other in quits {
+      let otherCount = (pluginQuitCounts[other.plugin.id] ?? 0) + 1
+      pluginQuitCounts[other.plugin.id] = otherCount
+      if otherCount >= Self.pluginRestartLimit {
+        stoppedPluginIDs.insert(other.plugin.id)
+      }
+      if other.plugin.id == quit.plugin.id { count = otherCount }
     }
     syncChannels()
     if isPlaying, !isRecording {
