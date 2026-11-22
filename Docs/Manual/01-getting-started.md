@@ -71,8 +71,8 @@ The LCD is the glowing display in the middle of the control bar. It shows four t
 
 | Caption | What it shows | How to change it |
 |---|---|---|
-| **BAR**, **BEAT**, **DIV**, **TICK** | Where the playhead is: bar, beat, division of the beat, and tick (a very fine subdivision) | Move the playhead (see [The playhead](#the-playhead)) |
-| **TEMPO** | The tempo at the playhead, in beats per minute (BPM) | Double-click it and type a new value, then press Return |
+| **BAR**, **BEAT**, **DIV** | Where the playhead is: bar, beat, and division of the beat | Move the playhead (see [The playhead](#the-playhead)) |
+| **TEMPO** | The tempo at the playhead, in beats per minute (BPM), to the nearest whole number | Double-click it and type a new value (the field shows the exact tempo, such as 120.5), then press Return |
 | **TIME** | The time signature at the playhead | Click it and choose from the list |
 | **KEY** | The key at the playhead | Click it and choose a major or minor key |
 

@@ -255,7 +255,8 @@ private struct TempoField: View {
             }
             .onAppear { isTempoFocused = true }
         } else {
-          Text(tempoText)
+          // Whole BPM, so a ramp's gliding tempo fits; typing shows the exact value.
+          Text(currentTempo.formatted(.number.precision(.fractionLength(0))))
             .onTapGesture(count: 2) {
               resetTempoText()
               isEditingTempo = true
@@ -268,7 +269,7 @@ private struct TempoField: View {
       .multilineTextAlignment(.center)
       .frame(width: 62)
       .accessibilityLabel("Tempo")
-      .accessibilityValue(tempoText)
+      .accessibilityValue(currentTempo.formatted(.number.precision(.fractionLength(0...2))))
       LCDCaption("TEMPO")
     }
     .padding(.horizontal, 12)
@@ -367,7 +368,7 @@ private struct LCDGlow: ViewModifier {
   }
 }
 
-/// Bar, beat, division and tick. Separate so only it redraws as the playhead moves.
+/// Bar, beat and division. Separate so only it redraws as the playhead moves.
 private struct PositionReadout: View {
   let model: ProjectWindowModel
 
@@ -377,7 +378,6 @@ private struct PositionReadout: View {
       LCDNumber(value: position.bar, caption: "BAR", width: 36)
       LCDNumber(value: position.beat, caption: "BEAT", width: 28)
       LCDNumber(value: position.division, caption: "DIV", width: 24)
-      LCDNumber(value: position.tick, caption: "TICK", width: 36)
     }
     .accessibilityElement(children: .ignore)
     .accessibilityLabel("Position: bar \(position.bar), beat \(position.beat)")
