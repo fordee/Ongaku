@@ -20,6 +20,9 @@ nonisolated struct ProjectSnapshot: Sendable {
   var stagedAudio: [String: URL]
   /// Freeze files rendered since the document opened, by file name inside "Freeze Files".
   var stagedFreezeFiles: [String: URL] = [:]
+  /// Where the song is saved now, if it has been: what a save carries over (audio, backups)
+  /// comes from there when the document system has no earlier package to hand.
+  var savedPackageURL: URL?
 }
 
 /// An `.ongaku` project package opened in a window.
@@ -200,7 +203,8 @@ final class OngakuDocument: Document {
         stagedFreezeFiles[file.fileName] = url
       }
     }
-    return ProjectSnapshot(project: project, stagedAudio: staged, stagedFreezeFiles: stagedFreezeFiles)
+    return ProjectSnapshot(
+      project: project, stagedAudio: staged, stagedFreezeFiles: stagedFreezeFiles, savedPackageURL: configuration?.fileURL)
   }
 }
 
@@ -231,8 +235,16 @@ nonisolated enum ProjectPackage {
 
   /// Starts from the previous package so audio files already in it (which can be large)
   /// are carried over instead of being rewritten on every save.
+  ///
+  /// Without a previous package (the document system doesn't always have one), the saved
+  /// package on disk is the starting point instead. Starting from nothing would write a
+  /// package holding only the audio added since the song was opened: everything saved
+  /// before would be lost, and no backup kept.
   static func makePackage(from snapshot: ProjectSnapshot, previous previousPackage: FileWrapper?) throws -> FileWrapper {
-    let package = previousPackage ?? FileWrapper(directoryWithFileWrappers: [:])
+    let saved = snapshot.savedPackageURL.flatMap { url in
+      FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) ? url : nil
+    }
+    let package = previousPackage ?? saved.flatMap { try? FileWrapper(url: $0) } ?? FileWrapper(directoryWithFileWrappers: [:])
 
     if let oldProjectFile = package.fileWrappers?[ProjectArchive.projectFileName] {
       package.removeFileWrapper(oldProjectFile)
@@ -255,13 +267,16 @@ nonisolated enum ProjectPackage {
 
     // Copy in imported audio that isn't in the package yet. Files that are no longer used
     // are kept, so undoing a delete never loses audio.
+    // A file that's neither staged nor in the package being written comes from the saved
+    // package, so a save can never drop audio the song uses.
     for file in snapshot.project.audioFiles where audioFiles.fileWrappers?[file.fileName] == nil {
-      guard let stagedURL = snapshot.stagedAudio[file.fileName] else { continue }
-      let wrapper = try FileWrapper(url: stagedURL)
+      guard let url = snapshot.stagedAudio[file.fileName] ?? savedFile(file.fileName, in: ProjectArchive.audioFilesDirectoryName, of: saved)
+      else { continue }
+      let wrapper = try FileWrapper(url: url)
       wrapper.preferredFilename = file.fileName
       audioFiles.addFileWrapper(wrapper)
     }
-    try updateFreezeFiles(in: package, from: snapshot)
+    try updateFreezeFiles(in: package, from: snapshot, saved: saved)
     return package
   }
 
@@ -363,7 +378,15 @@ nonisolated enum ProjectPackage {
 
   /// Freeze files can always be rendered again, so unlike audio, the ones no frozen track
   /// plays any more are removed rather than kept for undo.
-  private static func updateFreezeFiles(in package: FileWrapper, from snapshot: ProjectSnapshot) throws {
+  /// A file in a folder of the saved package, if it's there.
+  private static func savedFile(_ name: String, in folder: String, of package: URL?) -> URL? {
+    guard let url = package?.appending(path: folder, directoryHint: .isDirectory).appending(path: name),
+      FileManager.default.fileExists(atPath: url.path(percentEncoded: false))
+    else { return nil }
+    return url
+  }
+
+  private static func updateFreezeFiles(in package: FileWrapper, from snapshot: ProjectSnapshot, saved: URL?) throws {
     let used = Set(snapshot.project.tracks.compactMap(\.freezeFile?.fileName))
     let existing = package.fileWrappers?[ProjectArchive.freezeFilesDirectoryName]
     if used.isEmpty {
@@ -384,8 +407,9 @@ nonisolated enum ProjectPackage {
       folder.removeFileWrapper(wrapper)
     }
     for name in used where folder.fileWrappers?[name] == nil {
-      guard let stagedURL = snapshot.stagedFreezeFiles[name] else { continue }
-      let wrapper = try FileWrapper(url: stagedURL)
+      guard let url = snapshot.stagedFreezeFiles[name] ?? savedFile(name, in: ProjectArchive.freezeFilesDirectoryName, of: saved)
+      else { continue }
+      let wrapper = try FileWrapper(url: url)
       wrapper.preferredFilename = name
       folder.addFileWrapper(wrapper)
     }

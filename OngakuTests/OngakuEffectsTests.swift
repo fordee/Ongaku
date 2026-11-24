@@ -1095,6 +1095,20 @@ extension OngakuEffectsTests {
     #expect(rms(out[(4 * 4_096)...]) > -6, "And it's loud")
   }
 
+  /// A sample that isn't a number (from an instrument, or a plug-in before it) is heard as
+  /// silence, and the effect carries on: it used to stay in the effect's filters and silence
+  /// it, and Mastering on Stereo Out silenced the whole song, until it was reloaded.
+  @Test(arguments: [OngakuEffect.mastering, .maximizer, .channelEQ])
+  func effectsRecoverFromSamplesThatArentNumbers(effect: OngakuEffect) async throws {
+    let unit = try await load(effect)
+    let out = try render(unit, blocks: 12) { frame in
+      (4_096..<4_196).contains(frame) ? (frame.isMultiple(of: 2) ? .nan : .infinity) : 0.3 * sin(Float(frame) * 0.05)
+    }
+    let bad = (out.left + out.right).filter { !$0.isFinite }.count
+    #expect(bad == 0, "\(effect.name) passed on \(bad) samples that aren't numbers")
+    #expect(rms(out.left[(8 * 4_096)...]) > -30, "\(effect.name) plays again after them")
+  }
+
   @Test func theDeEsserTurnsDownOnlyTheSibilance() async throws {
     let unit = try await load(.deEsser)
     try set(unit, [1000: 6_000, 1001: -30, 1002: 12])

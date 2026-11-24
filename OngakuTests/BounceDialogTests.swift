@@ -163,7 +163,9 @@ struct TrackBounceTests {
     let dialog = try #require(window.bounceInPlace)
     dialog.source = .mute
     undoManager.beginUndoGrouping()
-    await window.startBounceInPlace()?.value
+    let task = window.startBounceInPlace()
+    #expect(window.startBounceInPlace() == nil, "Pressing Bounce again while it renders does nothing")
+    await task?.value
     undoManager.endUndoGrouping()
     #expect(window.errorMessage == nil)
     #expect(window.bounceInPlace == nil, "The dialog closes")

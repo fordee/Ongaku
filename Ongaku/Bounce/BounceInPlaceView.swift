@@ -66,7 +66,9 @@ extension ProjectWindowModel {
   /// Returns the work, for tests to wait on.
   @discardableResult
   func startBounceInPlace() -> Task<Void, Never>? {
-    guard let dialog = bounceInPlace, let track = project.track(withID: dialog.trackID) else { return nil }
+    // Once only: a second press of Bounce (or Return) before the button greys out would
+    // otherwise bounce again, onto a second new track.
+    guard let dialog = bounceInPlace, dialog.task == nil, let track = project.track(withID: dialog.trackID) else { return nil }
     let (regionIDs, options, source) = (dialog.regionIDs, dialog.options, dialog.source)
     let sampleRate = engine.outputSampleRate
     dialog.progress = 0

@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <cmath>
+
 #import <AudioToolbox/AudioToolbox.h>
 #import <AVFoundation/AVFoundation.h>
 
@@ -103,6 +105,17 @@ public:
       if (err != 0) { return err; }
 
       AudioBufferList *inAudioBufferList = mBufferedInputBus->mutableAudioBufferList;
+
+      // A sample that isn't a number (NaN or infinity) from upstream would stay in every
+      // filter's memory and silence the effect for good, so it comes in as silence instead.
+      for (UInt32 i = 0; i < inAudioBufferList->mNumberBuffers; ++i) {
+        float *samples = (float *)inAudioBufferList->mBuffers[i].mData;
+        if (samples == nullptr) continue;
+        UInt32 count = std::min(UInt32(frameCount), UInt32(inAudioBufferList->mBuffers[i].mDataByteSize / sizeof(float)));
+        for (UInt32 n = 0; n < count; ++n) {
+          if (!std::isfinite(samples[n])) samples[n] = 0;
+        }
+      }
 
       // If the host passed null output buffers, process in place in the input buffers.
       AudioBufferList *outAudioBufferList = outputData;

@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <cmath>
+
 #import <AudioToolbox/AudioToolbox.h>
 #import <algorithm>
 #import <span>
@@ -81,6 +83,8 @@ public:
 
   void initialize(int inputChannelCount, int outputChannelCount, double inSampleRate) {
     mSampleRate = inSampleRate;
+    mInputChannelCount = inputChannelCount;
+    mOutputChannelCount = outputChannelCount;
     switch (mKind) {
       case OngakuEffectKindChannelEQ: mChannelEQ.initialize(outputChannelCount, inSampleRate); break;
       case OngakuEffectKindCompressor: mCompressor.initialize(outputChannelCount, inSampleRate); break;
@@ -425,7 +429,29 @@ public:
         }
       }
     }
+    // An effect whose own processing went wrong (a sample that isn't a number) would stay
+    // that way, silent, until it was reloaded: the block is cleaned, and the effect starts
+    // afresh. Starting afresh allocates, but only ever after something has gone wrong.
+    if (!isFinite(outputBuffers, frameCount)) {
+      for (float *channel : outputBuffers) {
+        for (AUAudioFrameCount i = 0; i < frameCount; ++i) {
+          if (!std::isfinite(channel[i])) channel[i] = 0;
+        }
+      }
+      initialize(mInputChannelCount, mOutputChannelCount, mSampleRate);
+    }
     tap(outputBuffers, frameCount);
+  }
+
+  /// Whether every output sample is a number (not NaN or infinity).
+  static bool isFinite(std::span<float *> outputBuffers, AUAudioFrameCount frameCount) {
+    for (float *channel : outputBuffers) {
+      float sum = 0;
+      for (AUAudioFrameCount i = 0; i < frameCount; ++i) sum += channel[i] * 0.0f;
+      // Anything times zero is zero, except NaN and infinity, which give NaN.
+      if (sum != 0) return false;
+    }
+    return true;
   }
 
   void handleOneEvent(AUEventSampleTime now, AURenderEvent const *event) {
@@ -449,6 +475,8 @@ public:
   AUHostMusicalContextBlock mMusicalContextBlock;
 
   double mSampleRate = 44100.0;
+  int mInputChannelCount = 2;
+  int mOutputChannelCount = 2;
   bool mBypassed = false;
   AUAudioFrameCount mMaxFramesToRender = 1024;
 

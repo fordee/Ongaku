@@ -53,7 +53,8 @@ extension ProjectWindowModel {
   /// each on a new track in a folder stack below. Returns the work, for tests to wait on.
   @discardableResult
   func startStemSplit() -> Task<Void, Never>? {
-    guard let dialog = stemSplit, let region = project.region(withID: dialog.regionID), case .audio(let content) = region.content,
+    // Once only, as Bounce in Place: a second press would split again.
+    guard let dialog = stemSplit, dialog.task == nil, let region = project.region(withID: dialog.regionID), case .audio(let content) = region.content,
       let file = project.audioFiles.first(where: { $0.id == content.fileID }), let url = document.url(for: file)
     else { return nil }
     // The part of the file the region plays.
